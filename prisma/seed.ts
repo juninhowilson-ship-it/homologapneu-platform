@@ -40,9 +40,9 @@ async function main() {
     const manufacturerId = manufacturerIds.get(vehicle.manufacturer);
     if (!manufacturerId) continue;
 
-    const key = `${vehicle.manufacturer}|${vehicle.model}|${vehicle.year}`;
+    const key = `${vehicle.manufacturer}|${vehicle.model}|${vehicle.version}`;
     const existing = await prisma.vehicle.findFirst({
-      where: { manufacturerId, model: vehicle.model, year: vehicle.year },
+      where: { manufacturerId, model: vehicle.model, version: vehicle.version },
     });
     const record =
       existing ??
@@ -50,8 +50,17 @@ async function main() {
         data: {
           manufacturerId,
           model: vehicle.model,
-          year: vehicle.year,
+          version: vehicle.version,
+          yearStart: vehicle.yearStart,
+          yearEnd: vehicle.yearEnd,
           engine: vehicle.engine,
+          power: vehicle.power,
+          fuel: vehicle.fuel,
+          category: vehicle.category,
+          segment: vehicle.segment,
+          country: vehicle.country,
+          notes: vehicle.notes,
+          isActive: vehicle.isActive,
         },
       }));
     vehicleIds.set(key, record.id);
@@ -84,7 +93,7 @@ async function main() {
 
   for (const homologation of HOMOLOGATIONS) {
     const vehicleId = vehicleIds.get(
-      `${homologation.vehicle.manufacturer}|${homologation.vehicle.model}|${homologation.vehicle.year}`
+      `${homologation.vehicle.manufacturer}|${homologation.vehicle.model}|${homologation.vehicle.version}`
     );
     const tireId = tireIds.get(
       `${homologation.tire.manufacturer}|${homologation.tire.model}|${homologation.tire.size}`

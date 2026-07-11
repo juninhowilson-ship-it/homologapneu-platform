@@ -29,15 +29,54 @@ model TireManufacturer {
   @@map("tire_manufacturers")
 }
 
+enum FuelType {
+  FLEX
+  GASOLINA
+  DIESEL
+  ELETRICO
+  HIBRIDO
+}
+
+enum VehicleCategory {
+  HATCH
+  SEDAN
+  SUV
+  PICAPE
+  PERUA
+  MINIVAN
+  COUPE
+}
+
+enum VehicleSegment {
+  POPULAR
+  MEDIO
+  PREMIUM
+  LUXO
+}
+
 model Vehicle {
-  id             Int            @id @default(autoincrement())
+  id             Int              @id @default(autoincrement())
   manufacturerId Int
   model          String
-  year           Int
+  version        String
+  yearStart      Int
+  yearEnd        Int
   engine         String
-  manufacturer   Manufacturer   @relation(fields: [manufacturerId], references: [id])
+  power          String?
+  fuel           FuelType
+  category       VehicleCategory
+  segment        VehicleSegment?
+  country        String?
+  imageUrl       String?
+  notes          String?
+  isActive       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  manufacturer   Manufacturer     @relation(fields: [manufacturerId], references: [id])
   homologations  Homologation[]
 
+  @@unique([manufacturerId, model, version, engine])
   @@map("vehicles")
 }
 
