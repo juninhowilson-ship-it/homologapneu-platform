@@ -10,7 +10,8 @@ export type ResultadoPesquisa = {
   homologacaoCodigo: string;
   veiculoFabricante: string;
   veiculoModelo: string;
-  veiculoAno: number;
+  veiculoAnoInicial: number;
+  veiculoAnoFinal: number;
   veiculoMotorizacao: string;
   pneuFabricante: string;
   pneuModelo: string;

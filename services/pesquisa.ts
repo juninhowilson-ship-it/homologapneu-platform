@@ -21,7 +21,9 @@ export async function buscarHomologacoes(
     vehicleWhere.model = filtros.modelo;
   }
   if (filtros.ano) {
-    vehicleWhere.year = Number(filtros.ano);
+    const ano = Number(filtros.ano);
+    vehicleWhere.yearStart = { lte: ano };
+    vehicleWhere.yearEnd = { gte: ano };
   }
   if (filtros.motorizacao) {
     vehicleWhere.engine = filtros.motorizacao;
@@ -70,7 +72,8 @@ export async function buscarHomologacoes(
     homologacaoCodigo: homologacao.code,
     veiculoFabricante: homologacao.vehicle.manufacturer.name,
     veiculoModelo: homologacao.vehicle.model,
-    veiculoAno: homologacao.vehicle.year,
+    veiculoAnoInicial: homologacao.vehicle.yearStart,
+    veiculoAnoFinal: homologacao.vehicle.yearEnd,
     veiculoMotorizacao: homologacao.vehicle.engine,
     pneuFabricante: homologacao.tire.tireManufacturer.name,
     pneuModelo: homologacao.tire.model,

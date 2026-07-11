@@ -6,6 +6,10 @@ type Props = {
   resultado: ResultadoPesquisa;
 };
 
+function formatarFaixaAno(inicio: number, fim: number) {
+  return inicio === fim ? String(inicio) : `${inicio}-${fim}`;
+}
+
 export default function ResultadoCard({ resultado }: Props) {
   return (
     <Card className="shadow-lg">
@@ -16,7 +20,8 @@ export default function ResultadoCard({ resultado }: Props) {
           </h2>
 
           <p className="text-muted-foreground">
-            {resultado.veiculoAno} • {resultado.veiculoMotorizacao}
+            {formatarFaixaAno(resultado.veiculoAnoInicial, resultado.veiculoAnoFinal)} •{" "}
+            {resultado.veiculoMotorizacao}
           </p>
         </div>
 

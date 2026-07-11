@@ -6,7 +6,7 @@ export async function listarOpcoesFiltro(): Promise<OpcoesFiltroPesquisa> {
   const [
     manufacturers,
     vehicleModels,
-    vehicleYears,
+    vehicleYearRanges,
     vehicleEngines,
     tireSizes,
     homologationCodes,
@@ -24,9 +24,7 @@ export async function listarOpcoesFiltro(): Promise<OpcoesFiltroPesquisa> {
       orderBy: { model: "asc" },
     }),
     prisma.vehicle.findMany({
-      select: { year: true },
-      distinct: ["year"],
-      orderBy: { year: "desc" },
+      select: { yearStart: true, yearEnd: true },
     }),
     prisma.vehicle.findMany({
       select: { engine: true },
@@ -58,10 +56,17 @@ export async function listarOpcoesFiltro(): Promise<OpcoesFiltroPesquisa> {
     }),
   ]);
 
+  const anosCobertos = new Set<number>();
+  for (const range of vehicleYearRanges) {
+    for (let ano = range.yearStart; ano <= range.yearEnd; ano++) {
+      anosCobertos.add(ano);
+    }
+  }
+
   return {
     fabricantes: manufacturers.map((m) => m.name),
     modelos: vehicleModels.map((v) => v.model),
-    anos: vehicleYears.map((v) => v.year),
+    anos: Array.from(anosCobertos).sort((a, b) => b - a),
     motorizacoes: vehicleEngines.map((v) => v.engine),
     medidas: tireSizes.map((t) => t.size),
     homologacoes: homologationCodes.map((h) => h.code),
