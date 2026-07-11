@@ -9,6 +9,7 @@ export type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
   options: Option[];
   placeholder?: string;
   error?: string;
+  hidePlaceholder?: boolean;
 };
 
 type Props = SelectProps;
@@ -27,6 +28,7 @@ export default function Select({
   id,
   className,
   ref,
+  hidePlaceholder = false,
   ...props
 }: Props) {
   const generatedId = useId();
@@ -52,7 +54,7 @@ export default function Select({
         aria-describedby={error ? `${selectId}-error` : undefined}
         {...props}
       >
-        <option value="">{placeholder}</option>
+        {!hidePlaceholder && <option value="">{placeholder}</option>}
 
         {options.map(normalize).map((option) => (
           <option key={option.value} value={option.value}>
