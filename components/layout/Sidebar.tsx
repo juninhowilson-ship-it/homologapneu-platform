@@ -13,6 +13,10 @@ const menus = [
     rota: "/pesquisa",
   },
   {
+    nome: "Veículos",
+    rota: "/veiculos",
+  },
+  {
     nome: "Pneus",
     rota: "/pneus",
   },
