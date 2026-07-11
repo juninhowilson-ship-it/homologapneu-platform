@@ -1,27 +1,66 @@
-export default function ResultadoCard() {
+import Card from "@/components/ui/Card";
+import Badge from "@/components/ui/Badge";
+import type { ResultadoPesquisa } from "@/types/homologation";
+
+type Props = {
+  resultado: ResultadoPesquisa;
+};
+
+export default function ResultadoCard({ resultado }: Props) {
   return (
+    <Card className="shadow-lg">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold">
+            {resultado.veiculoFabricante} {resultado.veiculoModelo}
+          </h2>
 
-    <div className="bg-white rounded-xl shadow p-6">
+          <p className="text-muted-foreground">
+            {resultado.veiculoAno} • {resultado.veiculoMotorizacao}
+          </p>
+        </div>
 
-      <h2 className="text-xl font-bold">
-
-        Toyota Corolla 2025
-
-      </h2>
-
-      <div className="mt-4 space-y-2">
-
-        <p><strong>Medida:</strong> 205/55R16</p>
-
-        <p><strong>Fabricante:</strong> Michelin</p>
-
-        <p><strong>Índice:</strong> 91V</p>
-
-        <p><strong>Run Flat:</strong> Não</p>
-
+        <div className="text-right">
+          <p className="text-muted-foreground">Medida do Pneu</p>
+          <p className="text-2xl font-bold">{resultado.pneuMedida}</p>
+        </div>
       </div>
 
-    </div>
+      <hr className="my-5 border-border" />
 
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-6">
+        <div>
+          <p className="text-muted-foreground">Run Flat</p>
+          <p>{resultado.pneuRunFlat ? "Sim" : "Não"}</p>
+        </div>
+
+        <div>
+          <p className="text-muted-foreground">XL</p>
+          <p>{resultado.pneuXl ? "Sim" : "Não"}</p>
+        </div>
+
+        <div>
+          <p className="text-muted-foreground">Índice de Carga</p>
+          <p>{resultado.pneuIndiceCarga}</p>
+        </div>
+
+        <div>
+          <p className="text-muted-foreground">Índice de Velocidade</p>
+          <p>{resultado.pneuIndiceVelocidade}</p>
+        </div>
+
+        <div>
+          <p className="text-muted-foreground">Fabricante do Pneu</p>
+          <p>
+            {resultado.pneuFabricante} {resultado.pneuModelo}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-muted-foreground">Homologação</p>
+          <Badge tone="warning">{resultado.homologacaoCodigo}</Badge>
+        </div>
+      </div>
+    </Card>
   );
 }
