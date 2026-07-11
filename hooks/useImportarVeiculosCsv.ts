@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/ui/ToastProvider";
-import type { ImportacaoResultado } from "@/types/veiculo";
+import type { ImportacaoResultado } from "@/types/importacao";
 
 async function importarCsv(file: File): Promise<ImportacaoResultado> {
   const formData = new FormData();

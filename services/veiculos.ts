@@ -28,12 +28,12 @@ import {
   type VehicleSegment,
 } from "@/lib/constants/veiculo";
 import { parseCsvRecords } from "@/lib/csv";
+import { normalizeToEnum, parseBooleanPtBr } from "@/lib/enum-utils";
+import type { Veiculo, VeiculoListResponse } from "@/types/veiculo";
 import type {
-  Veiculo,
-  VeiculoListResponse,
   ImportacaoResultado,
   ImportacaoLinhaResultado,
-} from "@/types/veiculo";
+} from "@/types/importacao";
 
 function toDTO(record: VeiculoRecord): Veiculo {
   return {
@@ -169,28 +169,6 @@ export async function deleteVeiculo(id: number): Promise<void> {
   await deleteVeiculoRepo(id);
 }
 
-function normalizeToEnum<T extends string>(
-  raw: string,
-  values: readonly T[],
-  labels: Record<T, string>
-): T | null {
-  const normalized = raw.trim().toLowerCase();
-  if (!normalized) return null;
-
-  const byKey = values.find((value) => value.toLowerCase() === normalized);
-  if (byKey) return byKey;
-
-  const byLabel = values.find(
-    (value) => labels[value].toLowerCase() === normalized
-  );
-  return byLabel ?? null;
-}
-
-function parseStatus(raw: string | undefined): boolean {
-  const normalized = (raw ?? "").trim().toLowerCase();
-  return normalized !== "inativo" && normalized !== "false" && normalized !== "0";
-}
-
 export async function importVeiculosCsv(
   text: string
 ): Promise<ImportacaoResultado> {
@@ -215,7 +193,7 @@ export async function importVeiculosCsv(
           linha,
           sucesso: false,
           erro: `Marca "${record.marca ?? ""}" não encontrada`,
-          veiculo: label,
+          rotulo: label,
         });
         continue;
       }
@@ -247,7 +225,7 @@ export async function importVeiculosCsv(
         segment: segment ?? undefined,
         country: record.pais,
         notes: record.observacoes,
-        isActive: parseStatus(record.status),
+        isActive: parseBooleanPtBr(record.status, true),
       });
 
       if (!parsed.success) {
@@ -255,19 +233,19 @@ export async function importVeiculosCsv(
           linha,
           sucesso: false,
           erro: parsed.error.issues.map((issue) => issue.message).join("; "),
-          veiculo: label,
+          rotulo: label,
         });
         continue;
       }
 
       await createVeiculo(parsed.data);
-      detalhes.push({ linha, sucesso: true, veiculo: label });
+      detalhes.push({ linha, sucesso: true, rotulo: label });
     } catch (error) {
       detalhes.push({
         linha,
         sucesso: false,
         erro: error instanceof Error ? error.message : "Erro desconhecido",
-        veiculo: label,
+        rotulo: label,
       });
     }
   }

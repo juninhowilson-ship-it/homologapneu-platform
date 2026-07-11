@@ -91,8 +91,8 @@ export default function ImportCsvModal({ open, onClose }: Props) {
                     >
                       <Badge tone="danger">Linha {linha.linha}</Badge>
                       <div className="text-sm">
-                        {linha.veiculo && (
-                          <p className="font-semibold">{linha.veiculo}</p>
+                        {linha.rotulo && (
+                          <p className="font-semibold">{linha.rotulo}</p>
                         )}
                         <p className="text-muted-foreground">{linha.erro}</p>
                       </div>
