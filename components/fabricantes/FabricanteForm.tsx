@@ -1,8 +1,12 @@
+import Card from "@/components/ui/Card";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
+
 export default function FabricanteForm(){
 
     return(
 
-        <div className="bg-white rounded-xl shadow p-6">
+        <Card>
 
             <h2 className="text-xl font-bold mb-5">
 
@@ -10,33 +14,21 @@ export default function FabricanteForm(){
 
             </h2>
 
-            <input
+            <div className="space-y-4 mb-4">
 
-                placeholder="Nome"
+                <Input placeholder="Nome" aria-label="Nome" />
 
-                className="w-full border rounded-lg p-3 mb-4"
+                <Input placeholder="País" aria-label="País" />
 
-            />
+            </div>
 
-            <input
-
-                placeholder="País"
-
-                className="w-full border rounded-lg p-3 mb-4"
-
-            />
-
-            <button
-
-                className="bg-yellow-500 hover:bg-yellow-600 px-6 py-3 rounded-lg font-bold"
-
-            >
+            <Button type="submit">
 
                 Salvar
 
-            </button>
+            </Button>
 
-        </div>
+        </Card>
 
     )
 

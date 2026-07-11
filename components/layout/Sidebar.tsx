@@ -36,7 +36,7 @@ export default function Sidebar() {
 
   return (
 
-    <aside className="w-64 bg-slate-800 text-white min-h-screen p-6">
+    <aside className="w-64 bg-sidebar text-sidebar-foreground min-h-screen p-6">
 
       <p className="uppercase text-xs text-gray-400 mb-5">
         Menu
@@ -53,7 +53,7 @@ export default function Sidebar() {
 
             ${
               pathname === item.rota
-                ? "bg-yellow-500 text-black font-bold"
+                ? "bg-brand text-brand-foreground font-bold"
                 : "hover:bg-slate-700"
             }
             `}

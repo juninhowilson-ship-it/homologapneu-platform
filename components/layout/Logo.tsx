@@ -2,7 +2,7 @@ export default function Logo() {
   return (
     <div className="flex items-center gap-3">
 
-      <div className="w-10 h-10 rounded-xl bg-yellow-500 flex items-center justify-center font-bold text-black">
+      <div className="w-10 h-10 rounded-xl bg-brand flex items-center justify-center font-bold text-brand-foreground">
         HP
       </div>
 

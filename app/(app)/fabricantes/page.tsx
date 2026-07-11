@@ -5,7 +5,7 @@ export default function FabricantesPage() {
 
     return (
 
-        <main className="flex-1 p-10 bg-slate-100 min-h-screen">
+        <main className="p-10">
 
             <h1 className="text-4xl font-bold mb-8">
 

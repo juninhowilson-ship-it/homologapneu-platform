@@ -1,18 +1,20 @@
+import Card from "@/components/ui/Card";
+
 export default function FabricanteCard() {
 
     return (
 
-        <div className="bg-white rounded-xl shadow p-6">
+        <Card>
 
             <h3 className="font-bold text-lg">
                 Michelin
             </h3>
 
-            <p className="text-gray-500 mt-2">
+            <p className="text-muted-foreground mt-2">
                 França
             </p>
 
-        </div>
+        </Card>
 
     );
 
