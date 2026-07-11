@@ -105,58 +105,210 @@ export const VEHICLES: VehicleSeed[] = [
   { manufacturer: "Jeep", model: "Compass", version: "Longitude", yearStart: 2023, yearEnd: 2024, engine: "1.3 Turbo", power: "185cv", fuel: "FLEX", category: "SUV", segment: "PREMIUM", country: "Brasil", notes: null, isActive: true },
 ];
 
+export type TireCategoryValue =
+  | "PASSEIO"
+  | "SUV"
+  | "CAMINHONETE"
+  | "ESPORTIVO"
+  | "INVERNO"
+  | "COMERCIAL";
+export type TireSegmentValue = "POPULAR" | "MEDIO" | "PREMIUM" | "LUXO";
+
 type TireSeed = {
   manufacturer: (typeof TIRE_MANUFACTURERS)[number]["name"];
+  brand: string;
   model: string;
   size: string;
+  width: number;
+  profile: number;
+  rim: number;
   loadIndex: string;
   speedIndex: string;
   runFlat: boolean;
   xl: boolean;
+  seal: boolean;
+  tubeless: boolean;
+  category: TireCategoryValue;
+  segment: TireSegmentValue;
+  ean: string;
+  description: string;
+  isActive: boolean;
 };
 
-export const TIRES: TireSeed[] = [
-  { manufacturer: "Michelin", model: "Primacy 4", size: "205/55R16", loadIndex: "91", speedIndex: "V", runFlat: false, xl: false },
-  { manufacturer: "Michelin", model: "Pilot Sport 4", size: "225/45R18", loadIndex: "95", speedIndex: "Y", runFlat: false, xl: true },
-  { manufacturer: "Michelin", model: "Latitude Sport 3", size: "235/55R19", loadIndex: "105", speedIndex: "V", runFlat: false, xl: true },
-  { manufacturer: "Pirelli", model: "Cinturato P7", size: "205/55R16", loadIndex: "91", speedIndex: "V", runFlat: false, xl: false },
-  { manufacturer: "Pirelli", model: "P Zero", size: "245/40R19", loadIndex: "98", speedIndex: "Y", runFlat: true, xl: true },
-  { manufacturer: "Pirelli", model: "Scorpion", size: "255/45R20", loadIndex: "105", speedIndex: "W", runFlat: true, xl: true },
-  { manufacturer: "Goodyear", model: "EfficientGrip Performance", size: "195/60R16", loadIndex: "89", speedIndex: "H", runFlat: false, xl: false },
-  { manufacturer: "Goodyear", model: "Eagle F1", size: "225/40R18", loadIndex: "92", speedIndex: "W", runFlat: false, xl: true },
-  { manufacturer: "Continental", model: "PremiumContact 6", size: "205/55R16", loadIndex: "91", speedIndex: "V", runFlat: false, xl: false },
-  { manufacturer: "Continental", model: "SportContact 6", size: "245/35R20", loadIndex: "95", speedIndex: "Y", runFlat: true, xl: true },
-  { manufacturer: "Bridgestone", model: "Turanza", size: "195/65R15", loadIndex: "91", speedIndex: "H", runFlat: false, xl: false },
-  { manufacturer: "Bridgestone", model: "Potenza", size: "225/45R17", loadIndex: "94", speedIndex: "W", runFlat: false, xl: true },
-  { manufacturer: "Dunlop", model: "SP Sport", size: "205/50R17", loadIndex: "93", speedIndex: "V", runFlat: false, xl: false },
-  { manufacturer: "Dunlop", model: "Grandtrek", size: "265/60R18", loadIndex: "110", speedIndex: "H", runFlat: false, xl: false },
-  { manufacturer: "Firestone", model: "Destination", size: "235/60R18", loadIndex: "107", speedIndex: "H", runFlat: false, xl: false },
-  { manufacturer: "Yokohama", model: "BluEarth", size: "195/55R16", loadIndex: "87", speedIndex: "V", runFlat: false, xl: false },
+type TireLineTemplate = {
+  manufacturer: (typeof TIRE_MANUFACTURERS)[number]["name"];
+  brand: string;
+  model: string;
+  category: TireCategoryValue;
+  segment: TireSegmentValue;
+  runFlat: boolean;
+  xl: boolean;
+  seal: boolean;
+  tubeless: boolean;
+};
+
+const TIRE_LINES: TireLineTemplate[] = [
+  { manufacturer: "Michelin", brand: "Michelin", model: "Primacy 4", category: "PASSEIO", segment: "MEDIO", runFlat: false, xl: false, seal: false, tubeless: true },
+  { manufacturer: "Michelin", brand: "Michelin", model: "Pilot Sport 4", category: "ESPORTIVO", segment: "PREMIUM", runFlat: false, xl: true, seal: false, tubeless: true },
+  { manufacturer: "Michelin", brand: "Michelin", model: "Latitude Sport 3", category: "SUV", segment: "PREMIUM", runFlat: false, xl: true, seal: false, tubeless: true },
+  { manufacturer: "Michelin", brand: "Michelin", model: "CrossClimate 2", category: "PASSEIO", segment: "MEDIO", runFlat: false, xl: false, seal: false, tubeless: true },
+  { manufacturer: "Pirelli", brand: "Pirelli", model: "Cinturato P7", category: "PASSEIO", segment: "MEDIO", runFlat: false, xl: false, seal: false, tubeless: true },
+  { manufacturer: "Pirelli", brand: "Pirelli", model: "P Zero", category: "ESPORTIVO", segment: "LUXO", runFlat: true, xl: true, seal: false, tubeless: true },
+  { manufacturer: "Pirelli", brand: "Pirelli", model: "Scorpion", category: "SUV", segment: "PREMIUM", runFlat: true, xl: true, seal: false, tubeless: true },
+  { manufacturer: "Pirelli", brand: "Pirelli", model: "Scorpion Winter", category: "INVERNO", segment: "PREMIUM", runFlat: false, xl: false, seal: false, tubeless: true },
+  { manufacturer: "Goodyear", brand: "Goodyear", model: "EfficientGrip Performance", category: "PASSEIO", segment: "MEDIO", runFlat: false, xl: false, seal: false, tubeless: true },
+  { manufacturer: "Goodyear", brand: "Goodyear", model: "Eagle F1", category: "ESPORTIVO", segment: "PREMIUM", runFlat: false, xl: true, seal: false, tubeless: true },
+  { manufacturer: "Goodyear", brand: "Dunlop", model: "SP Sport", category: "ESPORTIVO", segment: "MEDIO", runFlat: false, xl: false, seal: false, tubeless: true },
+  { manufacturer: "Continental", brand: "Continental", model: "PremiumContact 6", category: "PASSEIO", segment: "MEDIO", runFlat: false, xl: false, seal: false, tubeless: true },
+  { manufacturer: "Continental", brand: "Continental", model: "SportContact 6", category: "ESPORTIVO", segment: "LUXO", runFlat: true, xl: true, seal: false, tubeless: true },
+  { manufacturer: "Continental", brand: "General Tire", model: "Grabber", category: "SUV", segment: "MEDIO", runFlat: false, xl: false, seal: false, tubeless: true },
+  { manufacturer: "Continental", brand: "Continental", model: "ContiSeal Eco", category: "PASSEIO", segment: "MEDIO", runFlat: false, xl: false, seal: true, tubeless: true },
+  { manufacturer: "Bridgestone", brand: "Bridgestone", model: "Turanza", category: "PASSEIO", segment: "MEDIO", runFlat: false, xl: false, seal: false, tubeless: true },
+  { manufacturer: "Bridgestone", brand: "Bridgestone", model: "Potenza", category: "ESPORTIVO", segment: "PREMIUM", runFlat: false, xl: true, seal: false, tubeless: true },
+  { manufacturer: "Bridgestone", brand: "Firestone", model: "Destination", category: "CAMINHONETE", segment: "POPULAR", runFlat: false, xl: false, seal: false, tubeless: true },
+  { manufacturer: "Bridgestone", brand: "Bridgestone", model: "Blizzak", category: "INVERNO", segment: "PREMIUM", runFlat: false, xl: false, seal: false, tubeless: true },
+  { manufacturer: "Dunlop", brand: "Dunlop", model: "SP Sport Maxx", category: "ESPORTIVO", segment: "MEDIO", runFlat: false, xl: false, seal: false, tubeless: true },
+  { manufacturer: "Dunlop", brand: "Dunlop", model: "Grandtrek", category: "SUV", segment: "MEDIO", runFlat: false, xl: false, seal: false, tubeless: true },
+  { manufacturer: "Dunlop", brand: "Dunlop", model: "Econodrive", category: "COMERCIAL", segment: "POPULAR", runFlat: false, xl: false, seal: false, tubeless: false },
+  { manufacturer: "Firestone", brand: "Firestone", model: "Destination LE3", category: "SUV", segment: "POPULAR", runFlat: false, xl: false, seal: false, tubeless: true },
+  { manufacturer: "Firestone", brand: "Firestone", model: "F-600", category: "PASSEIO", segment: "POPULAR", runFlat: false, xl: false, seal: false, tubeless: true },
+  { manufacturer: "Firestone", brand: "Firestone", model: "Transforce", category: "COMERCIAL", segment: "POPULAR", runFlat: false, xl: false, seal: false, tubeless: false },
+  { manufacturer: "Yokohama", brand: "Yokohama", model: "BluEarth", category: "PASSEIO", segment: "MEDIO", runFlat: false, xl: false, seal: false, tubeless: true },
+  { manufacturer: "Yokohama", brand: "Yokohama", model: "Geolandar", category: "SUV", segment: "MEDIO", runFlat: false, xl: false, seal: false, tubeless: true },
+  { manufacturer: "Yokohama", brand: "Yokohama", model: "Advan Sport", category: "ESPORTIVO", segment: "PREMIUM", runFlat: false, xl: true, seal: false, tubeless: true },
 ];
+
+const SIZE_POOL: {
+  width: number;
+  profile: number;
+  rim: number;
+  loadIndex: string;
+  speedIndex: string;
+}[] = [
+  { width: 175, profile: 70, rim: 13, loadIndex: "82", speedIndex: "T" },
+  { width: 175, profile: 65, rim: 14, loadIndex: "82", speedIndex: "T" },
+  { width: 185, profile: 65, rim: 14, loadIndex: "86", speedIndex: "T" },
+  { width: 185, profile: 60, rim: 15, loadIndex: "84", speedIndex: "H" },
+  { width: 195, profile: 60, rim: 15, loadIndex: "88", speedIndex: "H" },
+  { width: 195, profile: 65, rim: 15, loadIndex: "91", speedIndex: "H" },
+  { width: 195, profile: 55, rim: 16, loadIndex: "87", speedIndex: "V" },
+  { width: 205, profile: 55, rim: 16, loadIndex: "91", speedIndex: "V" },
+  { width: 205, profile: 60, rim: 16, loadIndex: "92", speedIndex: "H" },
+  { width: 215, profile: 55, rim: 17, loadIndex: "93", speedIndex: "V" },
+  { width: 215, profile: 60, rim: 17, loadIndex: "96", speedIndex: "H" },
+  { width: 225, profile: 45, rim: 18, loadIndex: "91", speedIndex: "W" },
+  { width: 225, profile: 50, rim: 18, loadIndex: "95", speedIndex: "V" },
+  { width: 235, profile: 55, rim: 19, loadIndex: "101", speedIndex: "V" },
+  { width: 235, profile: 60, rim: 18, loadIndex: "103", speedIndex: "H" },
+  { width: 245, profile: 40, rim: 19, loadIndex: "94", speedIndex: "Y" },
+  { width: 245, profile: 45, rim: 20, loadIndex: "99", speedIndex: "W" },
+  { width: 265, profile: 60, rim: 18, loadIndex: "110", speedIndex: "H" },
+];
+
+function pad(value: number, length: number) {
+  return String(value).padStart(length, "0");
+}
+
+function pickSlice<T>(pool: T[], offset: number, count: number): T[] {
+  return Array.from(
+    { length: count },
+    (_, i) => pool[(offset + i) % pool.length]
+  );
+}
+
+const SIZES_PER_LINE = 7;
+
+export const TIRES: TireSeed[] = TIRE_LINES.flatMap((line, lineIndex) => {
+  const sizes = pickSlice(SIZE_POOL, lineIndex * 3, SIZES_PER_LINE);
+
+  return sizes.map((sizeSpec, sizeIndex) => ({
+    manufacturer: line.manufacturer,
+    brand: line.brand,
+    model: line.model,
+    size: `${sizeSpec.width}/${sizeSpec.profile}R${sizeSpec.rim}`,
+    width: sizeSpec.width,
+    profile: sizeSpec.profile,
+    rim: sizeSpec.rim,
+    loadIndex: sizeSpec.loadIndex,
+    speedIndex: sizeSpec.speedIndex,
+    runFlat: line.runFlat,
+    xl: line.xl,
+    seal: line.seal,
+    tubeless: line.tubeless,
+    category: line.category,
+    segment: line.segment,
+    ean: `789${pad(lineIndex, 5)}${pad(sizeIndex, 5)}`,
+    description: `${line.brand} ${line.model} ${sizeSpec.width}/${sizeSpec.profile}R${sizeSpec.rim}`,
+    isActive: !(lineIndex === 18 && sizeIndex === 0),
+  }));
+});
 
 type HomologationSeed = {
   code: string;
-  vehicle: { manufacturer: (typeof MANUFACTURERS)[number]; model: string; version: string };
-  tire: { manufacturer: (typeof TIRE_MANUFACTURERS)[number]["name"]; model: string; size: string };
+  vehicle: {
+    manufacturer: (typeof MANUFACTURERS)[number];
+    model: string;
+    version: string;
+  };
+  tire: {
+    manufacturer: (typeof TIRE_MANUFACTURERS)[number]["name"];
+    model: string;
+    size: string;
+  };
+  year: number;
+  originalSize: string;
+  optionalSize: string | null;
+  runFlat: boolean;
+  xl: boolean;
+  notes: string | null;
 };
 
-export const HOMOLOGATIONS: HomologationSeed[] = [
-  { code: "T0", vehicle: { manufacturer: "Toyota", model: "Corolla", version: "XEi" }, tire: { manufacturer: "Michelin", model: "Primacy 4", size: "205/55R16" } },
-  { code: "T0", vehicle: { manufacturer: "Toyota", model: "Corolla", version: "GLi" }, tire: { manufacturer: "Pirelli", model: "Cinturato P7", size: "205/55R16" } },
-  { code: "T1", vehicle: { manufacturer: "Toyota", model: "Hilux", version: "SRX" }, tire: { manufacturer: "Dunlop", model: "Grandtrek", size: "265/60R18" } },
-  { code: "VO", vehicle: { manufacturer: "Volkswagen", model: "Golf", version: "GTI" }, tire: { manufacturer: "Continental", model: "PremiumContact 6", size: "205/55R16" } },
-  { code: "VO", vehicle: { manufacturer: "Volkswagen", model: "T-Cross", version: "Highline" }, tire: { manufacturer: "Goodyear", model: "EfficientGrip Performance", size: "195/60R16" } },
-  { code: "H0", vehicle: { manufacturer: "Honda", model: "Civic", version: "Touring" }, tire: { manufacturer: "Bridgestone", model: "Turanza", size: "195/65R15" } },
-  { code: "H1", vehicle: { manufacturer: "Honda", model: "HR-V", version: "EXL" }, tire: { manufacturer: "Bridgestone", model: "Potenza", size: "225/45R17" } },
-  { code: "BY", vehicle: { manufacturer: "BYD", model: "Dolphin", version: "Plus" }, tire: { manufacturer: "Yokohama", model: "BluEarth", size: "195/55R16" } },
-  { code: "BY", vehicle: { manufacturer: "BYD", model: "Song Plus", version: "Premium" }, tire: { manufacturer: "Michelin", model: "Latitude Sport 3", size: "235/55R19" } },
-  { code: "*", vehicle: { manufacturer: "BMW", model: "320i", version: "M Sport" }, tire: { manufacturer: "Goodyear", model: "Eagle F1", size: "225/40R18" } },
-  { code: "*", vehicle: { manufacturer: "BMW", model: "X1", version: "sDrive20i" }, tire: { manufacturer: "Continental", model: "SportContact 6", size: "245/35R20" } },
-  { code: "*", vehicle: { manufacturer: "BMW", model: "X1", version: "sDrive20i" }, tire: { manufacturer: "Pirelli", model: "P Zero", size: "245/40R19" } },
-  { code: "MO", vehicle: { manufacturer: "Mercedes-Benz", model: "C180", version: "Avantgarde" }, tire: { manufacturer: "Michelin", model: "Pilot Sport 4", size: "225/45R18" } },
-  { code: "HY", vehicle: { manufacturer: "Hyundai", model: "Creta", version: "Ultimate" }, tire: { manufacturer: "Dunlop", model: "SP Sport", size: "205/50R17" } },
-  { code: "CH", vehicle: { manufacturer: "Chevrolet", model: "Onix", version: "Premier" }, tire: { manufacturer: "Goodyear", model: "EfficientGrip Performance", size: "195/60R16" } },
-  { code: "FI", vehicle: { manufacturer: "Fiat", model: "Pulse", version: "Impetus" }, tire: { manufacturer: "Pirelli", model: "Cinturato P7", size: "205/55R16" } },
-  { code: "JP", vehicle: { manufacturer: "Jeep", model: "Compass", version: "Longitude" }, tire: { manufacturer: "Firestone", model: "Destination", size: "235/60R18" } },
-  { code: "JP", vehicle: { manufacturer: "Jeep", model: "Compass", version: "Longitude" }, tire: { manufacturer: "Pirelli", model: "Scorpion", size: "255/45R20" } },
-];
+const MANUFACTURER_CODES: Record<(typeof MANUFACTURERS)[number], string> = {
+  Toyota: "T0",
+  Volkswagen: "VO",
+  Honda: "H0",
+  BYD: "BY",
+  BMW: "*",
+  "Mercedes-Benz": "MO",
+  Hyundai: "HY",
+  Chevrolet: "CH",
+  Fiat: "FI",
+  Jeep: "JP",
+};
+
+const TIRES_PER_VEHICLE = 7;
+
+export const HOMOLOGATIONS: HomologationSeed[] = VEHICLES.flatMap(
+  (vehicle, vehicleIndex) => {
+    const code = MANUFACTURER_CODES[vehicle.manufacturer];
+    const tireSlice = pickSlice(TIRES, vehicleIndex * 5, TIRES_PER_VEHICLE);
+
+    return tireSlice.map((tire, tireIndex) => {
+      const yearRange = vehicle.yearEnd - vehicle.yearStart + 1;
+      const optional = tireSlice[(tireIndex + 1) % tireSlice.length];
+
+      return {
+        code,
+        vehicle: {
+          manufacturer: vehicle.manufacturer,
+          model: vehicle.model,
+          version: vehicle.version,
+        },
+        tire: {
+          manufacturer: tire.manufacturer,
+          model: tire.model,
+          size: tire.size,
+        },
+        year: vehicle.yearStart + (tireIndex % yearRange),
+        originalSize: tire.size,
+        optionalSize:
+          tireIndex % 3 === 0 && optional.size !== tire.size
+            ? optional.size
+            : null,
+        runFlat: tire.runFlat,
+        xl: tire.xl,
+        notes: tireIndex === 0 ? "Medida original de fábrica." : null,
+      };
+    });
+  }
+);

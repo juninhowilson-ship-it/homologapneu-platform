@@ -36,11 +36,13 @@ async function main() {
   }
 
   const vehicleIds = new Map<string, number>();
+  const vehiclesByKey = new Map<string, (typeof VEHICLES)[number]>();
   for (const vehicle of VEHICLES) {
     const manufacturerId = manufacturerIds.get(vehicle.manufacturer);
     if (!manufacturerId) continue;
 
     const key = `${vehicle.manufacturer}|${vehicle.model}|${vehicle.version}`;
+    vehiclesByKey.set(key, vehicle);
     const existing = await prisma.vehicle.findFirst({
       where: { manufacturerId, model: vehicle.model, version: vehicle.version },
     });
@@ -80,32 +82,55 @@ async function main() {
       (await prisma.tire.create({
         data: {
           tireManufacturerId,
+          brand: tire.brand,
           model: tire.model,
           size: tire.size,
+          width: tire.width,
+          profile: tire.profile,
+          rim: tire.rim,
           loadIndex: tire.loadIndex,
           speedIndex: tire.speedIndex,
           runFlat: tire.runFlat,
           xl: tire.xl,
+          seal: tire.seal,
+          tubeless: tire.tubeless,
+          category: tire.category,
+          segment: tire.segment,
+          ean: tire.ean,
+          description: tire.description,
+          isActive: tire.isActive,
         },
       }));
     tireIds.set(key, record.id);
   }
 
   for (const homologation of HOMOLOGATIONS) {
-    const vehicleId = vehicleIds.get(
-      `${homologation.vehicle.manufacturer}|${homologation.vehicle.model}|${homologation.vehicle.version}`
-    );
+    const vehicleKey = `${homologation.vehicle.manufacturer}|${homologation.vehicle.model}|${homologation.vehicle.version}`;
+    const vehicleId = vehicleIds.get(vehicleKey);
+    const vehicleSeed = vehiclesByKey.get(vehicleKey);
     const tireId = tireIds.get(
       `${homologation.tire.manufacturer}|${homologation.tire.model}|${homologation.tire.size}`
     );
-    if (!vehicleId || !tireId) continue;
+    if (!vehicleId || !tireId || !vehicleSeed) continue;
 
     const existing = await prisma.homologation.findFirst({
       where: { vehicleId, tireId, code: homologation.code },
     });
     if (!existing) {
       await prisma.homologation.create({
-        data: { code: homologation.code, vehicleId, tireId },
+        data: {
+          code: homologation.code,
+          vehicleId,
+          tireId,
+          year: homologation.year,
+          version: vehicleSeed.version,
+          engine: vehicleSeed.engine,
+          originalSize: homologation.originalSize,
+          optionalSize: homologation.optionalSize,
+          runFlat: homologation.runFlat,
+          xl: homologation.xl,
+          notes: homologation.notes,
+        },
       });
     }
   }

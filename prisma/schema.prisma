@@ -80,28 +80,72 @@ model Vehicle {
   @@map("vehicles")
 }
 
+enum TireCategory {
+  PASSEIO
+  SUV
+  CAMINHONETE
+  ESPORTIVO
+  INVERNO
+  COMERCIAL
+}
+
+enum TireSegment {
+  POPULAR
+  MEDIO
+  PREMIUM
+  LUXO
+}
+
 model Tire {
   id                 Int              @id @default(autoincrement())
   tireManufacturerId Int
+  brand              String
   model              String
   size               String
+  width              Int
+  profile            Int
+  rim                Int
   loadIndex          String
   speedIndex         String
   runFlat            Boolean          @default(false)
   xl                 Boolean          @default(false)
+  seal               Boolean          @default(false)
+  tubeless           Boolean          @default(true)
+  category           TireCategory
+  segment            TireSegment?
+  ean                String?          @unique
+  description        String?
+  imageUrl           String?
+  isActive           Boolean          @default(true)
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
   tireManufacturer   TireManufacturer @relation(fields: [tireManufacturerId], references: [id])
   homologations      Homologation[]
 
+  @@unique([tireManufacturerId, model, size])
   @@map("tires")
 }
 
 model Homologation {
-  id        Int     @id @default(autoincrement())
-  code      String
-  vehicleId Int
-  tireId    Int
-  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
-  tire      Tire    @relation(fields: [tireId], references: [id])
+  id           Int      @id @default(autoincrement())
+  code         String
+  vehicleId    Int
+  tireId       Int
+  year         Int
+  version      String
+  engine       String
+  originalSize String
+  optionalSize String?
+  runFlat      Boolean  @default(false)
+  xl           Boolean  @default(false)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+  tire    Tire    @relation(fields: [tireId], references: [id])
+
+  @@unique([vehicleId, tireId, code])
   @@map("homologations")
 }
