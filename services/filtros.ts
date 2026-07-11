@@ -13,6 +13,8 @@ export async function listarOpcoesFiltro(): Promise<OpcoesFiltroPesquisa> {
     tireManufacturers,
     loadIndexes,
     speedIndexes,
+    tireCategories,
+    tireSegments,
   ] = await Promise.all([
     prisma.manufacturer.findMany({
       select: { name: true },
@@ -54,6 +56,16 @@ export async function listarOpcoesFiltro(): Promise<OpcoesFiltroPesquisa> {
       distinct: ["speedIndex"],
       orderBy: { speedIndex: "asc" },
     }),
+    prisma.tire.findMany({
+      select: { category: true },
+      distinct: ["category"],
+      orderBy: { category: "asc" },
+    }),
+    prisma.tire.findMany({
+      select: { segment: true },
+      distinct: ["segment"],
+      orderBy: { segment: "asc" },
+    }),
   ]);
 
   const anosCobertos = new Set<number>();
@@ -75,5 +87,9 @@ export async function listarOpcoesFiltro(): Promise<OpcoesFiltroPesquisa> {
       .map((t) => t.loadIndex)
       .sort((a, b) => Number(a) - Number(b)),
     indicesVelocidade: speedIndexes.map((t) => t.speedIndex),
+    categorias: tireCategories.map((t) => t.category),
+    segmentos: tireSegments
+      .map((t) => t.segment)
+      .filter((segment) => segment !== null),
   };
 }

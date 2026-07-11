@@ -63,7 +63,12 @@ export default function ResultadoCard({ resultado }: Props) {
 
         <div>
           <p className="text-muted-foreground">Homologação</p>
-          <Badge tone="warning">{resultado.homologacaoCodigo}</Badge>
+          <div className="flex items-center gap-2">
+            <Badge tone="warning">{resultado.homologacaoCodigo}</Badge>
+            <span className="text-sm text-muted-foreground">
+              {resultado.homologacaoAno}
+            </span>
+          </div>
         </div>
       </div>
     </Card>

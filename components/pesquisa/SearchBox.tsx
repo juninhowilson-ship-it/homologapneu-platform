@@ -3,6 +3,12 @@ import SelectCampo from "./SelectCampo";
 import BotaoPesquisar from "./BotaoPesquisar";
 import type { PesquisaFiltros } from "@/lib/validations/pesquisa";
 import type { OpcoesFiltroPesquisa } from "@/types/homologation";
+import {
+  TIRE_CATEGORY_LABELS,
+  TIRE_SEGMENT_LABELS,
+  type TireCategory,
+  type TireSegment,
+} from "@/lib/constants/pneu";
 
 const SIM_NAO = [
   { value: "true", label: "Sim" },
@@ -108,6 +114,30 @@ export default function SearchBox({
           options={opcoes?.indicesVelocidade ?? []}
           disabled={carregandoOpcoes}
           {...register("indiceVelocidade")}
+        />
+
+        <SelectCampo
+          label="Categoria do Pneu"
+          options={
+            opcoes?.categorias.map((categoria) => ({
+              value: categoria,
+              label: TIRE_CATEGORY_LABELS[categoria as TireCategory] ?? categoria,
+            })) ?? []
+          }
+          disabled={carregandoOpcoes}
+          {...register("categoria")}
+        />
+
+        <SelectCampo
+          label="Segmento do Pneu"
+          options={
+            opcoes?.segmentos.map((segmento) => ({
+              value: segmento,
+              label: TIRE_SEGMENT_LABELS[segmento as TireSegment] ?? segmento,
+            })) ?? []
+          }
+          disabled={carregandoOpcoes}
+          {...register("segmento")}
         />
       </div>
 

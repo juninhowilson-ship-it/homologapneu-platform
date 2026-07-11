@@ -51,6 +51,12 @@ export async function buscarHomologacoes(
   if (filtros.indiceVelocidade) {
     tireWhere.speedIndex = filtros.indiceVelocidade;
   }
+  if (filtros.categoria) {
+    tireWhere.category = filtros.categoria;
+  }
+  if (filtros.segmento) {
+    tireWhere.segment = filtros.segmento;
+  }
   if (Object.keys(tireWhere).length > 0) {
     where.tire = tireWhere;
   }
@@ -70,6 +76,7 @@ export async function buscarHomologacoes(
   return homologacoes.map((homologacao) => ({
     homologacaoId: homologacao.id,
     homologacaoCodigo: homologacao.code,
+    homologacaoAno: homologacao.year,
     veiculoFabricante: homologacao.vehicle.manufacturer.name,
     veiculoModelo: homologacao.vehicle.model,
     veiculoAnoInicial: homologacao.vehicle.yearStart,

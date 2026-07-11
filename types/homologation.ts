@@ -8,6 +8,7 @@ export type Homologation = {
 export type ResultadoPesquisa = {
   homologacaoId: number;
   homologacaoCodigo: string;
+  homologacaoAno: number;
   veiculoFabricante: string;
   veiculoModelo: string;
   veiculoAnoInicial: number;
@@ -32,4 +33,6 @@ export type OpcoesFiltroPesquisa = {
   fabricantesPneu: string[];
   indicesCarga: string[];
   indicesVelocidade: string[];
+  categorias: string[];
+  segmentos: string[];
 };
