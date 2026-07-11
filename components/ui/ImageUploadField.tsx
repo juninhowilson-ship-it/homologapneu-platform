@@ -1,17 +1,26 @@
 "use client";
 
 import { useRef, type ChangeEvent } from "react";
-import Button from "@/components/ui/Button";
-import { useUploadLogotipo } from "@/hooks/useUploadLogotipo";
+import Button from "./Button";
+import { useUploadImagem } from "@/hooks/useUploadImagem";
 
 type Props = {
+  label?: string;
   value: string;
   onChange: (url: string) => void;
+  uploadEndpoint: string;
+  alt?: string;
 };
 
-export default function LogoUploadField({ value, onChange }: Props) {
+export default function ImageUploadField({
+  label = "Imagem",
+  value,
+  onChange,
+  uploadEndpoint,
+  alt = "Imagem enviada",
+}: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const upload = useUploadLogotipo();
+  const upload = useUploadImagem(uploadEndpoint);
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -25,7 +34,7 @@ export default function LogoUploadField({ value, onChange }: Props) {
 
   return (
     <div className="space-y-2">
-      <span className="font-semibold text-foreground">Logotipo</span>
+      <span className="font-semibold text-foreground">{label}</span>
 
       <div className="flex items-center gap-4">
         <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg border border-border bg-surface-muted">
@@ -33,11 +42,11 @@ export default function LogoUploadField({ value, onChange }: Props) {
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={value}
-              alt="Logotipo do fabricante"
+              alt={alt}
               className="h-full w-full object-contain"
             />
           ) : (
-            <span className="text-xs text-muted-foreground">Sem logo</span>
+            <span className="text-xs text-muted-foreground">Sem imagem</span>
           )}
         </div>
 

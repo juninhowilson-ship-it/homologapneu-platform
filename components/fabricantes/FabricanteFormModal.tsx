@@ -8,7 +8,7 @@ import Input from "@/components/ui/Input";
 import Textarea from "@/components/ui/Textarea";
 import Switch from "@/components/ui/Switch";
 import Button from "@/components/ui/Button";
-import LogoUploadField from "./LogoUploadField";
+import ImageUploadField from "@/components/ui/ImageUploadField";
 import {
   fabricanteFormSchema,
   type FabricanteFormValues,
@@ -114,9 +114,12 @@ export default function FabricanteFormModal({
           control={control}
           name="logoUrl"
           render={({ field }) => (
-            <LogoUploadField
+            <ImageUploadField
+              label="Logotipo"
               value={field.value ?? ""}
               onChange={field.onChange}
+              uploadEndpoint="/api/fabricantes/upload"
+              alt="Logotipo do fabricante"
             />
           )}
         />
