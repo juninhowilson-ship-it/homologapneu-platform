@@ -1,0 +1,68 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Manufacturer {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  vehicles Vehicle[]
+
+  @@map("manufacturers")
+}
+
+model TireManufacturer {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  country   String
+  website   String?
+  notes     String?
+  logoUrl   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tires     Tire[]
+
+  @@map("tire_manufacturers")
+}
+
+model Vehicle {
+  id             Int            @id @default(autoincrement())
+  manufacturerId Int
+  model          String
+  year           Int
+  engine         String
+  manufacturer   Manufacturer   @relation(fields: [manufacturerId], references: [id])
+  homologations  Homologation[]
+
+  @@map("vehicles")
+}
+
+model Tire {
+  id                 Int              @id @default(autoincrement())
+  tireManufacturerId Int
+  model              String
+  size               String
+  loadIndex          String
+  speedIndex         String
+  runFlat            Boolean          @default(false)
+  xl                 Boolean          @default(false)
+  tireManufacturer   TireManufacturer @relation(fields: [tireManufacturerId], references: [id])
+  homologations      Homologation[]
+
+  @@map("tires")
+}
+
+model Homologation {
+  id        Int     @id @default(autoincrement())
+  code      String
+  vehicleId Int
+  tireId    Int
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
+  tire      Tire    @relation(fields: [tireId], references: [id])
+
+  @@map("homologations")
+}

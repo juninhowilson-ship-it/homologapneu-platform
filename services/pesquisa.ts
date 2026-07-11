@@ -1,110 +1,83 @@
 import "server-only";
-import { getDb } from "@/lib/db/client";
+import { prisma } from "@/lib/prisma";
 import type { PesquisaFiltros } from "@/lib/validations/pesquisa";
 import type { ResultadoPesquisa } from "@/types/homologation";
+import type { Prisma } from "@prisma/client";
 
-type ResultadoRow = {
-  homologacaoId: number;
-  homologacaoCodigo: string;
-  veiculoFabricante: string;
-  veiculoModelo: string;
-  veiculoAno: number;
-  veiculoMotorizacao: string;
-  pneuFabricante: string;
-  pneuModelo: string;
-  pneuMedida: string;
-  pneuIndiceCarga: string;
-  pneuIndiceVelocidade: string;
-  pneuRunFlat: number;
-  pneuXl: number;
-};
-
-export function buscarHomologacoes(
+export async function buscarHomologacoes(
   filtros: PesquisaFiltros
-): ResultadoPesquisa[] {
-  const db = getDb();
+): Promise<ResultadoPesquisa[]> {
+  const where: Prisma.HomologationWhereInput = {};
 
-  const condicoes: string[] = [];
-  const parametros: (string | number)[] = [];
+  if (filtros.homologacao) {
+    where.code = filtros.homologacao;
+  }
 
+  const vehicleWhere: Prisma.VehicleWhereInput = {};
   if (filtros.fabricante) {
-    condicoes.push("m.name = ?");
-    parametros.push(filtros.fabricante);
+    vehicleWhere.manufacturer = { name: filtros.fabricante };
   }
   if (filtros.modelo) {
-    condicoes.push("v.model = ?");
-    parametros.push(filtros.modelo);
+    vehicleWhere.model = filtros.modelo;
   }
   if (filtros.ano) {
-    condicoes.push("v.year = ?");
-    parametros.push(Number(filtros.ano));
+    vehicleWhere.year = Number(filtros.ano);
   }
   if (filtros.motorizacao) {
-    condicoes.push("v.engine = ?");
-    parametros.push(filtros.motorizacao);
+    vehicleWhere.engine = filtros.motorizacao;
   }
+  if (Object.keys(vehicleWhere).length > 0) {
+    where.vehicle = vehicleWhere;
+  }
+
+  const tireWhere: Prisma.TireWhereInput = {};
   if (filtros.medida) {
-    condicoes.push("t.size = ?");
-    parametros.push(filtros.medida);
-  }
-  if (filtros.homologacao) {
-    condicoes.push("h.code = ?");
-    parametros.push(filtros.homologacao);
+    tireWhere.size = filtros.medida;
   }
   if (filtros.fabricantePneu) {
-    condicoes.push("tm.name = ?");
-    parametros.push(filtros.fabricantePneu);
+    tireWhere.tireManufacturer = { name: filtros.fabricantePneu };
   }
   if (filtros.runFlat) {
-    condicoes.push("t.run_flat = ?");
-    parametros.push(filtros.runFlat === "true" ? 1 : 0);
+    tireWhere.runFlat = filtros.runFlat === "true";
   }
   if (filtros.xl) {
-    condicoes.push("t.xl = ?");
-    parametros.push(filtros.xl === "true" ? 1 : 0);
+    tireWhere.xl = filtros.xl === "true";
   }
   if (filtros.indiceCarga) {
-    condicoes.push("t.load_index = ?");
-    parametros.push(filtros.indiceCarga);
+    tireWhere.loadIndex = filtros.indiceCarga;
   }
   if (filtros.indiceVelocidade) {
-    condicoes.push("t.speed_index = ?");
-    parametros.push(filtros.indiceVelocidade);
+    tireWhere.speedIndex = filtros.indiceVelocidade;
+  }
+  if (Object.keys(tireWhere).length > 0) {
+    where.tire = tireWhere;
   }
 
-  const where = condicoes.length ? `WHERE ${condicoes.join(" AND ")}` : "";
+  const homologacoes = await prisma.homologation.findMany({
+    where,
+    include: {
+      vehicle: { include: { manufacturer: true } },
+      tire: { include: { tireManufacturer: true } },
+    },
+    orderBy: [
+      { vehicle: { manufacturer: { name: "asc" } } },
+      { vehicle: { model: "asc" } },
+    ],
+  });
 
-  const rows = db
-    .prepare(
-      `
-      SELECT
-        h.id AS homologacaoId,
-        h.code AS homologacaoCodigo,
-        m.name AS veiculoFabricante,
-        v.model AS veiculoModelo,
-        v.year AS veiculoAno,
-        v.engine AS veiculoMotorizacao,
-        tm.name AS pneuFabricante,
-        t.model AS pneuModelo,
-        t.size AS pneuMedida,
-        t.load_index AS pneuIndiceCarga,
-        t.speed_index AS pneuIndiceVelocidade,
-        t.run_flat AS pneuRunFlat,
-        t.xl AS pneuXl
-      FROM homologations h
-      JOIN vehicles v ON v.id = h.vehicle_id
-      JOIN manufacturers m ON m.id = v.manufacturer_id
-      JOIN tires t ON t.id = h.tire_id
-      JOIN tire_manufacturers tm ON tm.id = t.tire_manufacturer_id
-      ${where}
-      ORDER BY m.name, v.model
-      `
-    )
-    .all(...parametros) as ResultadoRow[];
-
-  return rows.map((row) => ({
-    ...row,
-    pneuRunFlat: Boolean(row.pneuRunFlat),
-    pneuXl: Boolean(row.pneuXl),
+  return homologacoes.map((homologacao) => ({
+    homologacaoId: homologacao.id,
+    homologacaoCodigo: homologacao.code,
+    veiculoFabricante: homologacao.vehicle.manufacturer.name,
+    veiculoModelo: homologacao.vehicle.model,
+    veiculoAno: homologacao.vehicle.year,
+    veiculoMotorizacao: homologacao.vehicle.engine,
+    pneuFabricante: homologacao.tire.tireManufacturer.name,
+    pneuModelo: homologacao.tire.model,
+    pneuMedida: homologacao.tire.size,
+    pneuIndiceCarga: homologacao.tire.loadIndex,
+    pneuIndiceVelocidade: homologacao.tire.speedIndex,
+    pneuRunFlat: homologacao.tire.runFlat,
+    pneuXl: homologacao.tire.xl,
   }));
 }

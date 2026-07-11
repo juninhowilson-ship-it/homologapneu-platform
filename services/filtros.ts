@@ -1,75 +1,74 @@
 import "server-only";
-import { getDb } from "@/lib/db/client";
+import { prisma } from "@/lib/prisma";
 import type { OpcoesFiltroPesquisa } from "@/types/homologation";
 
-export function listarOpcoesFiltro(): OpcoesFiltroPesquisa {
-  const db = getDb();
-
-  const fabricantes = (
-    db.prepare("SELECT DISTINCT name FROM manufacturers ORDER BY name").all() as {
-      name: string;
-    }[]
-  ).map((row) => row.name);
-
-  const modelos = (
-    db.prepare("SELECT DISTINCT model FROM vehicles ORDER BY model").all() as {
-      model: string;
-    }[]
-  ).map((row) => row.model);
-
-  const anos = (
-    db
-      .prepare("SELECT DISTINCT year FROM vehicles ORDER BY year DESC")
-      .all() as { year: number }[]
-  ).map((row) => row.year);
-
-  const motorizacoes = (
-    db.prepare("SELECT DISTINCT engine FROM vehicles ORDER BY engine").all() as {
-      engine: string;
-    }[]
-  ).map((row) => row.engine);
-
-  const medidas = (
-    db.prepare("SELECT DISTINCT size FROM tires ORDER BY size").all() as {
-      size: string;
-    }[]
-  ).map((row) => row.size);
-
-  const homologacoes = (
-    db.prepare("SELECT DISTINCT code FROM homologations ORDER BY code").all() as {
-      code: string;
-    }[]
-  ).map((row) => row.code);
-
-  const fabricantesPneu = (
-    db
-      .prepare("SELECT DISTINCT name FROM tire_manufacturers ORDER BY name")
-      .all() as { name: string }[]
-  ).map((row) => row.name);
-
-  const indicesCarga = (
-    db
-      .prepare(
-        "SELECT DISTINCT load_index FROM tires ORDER BY CAST(load_index AS INTEGER)"
-      )
-      .all() as { load_index: string }[]
-  ).map((row) => row.load_index);
-
-  const indicesVelocidade = (
-    db
-      .prepare("SELECT DISTINCT speed_index FROM tires ORDER BY speed_index")
-      .all() as { speed_index: string }[]
-  ).map((row) => row.speed_index);
+export async function listarOpcoesFiltro(): Promise<OpcoesFiltroPesquisa> {
+  const [
+    manufacturers,
+    vehicleModels,
+    vehicleYears,
+    vehicleEngines,
+    tireSizes,
+    homologationCodes,
+    tireManufacturers,
+    loadIndexes,
+    speedIndexes,
+  ] = await Promise.all([
+    prisma.manufacturer.findMany({
+      select: { name: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.vehicle.findMany({
+      select: { model: true },
+      distinct: ["model"],
+      orderBy: { model: "asc" },
+    }),
+    prisma.vehicle.findMany({
+      select: { year: true },
+      distinct: ["year"],
+      orderBy: { year: "desc" },
+    }),
+    prisma.vehicle.findMany({
+      select: { engine: true },
+      distinct: ["engine"],
+      orderBy: { engine: "asc" },
+    }),
+    prisma.tire.findMany({
+      select: { size: true },
+      distinct: ["size"],
+      orderBy: { size: "asc" },
+    }),
+    prisma.homologation.findMany({
+      select: { code: true },
+      distinct: ["code"],
+      orderBy: { code: "asc" },
+    }),
+    prisma.tireManufacturer.findMany({
+      select: { name: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.tire.findMany({
+      select: { loadIndex: true },
+      distinct: ["loadIndex"],
+    }),
+    prisma.tire.findMany({
+      select: { speedIndex: true },
+      distinct: ["speedIndex"],
+      orderBy: { speedIndex: "asc" },
+    }),
+  ]);
 
   return {
-    fabricantes,
-    modelos,
-    anos,
-    motorizacoes,
-    medidas,
-    homologacoes,
-    fabricantesPneu,
-    indicesCarga,
-    indicesVelocidade,
+    fabricantes: manufacturers.map((m) => m.name),
+    modelos: vehicleModels.map((v) => v.model),
+    anos: vehicleYears.map((v) => v.year),
+    motorizacoes: vehicleEngines.map((v) => v.engine),
+    medidas: tireSizes.map((t) => t.size),
+    homologacoes: homologationCodes.map((h) => h.code),
+    fabricantesPneu: tireManufacturers.map((tm) => tm.name),
+    indicesCarga: loadIndexes
+      .map((t) => t.loadIndex)
+      .sort((a, b) => Number(a) - Number(b)),
+    indicesVelocidade: speedIndexes.map((t) => t.speedIndex),
   };
 }

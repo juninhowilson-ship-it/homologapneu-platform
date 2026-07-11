@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const resultados = buscarHomologacoes(parsed.data);
+  const resultados = await buscarHomologacoes(parsed.data);
 
   return NextResponse.json({ resultados });
 }

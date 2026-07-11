@@ -12,14 +12,62 @@ export const MANUFACTURERS = [
 ] as const;
 
 export const TIRE_MANUFACTURERS = [
-  { name: "Michelin", country: "França" },
-  { name: "Pirelli", country: "Itália" },
-  { name: "Goodyear", country: "Estados Unidos" },
-  { name: "Continental", country: "Alemanha" },
-  { name: "Bridgestone", country: "Japão" },
-  { name: "Dunlop", country: "Reino Unido" },
-  { name: "Firestone", country: "Estados Unidos" },
-  { name: "Yokohama", country: "Japão" },
+  {
+    name: "Michelin",
+    country: "França",
+    website: "https://www.michelin.com.br",
+    notes: "Fabricante premium, forte presença em pneus de alta performance.",
+    isActive: true,
+  },
+  {
+    name: "Pirelli",
+    country: "Itália",
+    website: "https://www.pirelli.com.br",
+    notes: "Parceiro de homologação de diversas montadoras esportivas.",
+    isActive: true,
+  },
+  {
+    name: "Goodyear",
+    country: "Estados Unidos",
+    website: "https://www.goodyear.com.br",
+    notes: null,
+    isActive: true,
+  },
+  {
+    name: "Continental",
+    country: "Alemanha",
+    website: "https://www.continental.com.br",
+    notes: null,
+    isActive: true,
+  },
+  {
+    name: "Bridgestone",
+    country: "Japão",
+    website: "https://www.bridgestone.com.br",
+    notes: null,
+    isActive: true,
+  },
+  {
+    name: "Dunlop",
+    country: "Reino Unido",
+    website: "https://www.dunlop.com.br",
+    notes: null,
+    isActive: true,
+  },
+  {
+    name: "Firestone",
+    country: "Estados Unidos",
+    website: "https://www.firestone.com.br",
+    notes: "Cadastro em revisão comercial.",
+    isActive: false,
+  },
+  {
+    name: "Yokohama",
+    country: "Japão",
+    website: "https://www.yokohama.com.br",
+    notes: null,
+    isActive: true,
+  },
 ] as const;
 
 type VehicleSeed = {
