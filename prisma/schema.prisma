@@ -149,3 +149,15 @@ model Homologation {
   @@unique([vehicleId, tireId, code])
   @@map("homologations")
 }
+
+model SearchLog {
+  id           Int      @id @default(autoincrement())
+  resumo       String
+  veiculoBusca String?
+  pneuBusca    String?
+  resultCount  Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("search_logs")
+}

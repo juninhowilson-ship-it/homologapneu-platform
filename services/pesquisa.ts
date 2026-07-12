@@ -73,6 +73,8 @@ export async function buscarHomologacoes(
     ],
   });
 
+  await registrarBusca(filtros, homologacoes.length);
+
   return homologacoes.map((homologacao) => ({
     homologacaoId: homologacao.id,
     homologacaoCodigo: homologacao.code,
@@ -90,4 +92,37 @@ export async function buscarHomologacoes(
     pneuRunFlat: homologacao.tire.runFlat,
     pneuXl: homologacao.tire.xl,
   }));
+}
+
+const ROTULOS_FILTRO: Record<string, string> = {
+  fabricante: "Fabricante",
+  modelo: "Modelo",
+  ano: "Ano",
+  motorizacao: "Motorização",
+  medida: "Medida",
+  homologacao: "Homologação",
+  fabricantePneu: "Fabricante do Pneu",
+  runFlat: "Run Flat",
+  xl: "XL",
+  indiceCarga: "Índice de Carga",
+  indiceVelocidade: "Índice de Velocidade",
+  categoria: "Categoria",
+  segmento: "Segmento",
+};
+
+async function registrarBusca(filtros: PesquisaFiltros, resultCount: number) {
+  const partes = Object.entries(filtros)
+    .filter(([, valor]) => Boolean(valor))
+    .map(([chave, valor]) => `${ROTULOS_FILTRO[chave] ?? chave}: ${valor}`);
+
+  const resumo = partes.length > 0 ? partes.join(" · ") : "Pesquisa sem filtros";
+
+  await prisma.searchLog.create({
+    data: {
+      resumo,
+      veiculoBusca: filtros.modelo ?? filtros.fabricante ?? null,
+      pneuBusca: filtros.medida ?? filtros.fabricantePneu ?? null,
+      resultCount,
+    },
+  });
 }
