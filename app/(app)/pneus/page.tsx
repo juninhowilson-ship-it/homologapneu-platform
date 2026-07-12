@@ -1,11 +1,11 @@
+import PneusContainer from "@/components/pneus/PneusContainer";
+
 export default function PneusPage() {
   return (
     <main className="p-10">
-      <h1 className="text-4xl font-bold">Pneus</h1>
+      <h1 className="text-4xl font-bold mb-8">Pneus</h1>
 
-      <p className="mt-3 text-gray-500">
-        Cadastro de pneus.
-      </p>
+      <PneusContainer />
     </main>
   );
 }
