@@ -1,7 +1,9 @@
 import "dotenv/config";
+import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import {
+  USERS,
   MANUFACTURERS,
   TIRE_MANUFACTURERS,
   VEHICLES,
@@ -15,6 +17,20 @@ const adapter = new PrismaBetterSqlite3({
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
+  for (const user of USERS) {
+    const passwordHash = await bcrypt.hash(user.password, 10);
+    await prisma.user.upsert({
+      where: { email: user.email },
+      update: {},
+      create: {
+        name: user.name,
+        email: user.email,
+        passwordHash,
+        role: user.role,
+      },
+    });
+  }
+
   const manufacturerIds = new Map<string, number>();
   for (const name of MANUFACTURERS) {
     const manufacturer = await prisma.manufacturer.upsert({

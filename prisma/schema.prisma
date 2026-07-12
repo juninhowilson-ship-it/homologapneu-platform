@@ -164,6 +164,24 @@ model HomologationTire {
   @@map("homologation_tires")
 }
 
+enum UserRole {
+  ADMIN
+  USUARIO
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(USUARIO)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("users")
+}
+
 model SearchLog {
   id           Int      @id @default(autoincrement())
   resumo       String

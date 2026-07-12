@@ -102,9 +102,10 @@ export const EPICS: Epic[] = [
   {
     id: "autenticacao",
     titulo: "Autenticação & Perfis de Acesso",
-    descricao: "Login, permissões e controle de acesso por perfil de usuário.",
-    status: "pendente",
-    data: "2026-07-26",
+    descricao:
+      "Login por e-mail/senha, sessão via cookie assinado, perfis Admin e Usuário com controle de acesso reforçado no Proxy.",
+    status: "concluido",
+    data: "2026-07-12",
   },
   {
     id: "relatorios",

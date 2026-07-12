@@ -1,3 +1,18 @@
+export const USERS = [
+  {
+    name: "Administrador",
+    email: "admin@homologapneu.com.br",
+    password: "Admin@123",
+    role: "ADMIN" as const,
+  },
+  {
+    name: "Usuário Padrão",
+    email: "usuario@homologapneu.com.br",
+    password: "Usuario@123",
+    role: "USUARIO" as const,
+  },
+];
+
 export const MANUFACTURERS = [
   "Toyota",
   "Volkswagen",

@@ -2,39 +2,53 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 const menus = [
   {
     nome: "Painel",
     rota: "/",
+    adminOnly: false,
   },
   {
     nome: "Pesquisa",
     rota: "/pesquisa",
-  },
-  {
-    nome: "Veículos",
-    rota: "/veiculos",
-  },
-  {
-    nome: "Pneus",
-    rota: "/pneus",
-  },
-  {
-    nome: "Homologações",
-    rota: "/homologacoes",
-  },
-  {
-    nome: "Fabricantes",
-    rota: "/fabricantes",
+    adminOnly: false,
   },
   {
     nome: "Centro Técnico",
     rota: "/centro-tecnico",
+    adminOnly: false,
+  },
+  {
+    nome: "Veículos",
+    rota: "/veiculos",
+    adminOnly: true,
+  },
+  {
+    nome: "Pneus",
+    rota: "/pneus",
+    adminOnly: true,
+  },
+  {
+    nome: "Homologações",
+    rota: "/homologacoes",
+    adminOnly: true,
+  },
+  {
+    nome: "Fabricantes",
+    rota: "/fabricantes",
+    adminOnly: true,
   },
   {
     nome: "Relatórios",
     rota: "/relatorios",
+    adminOnly: true,
+  },
+  {
+    nome: "Usuários",
+    rota: "/usuarios",
+    adminOnly: true,
   },
 ];
 
@@ -52,6 +66,10 @@ const menusDev = [
 export default function Sidebar() {
 
   const pathname = usePathname();
+  const { data: user } = useCurrentUser();
+  const isAdmin = user?.role === "ADMIN";
+
+  const menusVisiveis = menus.filter((item) => !item.adminOnly || isAdmin);
 
   return (
 
@@ -63,7 +81,7 @@ export default function Sidebar() {
 
       <div className="space-y-3">
 
-        {menus.map((item) => (
+        {menusVisiveis.map((item) => (
 
           <Link
             key={item.rota}
@@ -86,34 +104,38 @@ export default function Sidebar() {
 
       </div>
 
-      <p className="uppercase text-xs text-gray-400 mb-5 mt-8">
-        Dev
-      </p>
+      {isAdmin && (
+        <>
+          <p className="uppercase text-xs text-gray-400 mb-5 mt-8">
+            Dev
+          </p>
 
-      <div className="space-y-3">
+          <div className="space-y-3">
 
-        {menusDev.map((item) => (
+            {menusDev.map((item) => (
 
-          <Link
-            key={item.rota}
-            href={item.rota}
-            className={`block p-3 rounded-lg transition
+              <Link
+                key={item.rota}
+                href={item.rota}
+                className={`block p-3 rounded-lg transition
 
-            ${
-              pathname === item.rota
-                ? "bg-brand text-brand-foreground font-bold"
-                : "hover:bg-slate-700"
-            }
-            `}
-          >
+                ${
+                  pathname === item.rota
+                    ? "bg-brand text-brand-foreground font-bold"
+                    : "hover:bg-slate-700"
+                }
+                `}
+              >
 
-            {item.nome}
+                {item.nome}
 
-          </Link>
+              </Link>
 
-        ))}
+            ))}
 
-      </div>
+          </div>
+        </>
+      )}
 
     </aside>
 
