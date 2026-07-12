@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import PesquisaContainer from "@/components/pesquisa/PesquisaContainer";
 
 export default function PesquisaPage() {
@@ -5,7 +6,9 @@ export default function PesquisaPage() {
     <main className="p-10">
       <h1 className="text-4xl font-bold mb-8">Pesquisa</h1>
 
-      <PesquisaContainer />
+      <Suspense fallback={null}>
+        <PesquisaContainer />
+      </Suspense>
     </main>
   );
 }

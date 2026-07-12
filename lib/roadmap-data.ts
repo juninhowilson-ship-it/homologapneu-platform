@@ -93,10 +93,11 @@ export const EPICS: Epic[] = [
   },
   {
     id: "dashboard",
-    titulo: "Dashboard Consolidado",
-    descricao: "Painel inicial com métricas reais do sistema.",
-    status: "pendente",
-    data: "2026-07-19",
+    titulo: "Dashboard Executivo Premium",
+    descricao:
+      "KPIs reais, inteligência de mercado com gráficos Recharts, analytics de pesquisas, busca global e atalhos rápidos.",
+    status: "concluido",
+    data: "2026-07-12",
   },
   {
     id: "autenticacao",

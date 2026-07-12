@@ -32,6 +32,10 @@ const menus = [
     nome: "Centro Técnico",
     rota: "/centro-tecnico",
   },
+  {
+    nome: "Relatórios",
+    rota: "/relatorios",
+  },
 ];
 
 const menusDev = [
