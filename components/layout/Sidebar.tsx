@@ -54,7 +54,7 @@ const menus = [
 
 const menusDev = [
   {
-    nome: "Painel Dev",
+    nome: "Status do Desenvolvimento",
     rota: "/dev",
   },
   {

@@ -20,6 +20,8 @@ const ALWAYS_ADMIN_API_PREFIXES = [
   "/api/manufacturers",
   "/api/tire-manufacturers",
   "/api/importer",
+  "/api/auditoria",
+  "/api/status-dev",
 ];
 
 function matchesPrefix(pathname: string, prefixes: string[]) {

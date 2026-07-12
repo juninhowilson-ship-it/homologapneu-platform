@@ -108,6 +108,14 @@ export const EPICS: Epic[] = [
     data: "2026-07-12",
   },
   {
+    id: "dados-reais",
+    titulo: "Dados Reais & Auditoria de Integridade",
+    descricao:
+      "Medidas originais de fábrica pesquisadas em fontes oficiais para os 16 veículos cadastrados, auditoria automática de integridade (medidas, compatibilidade, duplicidade, dados órfãos) e página Status do Desenvolvimento com commits e melhorias recentes.",
+    status: "concluido",
+    data: "2026-07-12",
+  },
+  {
     id: "relatorios",
     titulo: "Relatórios & Exportação",
     descricao: "Geração de relatórios de homologações em PDF/Excel.",

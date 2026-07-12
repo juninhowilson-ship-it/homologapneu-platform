@@ -83,6 +83,13 @@ export const TIRE_MANUFACTURERS = [
     notes: null,
     isActive: true,
   },
+  {
+    name: "Linglong",
+    country: "China",
+    website: "https://www.linglong.com.br",
+    notes: "Fornecedor de equipamento original de montadoras chinesas (ex.: BYD).",
+    isActive: true,
+  },
 ] as const;
 
 type VehicleSeed = {
@@ -105,7 +112,7 @@ export const VEHICLES: VehicleSeed[] = [
   { manufacturer: "Toyota", model: "Corolla", version: "XEi", yearStart: 2024, yearEnd: 2025, engine: "Hybrid", power: "122cv", fuel: "HIBRIDO", category: "SEDAN", segment: "MEDIO", country: "Brasil", notes: null, isActive: true },
   { manufacturer: "Toyota", model: "Corolla", version: "GLi", yearStart: 2023, yearEnd: 2024, engine: "2.0", power: "177cv", fuel: "FLEX", category: "SEDAN", segment: "MEDIO", country: "Brasil", notes: null, isActive: true },
   { manufacturer: "Toyota", model: "Hilux", version: "SRX", yearStart: 2024, yearEnd: 2025, engine: "2.8 Diesel", power: "204cv", fuel: "DIESEL", category: "PICAPE", segment: "PREMIUM", country: "Brasil", notes: null, isActive: true },
-  { manufacturer: "Volkswagen", model: "Golf", version: "GTI", yearStart: 2022, yearEnd: 2023, engine: "1.4 TSI", power: "150cv", fuel: "FLEX", category: "HATCH", segment: "PREMIUM", country: "Alemanha", notes: "Versão importada, produção encerrada no Brasil.", isActive: true },
+  { manufacturer: "Volkswagen", model: "Golf", version: "GTI", yearStart: 2022, yearEnd: 2023, engine: "2.0 TSI", power: "230cv", fuel: "FLEX", category: "HATCH", segment: "PREMIUM", country: "Alemanha", notes: "Versão importada, produção encerrada no Brasil. Motor corrigido para 2.0 TSI/230cv conforme ficha técnica oficial (era 1.4 TSI/150cv).", isActive: true },
   { manufacturer: "Volkswagen", model: "T-Cross", version: "Highline", yearStart: 2024, yearEnd: 2025, engine: "1.0 TSI", power: "116cv", fuel: "FLEX", category: "SUV", segment: "MEDIO", country: "Brasil", notes: null, isActive: true },
   { manufacturer: "Honda", model: "Civic", version: "Touring", yearStart: 2023, yearEnd: 2024, engine: "2.0", power: "155cv", fuel: "FLEX", category: "SEDAN", segment: "PREMIUM", country: "Brasil", notes: null, isActive: true },
   { manufacturer: "Honda", model: "HR-V", version: "EXL", yearStart: 2024, yearEnd: 2025, engine: "1.5 Turbo", power: "177cv", fuel: "FLEX", category: "SUV", segment: "MEDIO", country: "Brasil", notes: null, isActive: true },
@@ -114,7 +121,7 @@ export const VEHICLES: VehicleSeed[] = [
   { manufacturer: "BMW", model: "320i", version: "M Sport", yearStart: 2023, yearEnd: 2024, engine: "2.0 Turbo", power: "184cv", fuel: "GASOLINA", category: "SEDAN", segment: "LUXO", country: "Alemanha", notes: "Versão descontinuada após atualização da geração.", isActive: false },
   { manufacturer: "BMW", model: "X1", version: "sDrive20i", yearStart: 2024, yearEnd: 2025, engine: "2.0 Turbo", power: "170cv", fuel: "GASOLINA", category: "SUV", segment: "LUXO", country: "Alemanha", notes: null, isActive: true },
   { manufacturer: "Mercedes-Benz", model: "C180", version: "Avantgarde", yearStart: 2023, yearEnd: 2024, engine: "1.5 Turbo", power: "156cv", fuel: "GASOLINA", category: "SEDAN", segment: "LUXO", country: "Alemanha", notes: null, isActive: true },
-  { manufacturer: "Hyundai", model: "Creta", version: "Ultimate", yearStart: 2024, yearEnd: 2025, engine: "1.0 Turbo", power: "120cv", fuel: "FLEX", category: "SUV", segment: "MEDIO", country: "Brasil", notes: null, isActive: true },
+  { manufacturer: "Hyundai", model: "Creta", version: "Ultimate", yearStart: 2024, yearEnd: 2025, engine: "2.0 Flex", power: "167cv", fuel: "FLEX", category: "SUV", segment: "MEDIO", country: "Brasil", notes: "Motor corrigido para 2.0 Flex/167cv conforme ficha técnica oficial (era 1.0 Turbo/120cv).", isActive: true },
   { manufacturer: "Chevrolet", model: "Onix", version: "Premier", yearStart: 2023, yearEnd: 2024, engine: "1.0 Turbo", power: "116cv", fuel: "FLEX", category: "HATCH", segment: "POPULAR", country: "Brasil", notes: null, isActive: true },
   { manufacturer: "Fiat", model: "Pulse", version: "Impetus", yearStart: 2024, yearEnd: 2025, engine: "1.3 Turbo", power: "185cv", fuel: "FLEX", category: "SUV", segment: "MEDIO", country: "Brasil", notes: null, isActive: true },
   { manufacturer: "Jeep", model: "Compass", version: "Longitude", yearStart: 2023, yearEnd: 2024, engine: "1.3 Turbo", power: "185cv", fuel: "FLEX", category: "SUV", segment: "PREMIUM", country: "Brasil", notes: null, isActive: true },
@@ -233,7 +240,7 @@ function pickSlice<T>(pool: T[], offset: number, count: number): T[] {
 
 const SIZES_PER_LINE = 7;
 
-export const TIRES: TireSeed[] = TIRE_LINES.flatMap((line, lineIndex) => {
+const GENERIC_TIRES: TireSeed[] = TIRE_LINES.flatMap((line, lineIndex) => {
   const sizes = pickSlice(SIZE_POOL, lineIndex * 3, SIZES_PER_LINE);
 
   return sizes.map((sizeSpec, sizeIndex) => ({
@@ -294,103 +301,106 @@ const MANUFACTURER_CODES: Record<(typeof MANUFACTURERS)[number], string> = {
   Jeep: "JP",
 };
 
-// Faixa de aro compatível com o porte/categoria do veículo, para evitar
-// combinações irreais (ex.: SUV com pneu de aro 14).
-const RIM_RANGE_BY_VEHICLE_CATEGORY: Record<VehicleSeed["category"], [number, number]> = {
-  HATCH: [14, 16],
-  SEDAN: [15, 17],
-  SUV: [17, 19],
-  PICAPE: [17, 20],
-  PERUA: [15, 17],
-  MINIVAN: [15, 17],
-  COUPE: [18, 20],
-};
+// Medidas ORIGINAIS de fábrica pesquisadas em catálogos/fichas técnicas
+// oficiais dos fabricantes e fontes especializadas (jantes-e-pneus.com,
+// pneus.org, sites de peças originais). Códigos de homologação e a
+// atribuição exata de marca/modelo de pneu em cada combinação não são
+// dados regulatórios oficiais (DENATRAN/CONTRAN) — servem como
+// referência até a base real de homologações ser importada.
+export const REAL_HOMOLOGATION_TIRES: TireSeed[] = [
+  { manufacturer: "Bridgestone", brand: "Bridgestone", model: "EP150", size: "205/55R16", width: 205, profile: 55, rim: 16, loadIndex: "91", speedIndex: "V", runFlat: false, xl: false, seal: false, tubeless: true, category: "PASSEIO", segment: "MEDIO", ean: "8990000001", description: "Bridgestone EP150 205/55R16 — original de fábrica do Toyota Corolla GLi", isActive: true },
+  { manufacturer: "Bridgestone", brand: "Bridgestone", model: "Dueler H/T", size: "265/60R18", width: 265, profile: 60, rim: 18, loadIndex: "110", speedIndex: "H", runFlat: false, xl: false, seal: false, tubeless: true, category: "CAMINHONETE", segment: "PREMIUM", ean: "8990000002", description: "Bridgestone Dueler H/T 265/60R18 — original de fábrica da Toyota Hilux SRX", isActive: true },
+  { manufacturer: "Bridgestone", brand: "Bridgestone", model: "Turanza ER33 MO", size: "215/50R17", width: 215, profile: 50, rim: 17, loadIndex: "91", speedIndex: "V", runFlat: false, xl: false, seal: false, tubeless: true, category: "PASSEIO", segment: "MEDIO", ean: "8990000003", description: "Bridgestone Turanza ER33 215/50R17 — original de fábrica do Toyota Corolla XEi e Honda Civic Touring", isActive: true },
+  { manufacturer: "Bridgestone", brand: "Bridgestone", model: "Turanza T005 MO", size: "205/55R17", width: 205, profile: 55, rim: 17, loadIndex: "91", speedIndex: "V", runFlat: false, xl: false, seal: false, tubeless: true, category: "PASSEIO", segment: "MEDIO", ean: "8990000004", description: "Bridgestone Turanza T005 205/55R17 — original de fábrica do Volkswagen T-Cross Highline", isActive: true },
+  { manufacturer: "Linglong", brand: "Linglong", model: "Comfort Master", size: "205/50R17", width: 205, profile: 50, rim: 17, loadIndex: "93", speedIndex: "W", runFlat: false, xl: true, seal: false, tubeless: true, category: "PASSEIO", segment: "MEDIO", ean: "8990000005", description: "Linglong Comfort Master 205/50R17 XL — original de fábrica do BYD Dolphin Plus", isActive: true },
+  { manufacturer: "Continental", brand: "Continental", model: "SportContact 6 MO", size: "225/45R18", width: 225, profile: 45, rim: 18, loadIndex: "91", speedIndex: "Y", runFlat: true, xl: true, seal: false, tubeless: true, category: "ESPORTIVO", segment: "LUXO", ean: "8990000006", description: "Continental SportContact 6 MO 225/45R18 RunFlat — original de fábrica do BMW 320i M Sport", isActive: true },
+  { manufacturer: "Continental", brand: "Continental", model: "SportContact 6 MO", size: "255/35R19", width: 255, profile: 35, rim: 19, loadIndex: "96", speedIndex: "Y", runFlat: true, xl: true, seal: false, tubeless: true, category: "ESPORTIVO", segment: "LUXO", ean: "8990000007", description: "Continental SportContact 6 MO 255/35R19 RunFlat — opcional de fábrica do BMW 320i M Sport", isActive: true },
+  { manufacturer: "Continental", brand: "Continental", model: "SportContact 6", size: "225/45R17", width: 225, profile: 45, rim: 17, loadIndex: "91", speedIndex: "W", runFlat: false, xl: false, seal: false, tubeless: true, category: "ESPORTIVO", segment: "PREMIUM", ean: "8990000008", description: "Continental SportContact 6 225/45R17 — original de fábrica do Volkswagen Golf GTI", isActive: true },
+  { manufacturer: "Continental", brand: "Continental", model: "SportContact 6", size: "225/40R18", width: 225, profile: 40, rim: 18, loadIndex: "92", speedIndex: "Y", runFlat: false, xl: true, seal: false, tubeless: true, category: "ESPORTIVO", segment: "PREMIUM", ean: "8990000009", description: "Continental SportContact 6 225/40R18 — opcional de fábrica do Volkswagen Golf GTI", isActive: true },
+  { manufacturer: "Michelin", brand: "Michelin", model: "Latitude Sport 3 MO", size: "225/50R18", width: 225, profile: 50, rim: 18, loadIndex: "95", speedIndex: "V", runFlat: false, xl: true, seal: false, tubeless: true, category: "SUV", segment: "PREMIUM", ean: "8990000010", description: "Michelin Latitude Sport 3 MO 225/50R18 — original de fábrica do BMW X1 sDrive20i", isActive: true },
+  { manufacturer: "Continental", brand: "Continental", model: "ContiSportContact 5", size: "225/45R17", width: 225, profile: 45, rim: 17, loadIndex: "91", speedIndex: "W", runFlat: false, xl: false, seal: false, tubeless: true, category: "ESPORTIVO", segment: "LUXO", ean: "8990000011", description: "Continental ContiSportContact 5 225/45R17 — original de fábrica do Mercedes-Benz C180 Avantgarde", isActive: true },
+  { manufacturer: "Dunlop", brand: "Dunlop", model: "Grandtrek OE", size: "215/55R18", width: 215, profile: 55, rim: 18, loadIndex: "95", speedIndex: "V", runFlat: false, xl: false, seal: false, tubeless: true, category: "SUV", segment: "MEDIO", ean: "8990000012", description: "Dunlop Grandtrek OE 215/55R18 — original de fábrica do Hyundai Creta Ultimate", isActive: true },
+  { manufacturer: "Dunlop", brand: "Dunlop", model: "Grandtrek OE", size: "215/60R17", width: 215, profile: 60, rim: 17, loadIndex: "96", speedIndex: "H", runFlat: false, xl: false, seal: false, tubeless: true, category: "SUV", segment: "MEDIO", ean: "8990000013", description: "Dunlop Grandtrek OE 215/60R17 — original de fábrica do Honda HR-V EXL", isActive: true },
+  { manufacturer: "Continental", brand: "Continental", model: "ContiPowerContact 2", size: "195/55R16", width: 195, profile: 55, rim: 16, loadIndex: "87", speedIndex: "H", runFlat: false, xl: false, seal: false, tubeless: true, category: "PASSEIO", segment: "POPULAR", ean: "8990000014", description: "Continental ContiPowerContact 2 195/55R16 — original de fábrica do Chevrolet Onix Premier", isActive: true },
+  { manufacturer: "Pirelli", brand: "Pirelli", model: "Cinturato P7 MO", size: "205/50R17", width: 205, profile: 50, rim: 17, loadIndex: "93", speedIndex: "V", runFlat: false, xl: false, seal: false, tubeless: true, category: "PASSEIO", segment: "MEDIO", ean: "8990000015", description: "Pirelli Cinturato P7 MO 205/50R17 — original de fábrica do Fiat Pulse Impetus", isActive: true },
+  { manufacturer: "Pirelli", brand: "Pirelli", model: "Scorpion MO", size: "215/55R17", width: 215, profile: 55, rim: 17, loadIndex: "94", speedIndex: "V", runFlat: true, xl: true, seal: false, tubeless: true, category: "SUV", segment: "PREMIUM", ean: "8990000016", description: "Pirelli Scorpion MO 215/55R17 RunFlat — original de fábrica do Jeep Compass Longitude", isActive: true },
+  { manufacturer: "Pirelli", brand: "Pirelli", model: "Scorpion MO", size: "225/55R18", width: 225, profile: 55, rim: 18, loadIndex: "98", speedIndex: "H", runFlat: true, xl: true, seal: false, tubeless: true, category: "SUV", segment: "PREMIUM", ean: "8990000017", description: "Pirelli Scorpion MO 225/55R18 RunFlat — opcional de fábrica do Jeep Compass Longitude", isActive: true },
+  { manufacturer: "Goodyear", brand: "Goodyear", model: "EfficientGrip SUV", size: "235/50R19", width: 235, profile: 50, rim: 19, loadIndex: "103", speedIndex: "V", runFlat: false, xl: true, seal: false, tubeless: true, category: "SUV", segment: "PREMIUM", ean: "8990000018", description: "Goodyear EfficientGrip SUV 235/50R19 XL — original de fábrica do BYD Song Plus Premium", isActive: true },
+  { manufacturer: "Goodyear", brand: "Goodyear", model: "EfficientGrip SUV", size: "235/55R18", width: 235, profile: 55, rim: 18, loadIndex: "100", speedIndex: "V", runFlat: false, xl: true, seal: false, tubeless: true, category: "SUV", segment: "PREMIUM", ean: "8990000019", description: "Goodyear EfficientGrip SUV 235/55R18 XL — opcional de fábrica do BYD Song Plus Premium", isActive: true },
+  { manufacturer: "Goodyear", brand: "Goodyear", model: "EfficientGrip SUV", size: "245/45R20", width: 245, profile: 45, rim: 20, loadIndex: "103", speedIndex: "W", runFlat: false, xl: true, seal: false, tubeless: true, category: "SUV", segment: "PREMIUM", ean: "8990000020", description: "Goodyear EfficientGrip SUV 245/45R20 XL — opcional de fábrica do BYD Song Plus Premium", isActive: true },
+];
 
-const TIRE_CATEGORIES_BY_VEHICLE_CATEGORY: Record<
-  VehicleSeed["category"],
-  TireCategoryValue[]
-> = {
-  HATCH: ["PASSEIO", "ESPORTIVO"],
-  SEDAN: ["PASSEIO", "ESPORTIVO"],
-  SUV: ["SUV", "PASSEIO"],
-  PICAPE: ["CAMINHONETE", "SUV"],
-  PERUA: ["PASSEIO", "SUV"],
-  MINIVAN: ["PASSEIO"],
-  COUPE: ["ESPORTIVO", "PASSEIO"],
-};
+export const TIRES: TireSeed[] = [...GENERIC_TIRES, ...REAL_HOMOLOGATION_TIRES];
 
-function tiresForVehicle(vehicle: VehicleSeed): TireSeed[] {
-  const [minRim, maxRim] = RIM_RANGE_BY_VEHICLE_CATEGORY[vehicle.category];
-  const preferredCategories = TIRE_CATEGORIES_BY_VEHICLE_CATEGORY[vehicle.category];
-
-  const byRimAndCategory = TIRES.filter(
-    (tire) =>
-      tire.rim >= minRim &&
-      tire.rim <= maxRim &&
-      preferredCategories.includes(tire.category)
-  );
-
-  if (byRimAndCategory.length >= 2) return byRimAndCategory;
-
-  // Fallback: relaxa a categoria do pneu, mas nunca o aro compatível.
-  return TIRES.filter((tire) => tire.rim >= minRim && tire.rim <= maxRim);
-}
-
-function tireRef(tire: TireSeed): HomologationTireRef {
+function tireRef(size: string, tire: TireSeed): HomologationTireRef {
+  if (tire.size !== size) {
+    throw new Error(`Tamanho inesperado para ${tire.model}: ${tire.size} != ${size}`);
+  }
   return { manufacturer: tire.manufacturer, model: tire.model, size: tire.size };
 }
 
-export const HOMOLOGATIONS: HomologationSeed[] = VEHICLES.flatMap(
-  (vehicle, vehicleIndex) => {
-    const baseCode = MANUFACTURER_CODES[vehicle.manufacturer];
-    const pool = tiresForVehicle(vehicle);
-    // A maioria dos veículos tem uma homologação; alguns têm uma segunda
-    // (revisão/recertificação), variando os dados sem inflar o cadastro.
-    const revisionCount = vehicleIndex % 3 === 0 ? 2 : 1;
-    const yearRange = vehicle.yearEnd - vehicle.yearStart + 1;
+function findRealTire(model: string, size: string): HomologationTireRef {
+  const tire = REAL_HOMOLOGATION_TIRES.find(
+    (t) => t.model === model && t.size === size
+  );
+  if (!tire) {
+    throw new Error(`Pneu real não encontrado: ${model} ${size}`);
+  }
+  return tireRef(size, tire);
+}
 
-    return Array.from({ length: revisionCount }, (_, revisionIndex) => {
-      const offset = (vehicleIndex * 3 + revisionIndex * 2) % pool.length;
-      const original = pool[offset];
+type VehicleHomologationSpec = {
+  vehicleKey: string;
+  year: number;
+  original: { model: string; size: string };
+  optionals?: { model: string; size: string }[];
+  source: string;
+};
 
-      const optionalCandidates = pool.filter(
-        (tire) => tire.size !== original.size
-      );
-      const optionalTarget = optionalCandidates.length === 0 ? 0 : revisionIndex === 0 ? 2 : 1;
+// Uma homologação por veículo, com a medida ORIGINAL pesquisada em fonte
+// real (ver `source`). Medidas opcionais só são incluídas quando a fonte
+// confirmou explicitamente uma segunda opção de fábrica.
+const VEHICLE_HOMOLOGATION_SPECS: VehicleHomologationSpec[] = [
+  { vehicleKey: "Toyota|Corolla|XEi", year: 2024, original: { model: "Turanza ER33 MO", size: "215/50R17" }, source: "Ficha técnica Toyota Corolla 2024 (toyotacomunica.com.br) e carrosnaweb.com.br" },
+  { vehicleKey: "Toyota|Corolla|GLi", year: 2023, original: { model: "EP150", size: "205/55R16" }, source: "Anúncio de peça original Toyota (gopneus.com.br) e mundodoautomovelparapcd.com.br" },
+  { vehicleKey: "Toyota|Hilux|SRX", year: 2024, original: { model: "Dueler H/T", size: "265/60R18" }, source: "Ficha técnica oficial Toyota Hilux 2024 (toyotacomunica.com.br)" },
+  { vehicleKey: "Volkswagen|Golf|GTI", year: 2022, original: { model: "SportContact 6", size: "225/45R17" }, optionals: [{ model: "SportContact 6", size: "225/40R18" }], source: "motorshow.com.br (avaliação) e jantes-e-pneus.com" },
+  { vehicleKey: "Volkswagen|T-Cross|Highline", year: 2024, original: { model: "Turanza T005 MO", size: "205/55R17" }, source: "Ficha técnica oficial VW T-Cross Highline 250 TSI (vw-digital-cdn-br.itd.vw.com.br)" },
+  { vehicleKey: "Honda|Civic|Touring", year: 2023, original: { model: "Turanza ER33 MO", size: "215/50R17" }, source: "Catálogo de peças Honda (honda.com.br) e jantes-e-pneus.com" },
+  { vehicleKey: "Honda|HR-V|EXL", year: 2024, original: { model: "Grandtrek OE", size: "215/60R17" }, source: "mundodoautomovelparapcd.com.br e jantes-e-pneus.com" },
+  { vehicleKey: "BYD|Dolphin|Plus", year: 2024, original: { model: "Comfort Master", size: "205/50R17" }, source: "velocepneus.com (peça original) e rodasdeligaleve.com.br" },
+  { vehicleKey: "BYD|Song Plus|Premium", year: 2024, original: { model: "EfficientGrip SUV", size: "235/50R19" }, optionals: [{ model: "EfficientGrip SUV", size: "235/55R18" }, { model: "EfficientGrip SUV", size: "245/45R20" }], source: "byd.com/br (página oficial) e rodasdeligaleve.com.br" },
+  { vehicleKey: "BMW|320i|M Sport", year: 2023, original: { model: "SportContact 6 MO", size: "225/45R18" }, optionals: [{ model: "SportContact 6 MO", size: "255/35R19" }], source: "Ficha técnica oficial BMW do Brasil (press.bmwgroup.com/brazil)" },
+  { vehicleKey: "BMW|X1|sDrive20i", year: 2024, original: { model: "Latitude Sport 3 MO", size: "225/50R18" }, source: "carrosnaweb.com.br e pneusmalibu.com.br" },
+  { vehicleKey: "Mercedes-Benz|C180|Avantgarde", year: 2023, original: { model: "ContiSportContact 5", size: "225/45R17" }, source: "tireshop.com.br (marcação MO de equipamento original) e gutierrezpneus.com.br" },
+  { vehicleKey: "Hyundai|Creta|Ultimate", year: 2024, original: { model: "Grandtrek OE", size: "215/55R18" }, source: "forumcarros.com.br e magodoscarros.com (ficha técnica 2.0 16V Flex Aut.)" },
+  { vehicleKey: "Chevrolet|Onix|Premier", year: 2023, original: { model: "ContiPowerContact 2", size: "195/55R16" }, source: "blog.acheipneus.com.br (pneu original Onix) e pneusmalibu.com.br" },
+  { vehicleKey: "Fiat|Pulse|Impetus", year: 2024, original: { model: "Cinturato P7 MO", size: "205/50R17" }, source: "2peneus.com.br e pneusmalibu.com.br" },
+  { vehicleKey: "Jeep|Compass|Longitude", year: 2023, original: { model: "Scorpion MO", size: "215/55R17" }, optionals: [{ model: "Scorpion MO", size: "225/55R18" }], source: "pirelli.com.br (catálogo Compass III Longitude) e jantes-e-pneus.com" },
+];
 
-      const optionals: TireSeed[] = [];
-      for (
-        let i = 0;
-        i < optionalCandidates.length && optionals.length < optionalTarget;
-        i++
-      ) {
-        const candidate =
-          optionalCandidates[(offset + i + 1) % optionalCandidates.length];
-        if (!optionals.some((picked) => picked.size === candidate.size)) {
-          optionals.push(candidate);
-        }
-      }
+export const HOMOLOGATIONS: HomologationSeed[] = VEHICLE_HOMOLOGATION_SPECS.map(
+  (spec) => {
+    const [manufacturer, model, version] = spec.vehicleKey.split("|") as [
+      (typeof MANUFACTURERS)[number],
+      string,
+      string,
+    ];
 
-      return {
-        code: revisionIndex === 0 ? baseCode : `${baseCode}-R${revisionIndex + 1}`,
-        vehicle: {
-          manufacturer: vehicle.manufacturer,
-          model: vehicle.model,
-          version: vehicle.version,
-        },
-        year: vehicle.yearStart + (revisionIndex % yearRange),
-        notes:
-          revisionIndex === 0
-            ? "Medida original de fábrica."
-            : "Revisão de homologação.",
-        tires: [
-          { tire: tireRef(original), role: "ORIGINAL" as const },
-          ...optionals.map((tire) => ({
-            tire: tireRef(tire),
-            role: "OPCIONAL" as const,
-          })),
-        ],
-      };
-    });
+    const original = findRealTire(spec.original.model, spec.original.size);
+    const optionals = (spec.optionals ?? []).map((o) =>
+      findRealTire(o.model, o.size)
+    );
+
+    return {
+      code: MANUFACTURER_CODES[manufacturer],
+      vehicle: { manufacturer, model, version },
+      year: spec.year,
+      notes: `Medida original de fábrica. Fonte: ${spec.source}.`,
+      tires: [
+        { tire: original, role: "ORIGINAL" as const },
+        ...optionals.map((tire) => ({ tire, role: "OPCIONAL" as const })),
+      ],
+    };
   }
 );

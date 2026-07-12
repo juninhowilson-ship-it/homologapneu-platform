@@ -1,7 +1,9 @@
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import ScreenshotPreview from "@/components/dev/ScreenshotPreview";
+import AuditoriaPanel from "@/components/dev/AuditoriaPanel";
 import { prisma } from "@/lib/prisma";
+import { obterUltimosCommits } from "@/lib/dev-status";
 import {
   EPICS,
   STATUS_LABEL,
@@ -21,25 +23,38 @@ const TELAS = [
   { title: "Homologações", route: "/homologacoes" },
   { title: "Fabricantes", route: "/fabricantes" },
   { title: "Centro Técnico", route: "/centro-tecnico" },
+  { title: "Usuários", route: "/usuarios" },
+  { title: "Relatórios", route: "/relatorios" },
 ];
 
 export default async function DevPage() {
-  const [fabricantes, veiculos, pneus, homologacoes] = await Promise.all([
-    prisma.tireManufacturer.count(),
-    prisma.vehicle.count(),
-    prisma.tire.count(),
-    prisma.homologation.count(),
-  ]);
+  const [fabricantes, marcas, veiculos, pneus, homologacoes, usuarios] =
+    await Promise.all([
+      prisma.tireManufacturer.count(),
+      prisma.manufacturer.count(),
+      prisma.vehicle.count(),
+      prisma.tire.count(),
+      prisma.homologation.count(),
+      prisma.user.count(),
+    ]);
 
   const progresso = calcularProgresso(EPICS);
   const proximosEpics = EPICS.filter((epic) => epic.status === "pendente");
+  const emAndamento = EPICS.filter((epic) => epic.status === "em-andamento");
+  const ultimasMelhorias = EPICS.filter((epic) => epic.status === "concluido")
+    .slice()
+    .sort((a, b) => (a.data < b.data ? 1 : -1))
+    .slice(0, 5);
   const atualizadoEm = new Date().toLocaleString("pt-BR");
+  const commits = obterUltimosCommits(10);
 
   const stats = [
     { label: "Fabricantes", value: fabricantes },
+    { label: "Marcas", value: marcas },
     { label: "Veículos", value: veiculos },
     { label: "Pneus", value: pneus },
     { label: "Homologações", value: homologacoes },
+    { label: "Usuários", value: usuarios },
   ];
 
   return (
@@ -47,8 +62,8 @@ export default async function DevPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-4xl font-bold">Painel de Desenvolvimento</h1>
-            <Badge tone="warning">Somente dev</Badge>
+            <h1 className="text-4xl font-bold">Status do Desenvolvimento</h1>
+            <Badge tone="warning">Somente admin</Badge>
           </div>
           <p className="mt-2 text-muted-foreground">
             Acompanhamento interno do progresso do HomologaPneu. Esta página
@@ -87,7 +102,7 @@ export default async function DevPage() {
 
       <div>
         <h2 className="mb-4 text-lg font-bold">Dados cadastrados</h2>
-        <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-6 md:grid-cols-3 xl:grid-cols-6">
           {stats.map((stat) => (
             <Card key={stat.label}>
               <h3 className="text-muted-foreground">{stat.label}</h3>
@@ -97,44 +112,114 @@ export default async function DevPage() {
         </div>
       </div>
 
-      <div>
-        <h2 className="mb-4 text-lg font-bold">EPICs</h2>
-        <div className="space-y-3">
-          {EPICS.map((epic) => (
-            <Card
-              key={epic.id}
-              className="flex flex-wrap items-center justify-between gap-4"
-            >
-              <div>
-                <p className="font-semibold">{epic.titulo}</p>
-                <p className="text-sm text-muted-foreground">
-                  {epic.descricao}
-                </p>
-              </div>
+      <AuditoriaPanel />
 
-              <div className="flex shrink-0 items-center gap-3">
-                <span className="text-sm text-muted-foreground">
-                  {formatarData(epic.data)}
-                </span>
-                <Badge tone={STATUS_TONE[epic.status]}>
-                  {STATUS_LABEL[epic.status]}
-                </Badge>
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
+        <div>
+          <h2 className="mb-4 text-lg font-bold">Funcionalidades concluídas</h2>
+          <div className="space-y-3">
+            {EPICS.filter((epic) => epic.status === "concluido").map((epic) => (
+              <Card
+                key={epic.id}
+                className="flex flex-wrap items-center justify-between gap-4"
+              >
+                <div>
+                  <p className="font-semibold">{epic.titulo}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {epic.descricao}
+                  </p>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-3">
+                  <span className="text-sm text-muted-foreground">
+                    {formatarData(epic.data)}
+                  </span>
+                  <Badge tone={STATUS_TONE[epic.status]}>
+                    {STATUS_LABEL[epic.status]}
+                  </Badge>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-10">
+          <div>
+            <h2 className="mb-4 text-lg font-bold">Em andamento</h2>
+            {emAndamento.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhum EPIC em andamento no momento.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {emAndamento.map((epic) => (
+                  <Card key={epic.id}>
+                    <p className="font-semibold">{epic.titulo}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {epic.descricao}
+                    </p>
+                  </Card>
+                ))}
               </div>
-            </Card>
-          ))}
+            )}
+          </div>
+
+          <div>
+            <h2 className="mb-4 text-lg font-bold">Roadmap (próximos EPICs)</h2>
+            <ul className="list-disc space-y-2 pl-5">
+              {proximosEpics.map((epic) => (
+                <li key={epic.id}>
+                  <span className="font-semibold">{epic.titulo}</span> —{" "}
+                  {epic.descricao}
+                </li>
+              ))}
+              {proximosEpics.length === 0 && (
+                <li className="list-none text-sm text-muted-foreground">
+                  Nenhum EPIC pendente no roadmap.
+                </li>
+              )}
+            </ul>
+          </div>
         </div>
       </div>
 
-      <div>
-        <h2 className="mb-4 text-lg font-bold">Próximos EPICs</h2>
-        <ul className="list-disc space-y-2 pl-5">
-          {proximosEpics.map((epic) => (
-            <li key={epic.id}>
-              <span className="font-semibold">{epic.titulo}</span> —{" "}
-              {epic.descricao}
-            </li>
-          ))}
-        </ul>
+      <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
+        <div>
+          <h2 className="mb-4 text-lg font-bold">Últimas melhorias</h2>
+          <ul className="space-y-2">
+            {ultimasMelhorias.map((epic) => (
+              <li key={epic.id} className="text-sm">
+                <span className="text-muted-foreground">
+                  {formatarData(epic.data)}
+                </span>{" "}
+                — <span className="font-semibold">{epic.titulo}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <h2 className="mb-4 text-lg font-bold">Últimos commits</h2>
+          {commits.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Histórico de commits não disponível neste ambiente.
+            </p>
+          ) : (
+            <ul className="space-y-2 text-sm">
+              {commits.map((commit) => (
+                <li key={commit.hash} className="flex items-start gap-2">
+                  <code className="shrink-0 rounded bg-surface-muted px-1.5 py-0.5 text-xs">
+                    {commit.hash}
+                  </code>
+                  <span className="flex-1">{commit.message}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {commit.date}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
 
       <div>
