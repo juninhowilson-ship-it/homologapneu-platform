@@ -78,6 +78,7 @@ export default function HomologacoesTable({
 
           <TableTh>Run Flat</TableTh>
           <TableTh>XL</TableTh>
+          <TableTh>Opcionais</TableTh>
           <TableTh>Ações</TableTh>
         </tr>
       </TableHead>
@@ -88,13 +89,18 @@ export default function HomologacoesTable({
             <TableTd className="font-semibold">
               {homologacao.vehicleLabel}
             </TableTd>
-            <TableTd>{homologacao.tireLabel}</TableTd>
+            <TableTd>{homologacao.originalTire?.tireLabel ?? "—"}</TableTd>
             <TableTd>
               <Badge tone="warning">{homologacao.code}</Badge>
             </TableTd>
             <TableTd>{homologacao.year}</TableTd>
-            <TableTd>{homologacao.runFlat ? "Sim" : "Não"}</TableTd>
-            <TableTd>{homologacao.xl ? "Sim" : "Não"}</TableTd>
+            <TableTd>{homologacao.originalTire?.runFlat ? "Sim" : "Não"}</TableTd>
+            <TableTd>{homologacao.originalTire?.xl ? "Sim" : "Não"}</TableTd>
+            <TableTd>
+              {homologacao.optionalTires.length > 0
+                ? `${homologacao.optionalTires.length} pneu(s)`
+                : "—"}
+            </TableTd>
 
             <TableTd>
               <div className="flex gap-2">

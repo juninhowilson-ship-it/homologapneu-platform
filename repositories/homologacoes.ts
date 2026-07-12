@@ -6,7 +6,10 @@ import type { Prisma } from "@prisma/client";
 const withRelations = {
   include: {
     vehicle: { include: { manufacturer: true } },
-    tire: { include: { tireManufacturer: true } },
+    tires: {
+      include: { tire: { include: { tireManufacturer: true } } },
+      orderBy: { role: "asc" },
+    },
   },
 } satisfies Prisma.HomologationDefaultArgs;
 
@@ -25,16 +28,30 @@ export async function listHomologacoes(
       { version: { contains: query.q } },
       { vehicle: { model: { contains: query.q } } },
       { vehicle: { manufacturer: { name: { contains: query.q } } } },
-      { tire: { model: { contains: query.q } } },
-      { tire: { tireManufacturer: { name: { contains: query.q } } } },
+      { tires: { some: { tire: { model: { contains: query.q } } } } },
+      {
+        tires: {
+          some: { tire: { tireManufacturer: { name: { contains: query.q } } } },
+        },
+      },
     ];
   }
 
   if (query.vehicleId) where.vehicleId = query.vehicleId;
-  if (query.tireId) where.tireId = query.tireId;
+
+  const tireCondition: Prisma.HomologationTireWhereInput = {};
+  if (query.tireId) tireCondition.tireId = query.tireId;
+  if (query.runFlat || query.xl) {
+    tireCondition.tire = {
+      ...(query.runFlat ? { runFlat: query.runFlat === "true" } : {}),
+      ...(query.xl ? { xl: query.xl === "true" } : {}),
+    };
+  }
+  if (Object.keys(tireCondition).length > 0) {
+    where.tires = { some: tireCondition };
+  }
+
   if (query.code) where.code = query.code;
-  if (query.runFlat) where.runFlat = query.runFlat === "true";
-  if (query.xl) where.xl = query.xl === "true";
 
   const [data, total] = await Promise.all([
     prisma.homologation.findMany({
@@ -58,14 +75,12 @@ export async function findHomologacaoById(
 
 export async function findHomologacaoByBusinessKey(
   vehicleId: number,
-  tireId: number,
   code: string,
   excludeId?: number
 ): Promise<{ id: number } | null> {
   return prisma.homologation.findFirst({
     where: {
       vehicleId,
-      tireId,
       code,
       ...(excludeId ? { id: { not: excludeId } } : {}),
     },
@@ -73,17 +88,55 @@ export async function findHomologacaoByBusinessKey(
   });
 }
 
+type TireAssignment = { tireId: number; role: "ORIGINAL" | "OPCIONAL" };
+
+type HomologacaoWriteData = {
+  vehicleId: number;
+  code: string;
+  year: number;
+  version: string;
+  engine: string;
+  notes: string | null;
+  tires: TireAssignment[];
+};
+
 export async function createHomologacao(
-  data: Prisma.HomologationUncheckedCreateInput
+  data: HomologacaoWriteData
 ): Promise<HomologacaoRecord> {
-  return prisma.homologation.create({ data, ...withRelations });
+  return prisma.homologation.create({
+    data: {
+      vehicleId: data.vehicleId,
+      code: data.code,
+      year: data.year,
+      version: data.version,
+      engine: data.engine,
+      notes: data.notes,
+      tires: { create: data.tires },
+    },
+    ...withRelations,
+  });
 }
 
 export async function updateHomologacao(
   id: number,
-  data: Prisma.HomologationUncheckedUpdateInput
+  data: HomologacaoWriteData
 ): Promise<HomologacaoRecord> {
-  return prisma.homologation.update({ where: { id }, data, ...withRelations });
+  return prisma.homologation.update({
+    where: { id },
+    data: {
+      vehicleId: data.vehicleId,
+      code: data.code,
+      year: data.year,
+      version: data.version,
+      engine: data.engine,
+      notes: data.notes,
+      tires: {
+        deleteMany: {},
+        create: data.tires,
+      },
+    },
+    ...withRelations,
+  });
 }
 
 export async function deleteHomologacao(id: number): Promise<void> {
@@ -96,6 +149,10 @@ export async function findVehicleById(id: number) {
 
 export async function findTireById(id: number) {
   return prisma.tire.findUnique({ where: { id } });
+}
+
+export async function findTiresByIds(ids: number[]) {
+  return prisma.tire.findMany({ where: { id: { in: ids } } });
 }
 
 export async function listVehicleOptions() {

@@ -108,31 +108,43 @@ async function main() {
     const vehicleKey = `${homologation.vehicle.manufacturer}|${homologation.vehicle.model}|${homologation.vehicle.version}`;
     const vehicleId = vehicleIds.get(vehicleKey);
     const vehicleSeed = vehiclesByKey.get(vehicleKey);
-    const tireId = tireIds.get(
-      `${homologation.tire.manufacturer}|${homologation.tire.model}|${homologation.tire.size}`
-    );
-    if (!vehicleId || !tireId || !vehicleSeed) continue;
+    if (!vehicleId || !vehicleSeed) continue;
+
+    const tireEntries = homologation.tires
+      .map((entry) => ({
+        tireId: tireIds.get(
+          `${entry.tire.manufacturer}|${entry.tire.model}|${entry.tire.size}`
+        ),
+        role: entry.role,
+      }))
+      .filter(
+        (entry): entry is { tireId: number; role: typeof entry.role } =>
+          entry.tireId !== undefined
+      );
+
+    if (tireEntries.length === 0) continue;
 
     const existing = await prisma.homologation.findFirst({
-      where: { vehicleId, tireId, code: homologation.code },
+      where: { vehicleId, code: homologation.code },
     });
-    if (!existing) {
-      await prisma.homologation.create({
-        data: {
-          code: homologation.code,
-          vehicleId,
-          tireId,
-          year: homologation.year,
-          version: vehicleSeed.version,
-          engine: vehicleSeed.engine,
-          originalSize: homologation.originalSize,
-          optionalSize: homologation.optionalSize,
-          runFlat: homologation.runFlat,
-          xl: homologation.xl,
-          notes: homologation.notes,
+    if (existing) continue;
+
+    await prisma.homologation.create({
+      data: {
+        code: homologation.code,
+        vehicleId,
+        year: homologation.year,
+        version: vehicleSeed.version,
+        engine: vehicleSeed.engine,
+        notes: homologation.notes,
+        tires: {
+          create: tireEntries.map((entry) => ({
+            tireId: entry.tireId,
+            role: entry.role,
+          })),
         },
-      });
-    }
+      },
+    });
   }
 }
 

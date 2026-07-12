@@ -120,34 +120,48 @@ model Tire {
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
-  tireManufacturer   TireManufacturer @relation(fields: [tireManufacturerId], references: [id])
-  homologations      Homologation[]
+  tireManufacturer   TireManufacturer   @relation(fields: [tireManufacturerId], references: [id])
+  homologationTires  HomologationTire[]
 
   @@unique([tireManufacturerId, model, size])
   @@map("tires")
 }
 
+enum HomologationTireRole {
+  ORIGINAL
+  OPCIONAL
+}
+
 model Homologation {
-  id           Int      @id @default(autoincrement())
-  code         String
-  vehicleId    Int
-  tireId       Int
-  year         Int
-  version      String
-  engine       String
-  originalSize String
-  optionalSize String?
-  runFlat      Boolean  @default(false)
-  xl           Boolean  @default(false)
-  notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id        Int      @id @default(autoincrement())
+  code      String
+  vehicleId Int
+  year      Int
+  version   String
+  engine    String
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
-  tire    Tire    @relation(fields: [tireId], references: [id])
+  vehicle Vehicle            @relation(fields: [vehicleId], references: [id])
+  tires   HomologationTire[]
 
-  @@unique([vehicleId, tireId, code])
+  @@unique([vehicleId, code])
   @@map("homologations")
+}
+
+model HomologationTire {
+  id             Int                  @id @default(autoincrement())
+  homologationId Int
+  tireId         Int
+  role           HomologationTireRole @default(ORIGINAL)
+  createdAt      DateTime             @default(now())
+
+  homologation Homologation @relation(fields: [homologationId], references: [id], onDelete: Cascade)
+  tire         Tire         @relation(fields: [tireId], references: [id])
+
+  @@unique([homologationId, tireId])
+  @@map("homologation_tires")
 }
 
 model SearchLog {

@@ -1,26 +1,31 @@
 import * as z from "zod";
 
-export const homologacaoFormSchema = z.object({
-  vehicleId: z.number().int().positive("Selecione o veículo"),
-  tireId: z.number().int().positive("Selecione o pneu"),
-  code: z
-    .string()
-    .trim()
-    .min(1, "Código de homologação é obrigatório")
-    .max(10),
-  year: z.number().int().min(1950).max(2100),
-  version: z.string().trim().min(1, "Versão é obrigatória").max(120),
-  engine: z.string().trim().min(1, "Motor é obrigatório").max(80),
-  originalSize: z
-    .string()
-    .trim()
-    .min(1, "Medida original é obrigatória")
-    .max(20),
-  optionalSize: z.string().trim().max(20).optional().or(z.literal("")),
-  runFlat: z.boolean(),
-  xl: z.boolean(),
-  notes: z.string().trim().max(1000).optional().or(z.literal("")),
-});
+export const homologacaoFormSchema = z
+  .object({
+    vehicleId: z.number().int().positive("Selecione o veículo"),
+    code: z
+      .string()
+      .trim()
+      .min(1, "Código de homologação é obrigatório")
+      .max(10),
+    year: z.number().int().min(1950).max(2100),
+    version: z.string().trim().min(1, "Versão é obrigatória").max(120),
+    engine: z.string().trim().min(1, "Motor é obrigatório").max(80),
+    tireOriginalId: z.number().int().positive("Selecione o pneu original"),
+    tireOptionalIds: z.array(z.number().int().positive()),
+    notes: z.string().trim().max(1000).optional().or(z.literal("")),
+  })
+  .refine((data) => !data.tireOptionalIds.includes(data.tireOriginalId), {
+    message: "O pneu opcional não pode ser igual ao pneu original",
+    path: ["tireOptionalIds"],
+  })
+  .refine(
+    (data) => new Set(data.tireOptionalIds).size === data.tireOptionalIds.length,
+    {
+      message: "Pneus opcionais duplicados",
+      path: ["tireOptionalIds"],
+    }
+  );
 
 export type HomologacaoFormValues = z.infer<typeof homologacaoFormSchema>;
 

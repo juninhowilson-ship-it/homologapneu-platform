@@ -57,7 +57,7 @@ function toDTO(record: PneuRecord): Pneu {
     isActive: record.isActive,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
-    homologationsCount: record._count.homologations,
+    homologationsCount: record._count.homologationTires,
   };
 }
 
@@ -169,9 +169,9 @@ export async function deletePneu(id: number): Promise<void> {
     throw new NotFoundError("Pneu não encontrado");
   }
 
-  if (current._count.homologations > 0) {
+  if (current._count.homologationTires > 0) {
     throw new ConflictError(
-      `Não é possível excluir: existem ${current._count.homologations} homologação(ões) associada(s) a este pneu. Marque-o como inativo em vez de excluir.`
+      `Não é possível excluir: existem ${current._count.homologationTires} homologação(ões) associada(s) a este pneu. Marque-o como inativo em vez de excluir.`
     );
   }
 

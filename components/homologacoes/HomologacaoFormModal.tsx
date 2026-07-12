@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Dialog from "@/components/ui/Dialog";
 import Input from "@/components/ui/Input";
 import Select from "@/components/ui/Select";
 import Textarea from "@/components/ui/Textarea";
-import Switch from "@/components/ui/Switch";
 import Button from "@/components/ui/Button";
 import {
   homologacaoFormSchema,
@@ -28,15 +27,12 @@ type Props = {
 
 const DEFAULT_VALUES: HomologacaoFormValues = {
   vehicleId: 0,
-  tireId: 0,
   code: "",
   year: new Date().getFullYear(),
   version: "",
   engine: "",
-  originalSize: "",
-  optionalSize: "",
-  runFlat: false,
-  xl: false,
+  tireOriginalId: 0,
+  tireOptionalIds: [],
   notes: "",
 };
 
@@ -69,15 +65,12 @@ export default function HomologacaoFormModal({
       homologacao
         ? {
             vehicleId: homologacao.vehicleId,
-            tireId: homologacao.tireId,
             code: homologacao.code,
             year: homologacao.year,
             version: homologacao.version,
             engine: homologacao.engine,
-            originalSize: homologacao.originalSize,
-            optionalSize: homologacao.optionalSize ?? "",
-            runFlat: homologacao.runFlat,
-            xl: homologacao.xl,
+            tireOriginalId: homologacao.originalTire?.tireId ?? 0,
+            tireOptionalIds: homologacao.optionalTires.map((t) => t.tireId),
             notes: homologacao.notes ?? "",
           }
         : DEFAULT_VALUES
@@ -85,6 +78,7 @@ export default function HomologacaoFormModal({
   }, [open, homologacao, reset]);
 
   const pending = criar.isPending || atualizar.isPending;
+  const tireOriginalId = useWatch({ control, name: "tireOriginalId" });
 
   function handleVehicleChange(vehicleId: number) {
     const vehicle = opcoes?.veiculos.find((v) => v.id === vehicleId);
@@ -92,15 +86,6 @@ export default function HomologacaoFormModal({
       setValue("version", vehicle.version);
       setValue("engine", vehicle.engine);
       setValue("year", vehicle.yearStart);
-    }
-  }
-
-  function handleTireChange(tireId: number) {
-    const tire = opcoes?.pneus.find((t) => t.id === tireId);
-    if (tire) {
-      setValue("originalSize", tire.size);
-      setValue("runFlat", tire.runFlat);
-      setValue("xl", tire.xl);
     }
   }
 
@@ -114,6 +99,9 @@ export default function HomologacaoFormModal({
       criar.mutate(values, { onSuccess: onClose });
     }
   }
+
+  const pneusOpcionaisDisponiveis =
+    opcoes?.pneus.filter((t) => t.id !== tireOriginalId) ?? [];
 
   return (
     <Dialog
@@ -148,30 +136,6 @@ export default function HomologacaoFormModal({
             )}
           />
 
-          <Controller
-            control={control}
-            name="tireId"
-            render={({ field }) => (
-              <Select
-                label="Pneu"
-                options={
-                  opcoes?.pneus.map((t) => ({
-                    value: String(t.id),
-                    label: t.label,
-                  })) ?? []
-                }
-                disabled={carregandoOpcoes}
-                error={errors.tireId?.message}
-                value={field.value ? String(field.value) : ""}
-                onChange={(event) => {
-                  const id = Number(event.target.value);
-                  field.onChange(id);
-                  handleTireChange(id);
-                }}
-              />
-            )}
-          />
-
           <Input
             label="Código de Homologação"
             error={errors.code?.message}
@@ -196,41 +160,52 @@ export default function HomologacaoFormModal({
             error={errors.engine?.message}
             {...register("engine")}
           />
-
-          <Input
-            label="Medida Original"
-            error={errors.originalSize?.message}
-            {...register("originalSize")}
-          />
-
-          <Input
-            label="Medida Opcional"
-            error={errors.optionalSize?.message}
-            {...register("optionalSize")}
-          />
         </div>
 
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Controller
             control={control}
-            name="runFlat"
+            name="tireOriginalId"
             render={({ field }) => (
-              <Switch
-                label="Run Flat"
-                checked={field.value}
-                onChange={(event) => field.onChange(event.target.checked)}
+              <Select
+                label="Pneu Original"
+                options={
+                  opcoes?.pneus.map((t) => ({
+                    value: String(t.id),
+                    label: t.label,
+                  })) ?? []
+                }
+                disabled={carregandoOpcoes}
+                error={errors.tireOriginalId?.message}
+                value={field.value ? String(field.value) : ""}
+                onChange={(event) => field.onChange(Number(event.target.value))}
               />
             )}
           />
 
           <Controller
             control={control}
-            name="xl"
+            name="tireOptionalIds"
             render={({ field }) => (
-              <Switch
-                label="XL"
-                checked={field.value}
-                onChange={(event) => field.onChange(event.target.checked)}
+              <Select
+                label="Pneus Opcionais"
+                multiple
+                hidePlaceholder
+                options={pneusOpcionaisDisponiveis.map((t) => ({
+                  value: String(t.id),
+                  label: t.label,
+                }))}
+                disabled={carregandoOpcoes}
+                error={errors.tireOptionalIds?.message}
+                value={field.value.map(String)}
+                onChange={(event) => {
+                  const selected = Array.from(
+                    event.target.selectedOptions
+                  ).map((option) => Number(option.value));
+                  field.onChange(selected);
+                }}
+                className="h-auto"
+                size={4}
               />
             )}
           />

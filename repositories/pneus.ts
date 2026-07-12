@@ -6,7 +6,7 @@ import type { Prisma } from "@prisma/client";
 const withRelations = {
   include: {
     tireManufacturer: true,
-    _count: { select: { homologations: true } },
+    _count: { select: { homologationTires: true } },
   },
 } satisfies Prisma.TireDefaultArgs;
 

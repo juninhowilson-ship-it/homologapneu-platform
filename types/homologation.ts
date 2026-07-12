@@ -14,6 +14,7 @@ export type ResultadoPesquisa = {
   veiculoAnoInicial: number;
   veiculoAnoFinal: number;
   veiculoMotorizacao: string;
+  pneuTipo: "ORIGINAL" | "OPCIONAL";
   pneuFabricante: string;
   pneuModelo: string;
   pneuMedida: string;

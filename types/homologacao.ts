@@ -1,20 +1,29 @@
+export type HomologacaoTireRole = "ORIGINAL" | "OPCIONAL";
+
+export type HomologacaoTireItem = {
+  id: number;
+  tireId: number;
+  role: HomologacaoTireRole;
+  tireLabel: string;
+  tireManufacturerName: string;
+  size: string;
+  runFlat: boolean;
+  xl: boolean;
+};
+
 export type Homologacao = {
   id: number;
   code: string;
   vehicleId: number;
   vehicleLabel: string;
   manufacturerName: string;
-  tireId: number;
-  tireLabel: string;
-  tireManufacturerName: string;
   year: number;
   version: string;
   engine: string;
-  originalSize: string;
-  optionalSize: string | null;
-  runFlat: boolean;
-  xl: boolean;
   notes: string | null;
+  tires: HomologacaoTireItem[];
+  originalTire: HomologacaoTireItem | null;
+  optionalTires: HomologacaoTireItem[];
   createdAt: string;
   updatedAt: string;
 };

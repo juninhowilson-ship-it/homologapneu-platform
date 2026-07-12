@@ -3,6 +3,14 @@
 import Dialog from "@/components/ui/Dialog";
 import Badge from "@/components/ui/Badge";
 import Skeleton from "@/components/ui/Skeleton";
+import {
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableTh,
+  TableTd,
+} from "@/components/ui/Table";
 import { useHomologacao } from "@/hooks/useHomologacao";
 
 type Props = {
@@ -58,42 +66,41 @@ export default function HomologacaoDetailModal({ open, onClose, id }: Props) {
               <p className="text-muted-foreground">Motor</p>
               <p className="font-semibold">{homologacao.engine}</p>
             </div>
+          </div>
 
-            <div>
-              <p className="text-muted-foreground">Pneu</p>
-              <p className="font-semibold">{homologacao.tireLabel}</p>
-            </div>
+          <div>
+            <p className="mb-2 text-sm text-muted-foreground">
+              Pneus homologados
+            </p>
 
-            <div>
-              <p className="text-muted-foreground">Fabricante do Pneu</p>
-              <p className="font-semibold">
-                {homologacao.tireManufacturerName}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-muted-foreground">Medida Original</p>
-              <p className="font-semibold">{homologacao.originalSize}</p>
-            </div>
-
-            <div>
-              <p className="text-muted-foreground">Medida Opcional</p>
-              <p className="font-semibold">
-                {homologacao.optionalSize ?? "—"}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-muted-foreground">Run Flat</p>
-              <p className="font-semibold">
-                {homologacao.runFlat ? "Sim" : "Não"}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-muted-foreground">XL</p>
-              <p className="font-semibold">{homologacao.xl ? "Sim" : "Não"}</p>
-            </div>
+            <Table>
+              <TableHead>
+                <tr>
+                  <TableTh>Tipo</TableTh>
+                  <TableTh>Pneu</TableTh>
+                  <TableTh>Medida</TableTh>
+                  <TableTh>Run Flat</TableTh>
+                  <TableTh>XL</TableTh>
+                </tr>
+              </TableHead>
+              <TableBody>
+                {homologacao.tires.map((tire) => (
+                  <TableRow key={tire.id}>
+                    <TableTd>
+                      <Badge tone={tire.role === "ORIGINAL" ? "success" : "neutral"}>
+                        {tire.role === "ORIGINAL" ? "Original" : "Opcional"}
+                      </Badge>
+                    </TableTd>
+                    <TableTd className="font-semibold">
+                      {tire.tireLabel}
+                    </TableTd>
+                    <TableTd>{tire.size}</TableTd>
+                    <TableTd>{tire.runFlat ? "Sim" : "Não"}</TableTd>
+                    <TableTd>{tire.xl ? "Sim" : "Não"}</TableTd>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
 
           {homologacao.notes && (

@@ -58,14 +58,14 @@ export async function buscarHomologacoes(
     tireWhere.segment = filtros.segmento;
   }
   if (Object.keys(tireWhere).length > 0) {
-    where.tire = tireWhere;
+    where.tires = { some: { tire: tireWhere } };
   }
 
   const homologacoes = await prisma.homologation.findMany({
     where,
     include: {
       vehicle: { include: { manufacturer: true } },
-      tire: { include: { tireManufacturer: true } },
+      tires: { include: { tire: { include: { tireManufacturer: true } } } },
     },
     orderBy: [
       { vehicle: { manufacturer: { name: "asc" } } },
@@ -75,23 +75,26 @@ export async function buscarHomologacoes(
 
   await registrarBusca(filtros, homologacoes.length);
 
-  return homologacoes.map((homologacao) => ({
-    homologacaoId: homologacao.id,
-    homologacaoCodigo: homologacao.code,
-    homologacaoAno: homologacao.year,
-    veiculoFabricante: homologacao.vehicle.manufacturer.name,
-    veiculoModelo: homologacao.vehicle.model,
-    veiculoAnoInicial: homologacao.vehicle.yearStart,
-    veiculoAnoFinal: homologacao.vehicle.yearEnd,
-    veiculoMotorizacao: homologacao.vehicle.engine,
-    pneuFabricante: homologacao.tire.tireManufacturer.name,
-    pneuModelo: homologacao.tire.model,
-    pneuMedida: homologacao.tire.size,
-    pneuIndiceCarga: homologacao.tire.loadIndex,
-    pneuIndiceVelocidade: homologacao.tire.speedIndex,
-    pneuRunFlat: homologacao.tire.runFlat,
-    pneuXl: homologacao.tire.xl,
-  }));
+  return homologacoes.flatMap((homologacao) =>
+    homologacao.tires.map((tireEntry) => ({
+      homologacaoId: homologacao.id,
+      homologacaoCodigo: homologacao.code,
+      homologacaoAno: homologacao.year,
+      veiculoFabricante: homologacao.vehicle.manufacturer.name,
+      veiculoModelo: homologacao.vehicle.model,
+      veiculoAnoInicial: homologacao.vehicle.yearStart,
+      veiculoAnoFinal: homologacao.vehicle.yearEnd,
+      veiculoMotorizacao: homologacao.vehicle.engine,
+      pneuTipo: tireEntry.role,
+      pneuFabricante: tireEntry.tire.tireManufacturer.name,
+      pneuModelo: tireEntry.tire.model,
+      pneuMedida: tireEntry.tire.size,
+      pneuIndiceCarga: tireEntry.tire.loadIndex,
+      pneuIndiceVelocidade: tireEntry.tire.speedIndex,
+      pneuRunFlat: tireEntry.tire.runFlat,
+      pneuXl: tireEntry.tire.xl,
+    }))
+  );
 }
 
 const ROTULOS_FILTRO: Record<string, string> = {

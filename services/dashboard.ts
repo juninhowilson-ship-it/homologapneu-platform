@@ -113,17 +113,18 @@ async function calcularTopFabricantesPneus(): Promise<RankingItem[]> {
 }
 
 async function calcularMedidasMaisHomologadas(): Promise<RankingItem[]> {
-  const grupos = await prisma.homologation.groupBy({
-    by: ["originalSize"],
-    _count: { originalSize: true },
-    orderBy: { _count: { originalSize: "desc" } },
-    take: 8,
+  const registros = await prisma.homologationTire.findMany({
+    select: { tire: { select: { size: true } } },
   });
 
-  return grupos.map((grupo) => ({
-    name: grupo.originalSize,
-    value: grupo._count.originalSize,
-  }));
+  const contagem = new Map<string, number>();
+  for (const registro of registros) {
+    contagem.set(registro.tire.size, (contagem.get(registro.tire.size) ?? 0) + 1);
+  }
+
+  return Array.from(contagem, ([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
 }
 
 async function calcularArosMaisUtilizados(): Promise<RankingItem[]> {

@@ -114,28 +114,36 @@ export default function FichaTecnicaPneu({ id }: Props) {
             <TableHead>
               <tr>
                 <TableTh>Código</TableTh>
+                <TableTh>Tipo</TableTh>
                 <TableTh>Veículo</TableTh>
                 <TableTh>Montadora</TableTh>
                 <TableTh>Ano</TableTh>
-                <TableTh>Medida Original</TableTh>
-                <TableTh>Medida Opcional</TableTh>
               </tr>
             </TableHead>
             <TableBody>
-              {homologacoes.data.map((homologacao) => (
-                <TableRow key={homologacao.id}>
-                  <TableTd>
-                    <Badge tone="warning">{homologacao.code}</Badge>
-                  </TableTd>
-                  <TableTd className="font-semibold">
-                    {homologacao.vehicleLabel}
-                  </TableTd>
-                  <TableTd>{homologacao.manufacturerName}</TableTd>
-                  <TableTd>{homologacao.year}</TableTd>
-                  <TableTd>{homologacao.originalSize}</TableTd>
-                  <TableTd>{homologacao.optionalSize ?? "—"}</TableTd>
-                </TableRow>
-              ))}
+              {homologacoes.data.map((homologacao) => {
+                const tire = homologacao.tires.find((t) => t.tireId === id);
+
+                return (
+                  <TableRow key={homologacao.id}>
+                    <TableTd>
+                      <Badge tone="warning">{homologacao.code}</Badge>
+                    </TableTd>
+                    <TableTd>
+                      {tire && (
+                        <Badge tone={tire.role === "ORIGINAL" ? "success" : "neutral"}>
+                          {tire.role === "ORIGINAL" ? "Original" : "Opcional"}
+                        </Badge>
+                      )}
+                    </TableTd>
+                    <TableTd className="font-semibold">
+                      {homologacao.vehicleLabel}
+                    </TableTd>
+                    <TableTd>{homologacao.manufacturerName}</TableTd>
+                    <TableTd>{homologacao.year}</TableTd>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         )}

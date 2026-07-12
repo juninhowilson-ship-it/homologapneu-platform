@@ -4,7 +4,7 @@ import {
   findHomologacaoById,
   findHomologacaoByBusinessKey,
   findVehicleById,
-  findTireById,
+  findTiresByIds,
   listVehicleOptions as listVehicleOptionsRepo,
   listTireOptions as listTireOptionsRepo,
   createHomologacao as createHomologacaoRepo,
@@ -20,44 +20,56 @@ import type {
 import type {
   Homologacao,
   HomologacaoListResponse,
+  HomologacaoTireItem,
 } from "@/types/homologacao";
 
 function toDTO(record: HomologacaoRecord): Homologacao {
+  const tires: HomologacaoTireItem[] = record.tires.map((entry) => ({
+    id: entry.id,
+    tireId: entry.tireId,
+    role: entry.role,
+    tireLabel: `${entry.tire.tireManufacturer.name} ${entry.tire.model} ${entry.tire.size}`,
+    tireManufacturerName: entry.tire.tireManufacturer.name,
+    size: entry.tire.size,
+    runFlat: entry.tire.runFlat,
+    xl: entry.tire.xl,
+  }));
+
   return {
     id: record.id,
     code: record.code,
     vehicleId: record.vehicleId,
     vehicleLabel: `${record.vehicle.manufacturer.name} ${record.vehicle.model} ${record.vehicle.version}`,
     manufacturerName: record.vehicle.manufacturer.name,
-    tireId: record.tireId,
-    tireLabel: `${record.tire.tireManufacturer.name} ${record.tire.model} ${record.tire.size}`,
-    tireManufacturerName: record.tire.tireManufacturer.name,
     year: record.year,
     version: record.version,
     engine: record.engine,
-    originalSize: record.originalSize,
-    optionalSize: record.optionalSize,
-    runFlat: record.runFlat,
-    xl: record.xl,
     notes: record.notes,
+    tires,
+    originalTire: tires.find((tire) => tire.role === "ORIGINAL") ?? null,
+    optionalTires: tires.filter((tire) => tire.role === "OPCIONAL"),
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
   };
 }
 
 function normalizeInput(input: HomologacaoFormValues) {
+  const optionalIds = Array.from(new Set(input.tireOptionalIds));
+
   return {
     vehicleId: input.vehicleId,
-    tireId: input.tireId,
     code: input.code,
     year: input.year,
     version: input.version,
     engine: input.engine,
-    originalSize: input.originalSize,
-    optionalSize: input.optionalSize ? input.optionalSize : null,
-    runFlat: input.runFlat,
-    xl: input.xl,
     notes: input.notes ? input.notes : null,
+    tires: [
+      { tireId: input.tireOriginalId, role: "ORIGINAL" as const },
+      ...optionalIds.map((tireId) => ({
+        tireId,
+        role: "OPCIONAL" as const,
+      })),
+    ],
   };
 }
 
@@ -68,10 +80,13 @@ async function assertVehicleExists(vehicleId: number) {
   }
 }
 
-async function assertTireExists(tireId: number) {
-  const tire = await findTireById(tireId);
-  if (!tire) {
-    throw new ValidationError("Pneu selecionado não existe");
+async function assertTiresExist(input: HomologacaoFormValues) {
+  const ids = Array.from(
+    new Set([input.tireOriginalId, ...input.tireOptionalIds])
+  );
+  const tires = await findTiresByIds(ids);
+  if (tires.length !== ids.length) {
+    throw new ValidationError("Um ou mais pneus selecionados não existem");
   }
 }
 
@@ -81,13 +96,12 @@ async function assertNoDuplicate(
 ) {
   const existing = await findHomologacaoByBusinessKey(
     input.vehicleId,
-    input.tireId,
     input.code,
     excludeId
   );
   if (existing) {
     throw new ConflictError(
-      "Já existe uma homologação com este veículo, pneu e código"
+      "Já existe uma homologação com este veículo e código"
     );
   }
 }
@@ -142,7 +156,7 @@ export async function createHomologacao(
   input: HomologacaoFormValues
 ): Promise<Homologacao> {
   await assertVehicleExists(input.vehicleId);
-  await assertTireExists(input.tireId);
+  await assertTiresExist(input);
   await assertNoDuplicate(input);
 
   const record = await createHomologacaoRepo(normalizeInput(input));
@@ -159,7 +173,7 @@ export async function updateHomologacao(
   }
 
   await assertVehicleExists(input.vehicleId);
-  await assertTireExists(input.tireId);
+  await assertTiresExist(input);
   await assertNoDuplicate(input, id);
 
   const record = await updateHomologacaoRepo(id, normalizeInput(input));

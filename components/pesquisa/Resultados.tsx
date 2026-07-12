@@ -56,7 +56,10 @@ export default function Resultados({
   return (
     <div className="space-y-6">
       {resultados.map((resultado) => (
-        <ResultadoCard key={resultado.homologacaoId} resultado={resultado} />
+        <ResultadoCard
+          key={`${resultado.homologacaoId}-${resultado.pneuFabricante}-${resultado.pneuModelo}-${resultado.pneuMedida}`}
+          resultado={resultado}
+        />
       ))}
     </div>
   );

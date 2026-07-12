@@ -108,30 +108,36 @@ export default function FichaTecnicaVeiculo({ id }: Props) {
             <TableHead>
               <tr>
                 <TableTh>Código</TableTh>
+                <TableTh>Tipo</TableTh>
                 <TableTh>Pneu</TableTh>
                 <TableTh>Fabricante</TableTh>
-                <TableTh>Medida Original</TableTh>
-                <TableTh>Medida Opcional</TableTh>
+                <TableTh>Medida</TableTh>
                 <TableTh>Run Flat</TableTh>
                 <TableTh>XL</TableTh>
               </tr>
             </TableHead>
             <TableBody>
-              {homologacoes.data.map((homologacao) => (
-                <TableRow key={homologacao.id}>
-                  <TableTd>
-                    <Badge tone="warning">{homologacao.code}</Badge>
-                  </TableTd>
-                  <TableTd className="font-semibold">
-                    {homologacao.tireLabel}
-                  </TableTd>
-                  <TableTd>{homologacao.tireManufacturerName}</TableTd>
-                  <TableTd>{homologacao.originalSize}</TableTd>
-                  <TableTd>{homologacao.optionalSize ?? "—"}</TableTd>
-                  <TableTd>{homologacao.runFlat ? "Sim" : "Não"}</TableTd>
-                  <TableTd>{homologacao.xl ? "Sim" : "Não"}</TableTd>
-                </TableRow>
-              ))}
+              {homologacoes.data.flatMap((homologacao) =>
+                homologacao.tires.map((tire) => (
+                  <TableRow key={tire.id}>
+                    <TableTd>
+                      <Badge tone="warning">{homologacao.code}</Badge>
+                    </TableTd>
+                    <TableTd>
+                      <Badge tone={tire.role === "ORIGINAL" ? "success" : "neutral"}>
+                        {tire.role === "ORIGINAL" ? "Original" : "Opcional"}
+                      </Badge>
+                    </TableTd>
+                    <TableTd className="font-semibold">
+                      {tire.tireLabel}
+                    </TableTd>
+                    <TableTd>{tire.tireManufacturerName}</TableTd>
+                    <TableTd>{tire.size}</TableTd>
+                    <TableTd>{tire.runFlat ? "Sim" : "Não"}</TableTd>
+                    <TableTd>{tire.xl ? "Sim" : "Não"}</TableTd>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         )}

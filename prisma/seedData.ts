@@ -243,6 +243,17 @@ export const TIRES: TireSeed[] = TIRE_LINES.flatMap((line, lineIndex) => {
   }));
 });
 
+type HomologationTireRef = {
+  manufacturer: (typeof TIRE_MANUFACTURERS)[number]["name"];
+  model: string;
+  size: string;
+};
+
+type HomologationTireSeed = {
+  tire: HomologationTireRef;
+  role: "ORIGINAL" | "OPCIONAL";
+};
+
 type HomologationSeed = {
   code: string;
   vehicle: {
@@ -250,17 +261,9 @@ type HomologationSeed = {
     model: string;
     version: string;
   };
-  tire: {
-    manufacturer: (typeof TIRE_MANUFACTURERS)[number]["name"];
-    model: string;
-    size: string;
-  };
   year: number;
-  originalSize: string;
-  optionalSize: string | null;
-  runFlat: boolean;
-  xl: boolean;
   notes: string | null;
+  tires: HomologationTireSeed[];
 };
 
 const MANUFACTURER_CODES: Record<(typeof MANUFACTURERS)[number], string> = {
@@ -276,38 +279,102 @@ const MANUFACTURER_CODES: Record<(typeof MANUFACTURERS)[number], string> = {
   Jeep: "JP",
 };
 
-const TIRES_PER_VEHICLE = 7;
+// Faixa de aro compatível com o porte/categoria do veículo, para evitar
+// combinações irreais (ex.: SUV com pneu de aro 14).
+const RIM_RANGE_BY_VEHICLE_CATEGORY: Record<VehicleSeed["category"], [number, number]> = {
+  HATCH: [14, 16],
+  SEDAN: [15, 17],
+  SUV: [17, 19],
+  PICAPE: [17, 20],
+  PERUA: [15, 17],
+  MINIVAN: [15, 17],
+  COUPE: [18, 20],
+};
+
+const TIRE_CATEGORIES_BY_VEHICLE_CATEGORY: Record<
+  VehicleSeed["category"],
+  TireCategoryValue[]
+> = {
+  HATCH: ["PASSEIO", "ESPORTIVO"],
+  SEDAN: ["PASSEIO", "ESPORTIVO"],
+  SUV: ["SUV", "PASSEIO"],
+  PICAPE: ["CAMINHONETE", "SUV"],
+  PERUA: ["PASSEIO", "SUV"],
+  MINIVAN: ["PASSEIO"],
+  COUPE: ["ESPORTIVO", "PASSEIO"],
+};
+
+function tiresForVehicle(vehicle: VehicleSeed): TireSeed[] {
+  const [minRim, maxRim] = RIM_RANGE_BY_VEHICLE_CATEGORY[vehicle.category];
+  const preferredCategories = TIRE_CATEGORIES_BY_VEHICLE_CATEGORY[vehicle.category];
+
+  const byRimAndCategory = TIRES.filter(
+    (tire) =>
+      tire.rim >= minRim &&
+      tire.rim <= maxRim &&
+      preferredCategories.includes(tire.category)
+  );
+
+  if (byRimAndCategory.length >= 2) return byRimAndCategory;
+
+  // Fallback: relaxa a categoria do pneu, mas nunca o aro compatível.
+  return TIRES.filter((tire) => tire.rim >= minRim && tire.rim <= maxRim);
+}
+
+function tireRef(tire: TireSeed): HomologationTireRef {
+  return { manufacturer: tire.manufacturer, model: tire.model, size: tire.size };
+}
 
 export const HOMOLOGATIONS: HomologationSeed[] = VEHICLES.flatMap(
   (vehicle, vehicleIndex) => {
-    const code = MANUFACTURER_CODES[vehicle.manufacturer];
-    const tireSlice = pickSlice(TIRES, vehicleIndex * 5, TIRES_PER_VEHICLE);
+    const baseCode = MANUFACTURER_CODES[vehicle.manufacturer];
+    const pool = tiresForVehicle(vehicle);
+    // A maioria dos veículos tem uma homologação; alguns têm uma segunda
+    // (revisão/recertificação), variando os dados sem inflar o cadastro.
+    const revisionCount = vehicleIndex % 3 === 0 ? 2 : 1;
+    const yearRange = vehicle.yearEnd - vehicle.yearStart + 1;
 
-    return tireSlice.map((tire, tireIndex) => {
-      const yearRange = vehicle.yearEnd - vehicle.yearStart + 1;
-      const optional = tireSlice[(tireIndex + 1) % tireSlice.length];
+    return Array.from({ length: revisionCount }, (_, revisionIndex) => {
+      const offset = (vehicleIndex * 3 + revisionIndex * 2) % pool.length;
+      const original = pool[offset];
+
+      const optionalCandidates = pool.filter(
+        (tire) => tire.size !== original.size
+      );
+      const optionalTarget = optionalCandidates.length === 0 ? 0 : revisionIndex === 0 ? 2 : 1;
+
+      const optionals: TireSeed[] = [];
+      for (
+        let i = 0;
+        i < optionalCandidates.length && optionals.length < optionalTarget;
+        i++
+      ) {
+        const candidate =
+          optionalCandidates[(offset + i + 1) % optionalCandidates.length];
+        if (!optionals.some((picked) => picked.size === candidate.size)) {
+          optionals.push(candidate);
+        }
+      }
 
       return {
-        code,
+        code: revisionIndex === 0 ? baseCode : `${baseCode}-R${revisionIndex + 1}`,
         vehicle: {
           manufacturer: vehicle.manufacturer,
           model: vehicle.model,
           version: vehicle.version,
         },
-        tire: {
-          manufacturer: tire.manufacturer,
-          model: tire.model,
-          size: tire.size,
-        },
-        year: vehicle.yearStart + (tireIndex % yearRange),
-        originalSize: tire.size,
-        optionalSize:
-          tireIndex % 3 === 0 && optional.size !== tire.size
-            ? optional.size
-            : null,
-        runFlat: tire.runFlat,
-        xl: tire.xl,
-        notes: tireIndex === 0 ? "Medida original de fábrica." : null,
+        year: vehicle.yearStart + (revisionIndex % yearRange),
+        notes:
+          revisionIndex === 0
+            ? "Medida original de fábrica."
+            : "Revisão de homologação.",
+        tires: [
+          { tire: tireRef(original), role: "ORIGINAL" as const },
+          ...optionals.map((tire) => ({
+            tire: tireRef(tire),
+            role: "OPCIONAL" as const,
+          })),
+        ],
       };
     });
   }
