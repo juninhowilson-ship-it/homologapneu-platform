@@ -56,3 +56,11 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@media print {
+  header,
+  aside,
+  .no-print {
+    display: none !important;
+  }
+}

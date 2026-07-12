@@ -80,15 +80,16 @@ export const EPICS: Epic[] = [
     titulo: "Painel de Acompanhamento",
     descricao:
       "Páginas /dev e /roadmap com status dos EPICs, indicadores e pré-visualização das telas.",
-    status: "em-andamento",
+    status: "concluido",
     data: "2026-07-12",
   },
   {
     id: "centro-tecnico",
     titulo: "Centro Técnico",
-    descricao: "Consolidação dos dados técnicos dos pneus por veículo.",
-    status: "pendente",
-    data: "2026-07-19",
+    descricao:
+      "Consulta dupla (por veículo ou por pneu) com ficha técnica consolidada e imprimível.",
+    status: "concluido",
+    data: "2026-07-12",
   },
   {
     id: "dashboard",
