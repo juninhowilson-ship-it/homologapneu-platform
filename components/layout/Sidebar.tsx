@@ -34,6 +34,17 @@ const menus = [
   },
 ];
 
+const menusDev = [
+  {
+    nome: "Painel Dev",
+    rota: "/dev",
+  },
+  {
+    nome: "Roadmap",
+    rota: "/roadmap",
+  },
+];
+
 export default function Sidebar() {
 
   const pathname = usePathname();
@@ -49,6 +60,35 @@ export default function Sidebar() {
       <div className="space-y-3">
 
         {menus.map((item) => (
+
+          <Link
+            key={item.rota}
+            href={item.rota}
+            className={`block p-3 rounded-lg transition
+
+            ${
+              pathname === item.rota
+                ? "bg-brand text-brand-foreground font-bold"
+                : "hover:bg-slate-700"
+            }
+            `}
+          >
+
+            {item.nome}
+
+          </Link>
+
+        ))}
+
+      </div>
+
+      <p className="uppercase text-xs text-gray-400 mb-5 mt-8">
+        Dev
+      </p>
+
+      <div className="space-y-3">
+
+        {menusDev.map((item) => (
 
           <Link
             key={item.rota}
