@@ -9,11 +9,27 @@ import {
   type FabricanteRecord,
 } from "@/repositories/fabricantes";
 import { NotFoundError, ConflictError } from "@/lib/errors";
-import type {
-  FabricanteFormValues,
-  FabricanteListQuery,
+import {
+  fabricanteFormSchema,
+  type FabricanteFormValues,
+  type FabricanteListQuery,
 } from "@/lib/validations/fabricante";
+import { parseBooleanPtBr } from "@/lib/enum-utils";
+import { inferFileType } from "@/lib/importer/parseFile";
+import type { ImportContexto } from "@/lib/importer/context";
+import { diffRecords } from "@/lib/importer/diff";
+import {
+  iniciarLote,
+  finalizarLote,
+  registrarCriacao,
+  registrarAtualizacao,
+  registrarAlteracaoManual,
+} from "@/services/importBatches";
 import type { Fabricante, FabricanteListResponse } from "@/types/fabricante";
+import type {
+  ImportacaoResultado,
+  ImportacaoLinhaResultado,
+} from "@/types/importacao";
 
 function toDTO(record: FabricanteRecord): Fabricante {
   return {
@@ -69,7 +85,8 @@ export async function getFabricante(id: number): Promise<Fabricante> {
 }
 
 export async function createFabricante(
-  input: FabricanteFormValues
+  input: FabricanteFormValues,
+  userId: number | null = null
 ): Promise<Fabricante> {
   const existing = await findFabricanteByName(input.name);
   if (existing) {
@@ -77,12 +94,20 @@ export async function createFabricante(
   }
 
   const record = await createFabricanteRepo(normalizeInput(input));
-  return toDTO(record);
+  const dto = toDTO(record);
+  await registrarAlteracaoManual({
+    entity: "TireManufacturer",
+    entityId: dto.id,
+    action: "CREATE",
+    userId,
+  });
+  return dto;
 }
 
 export async function updateFabricante(
   id: number,
-  input: FabricanteFormValues
+  input: FabricanteFormValues,
+  userId: number | null = null
 ): Promise<Fabricante> {
   const current = await findFabricanteById(id);
   if (!current) {
@@ -94,11 +119,46 @@ export async function updateFabricante(
     throw new ConflictError("Já existe um fabricante com este nome");
   }
 
+  const before = toDTO(current);
   const record = await updateFabricanteRepo(id, normalizeInput(input));
-  return toDTO(record);
+  const after = toDTO(record);
+
+  const changes = diffRecords(
+    {
+      name: before.name,
+      country: before.country,
+      website: before.website,
+      notes: before.notes,
+      isActive: before.isActive,
+      validationStatus: before.validationStatus,
+    },
+    {
+      name: after.name,
+      country: after.country,
+      website: after.website,
+      notes: after.notes,
+      isActive: after.isActive,
+      validationStatus: after.validationStatus,
+    }
+  );
+
+  if (changes) {
+    await registrarAlteracaoManual({
+      entity: "TireManufacturer",
+      entityId: id,
+      action: "UPDATE",
+      userId,
+      changes,
+    });
+  }
+
+  return after;
 }
 
-export async function deleteFabricante(id: number): Promise<void> {
+export async function deleteFabricante(
+  id: number,
+  userId: number | null = null
+): Promise<void> {
   const current = await findFabricanteById(id);
   if (!current) {
     throw new NotFoundError("Fabricante não encontrado");
@@ -111,4 +171,158 @@ export async function deleteFabricante(id: number): Promise<void> {
   }
 
   await deleteFabricanteRepo(id);
+  await registrarAlteracaoManual({
+    entity: "TireManufacturer",
+    entityId: id,
+    action: "DELETE",
+    userId,
+  });
+}
+
+export async function importFabricantes(
+  rows: Record<string, string>[],
+  contexto?: ImportContexto
+): Promise<ImportacaoResultado> {
+  const inicio = Date.now();
+
+  const lote = contexto
+    ? await iniciarLote({
+        fileName: contexto.fileName,
+        fileType: contexto.fileType ?? inferFileType(contexto.fileName),
+        entity: "FABRICANTES_PNEUS",
+        userId: contexto.userId,
+      })
+    : null;
+
+  let criados = 0;
+  let atualizados = 0;
+  let duplicados = 0;
+  const detalhes: ImportacaoLinhaResultado[] = [];
+
+  for (const [index, record] of rows.entries()) {
+    const linha = index + 2;
+    const label = (record.nome ?? "").trim();
+
+    try {
+      const parsed = fabricanteFormSchema.safeParse({
+        name: record.nome,
+        country: record.pais,
+        website: record.site,
+        notes: record.observacoes,
+        logoUrl: record.logo,
+        isActive: parseBooleanPtBr(record.status, true),
+        validationStatus: "NECESSITA_VALIDACAO",
+        source: contexto ? `Importação: ${contexto.fileName}` : "",
+      });
+
+      if (!parsed.success) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: parsed.error.issues.map((issue) => issue.message).join("; "),
+          rotulo: label,
+        });
+        continue;
+      }
+
+      const existing = await findFabricanteByName(parsed.data.name);
+
+      if (existing) {
+        const current = await getFabricante(existing.id);
+
+        const merged: FabricanteFormValues = {
+          ...parsed.data,
+          website: parsed.data.website || current.website || "",
+          notes: parsed.data.notes || current.notes || "",
+          logoUrl: parsed.data.logoUrl || current.logoUrl || "",
+        };
+
+        const changes = diffRecords(
+          {
+            country: current.country,
+            website: current.website,
+            notes: current.notes,
+            isActive: current.isActive,
+          },
+          {
+            country: merged.country,
+            website: merged.website || null,
+            notes: merged.notes || null,
+            isActive: merged.isActive,
+          }
+        );
+
+        if (!changes) {
+          duplicados++;
+          detalhes.push({ linha, status: "duplicado", sucesso: true, rotulo: label });
+          continue;
+        }
+
+        await updateFabricante(existing.id, merged);
+        if (lote) {
+          await registrarAtualizacao(
+            "TireManufacturer",
+            existing.id,
+            lote.id,
+            contexto?.userId ?? null,
+            changes
+          );
+        }
+        atualizados++;
+        detalhes.push({ linha, status: "atualizado", sucesso: true, rotulo: label });
+      } else {
+        const criado = await createFabricante(parsed.data);
+        if (lote) {
+          await registrarCriacao(
+            "TireManufacturer",
+            criado.id,
+            lote.id,
+            contexto?.userId ?? null
+          );
+        }
+        criados++;
+        detalhes.push({ linha, status: "criado", sucesso: true, rotulo: label });
+      }
+    } catch (error) {
+      detalhes.push({
+        linha,
+        status: "erro",
+        sucesso: false,
+        erro: error instanceof Error ? error.message : "Erro desconhecido",
+        rotulo: label,
+      });
+    }
+  }
+
+  const falhas = detalhes.filter((d) => d.status === "erro").length;
+  const sucesso = criados + atualizados;
+
+  if (lote) {
+    await finalizarLote(lote.id, {
+      totalRows: rows.length,
+      importedCount: criados,
+      updatedCount: atualizados,
+      duplicateCount: duplicados,
+      errorCount: falhas,
+      durationMs: Date.now() - inicio,
+      erros: detalhes
+        .filter((d) => d.status === "erro")
+        .map((d) => ({
+          rowNumber: d.linha,
+          message: d.erro ?? "Erro desconhecido",
+          rawData: d.rotulo ? JSON.stringify({ rotulo: d.rotulo }) : null,
+        })),
+    });
+  }
+
+  return {
+    total: rows.length,
+    sucesso,
+    criados,
+    atualizados,
+    duplicados,
+    falhas,
+    detalhes,
+  };
 }

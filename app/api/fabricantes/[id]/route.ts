@@ -6,6 +6,7 @@ import {
   deleteFabricante,
 } from "@/services/fabricantes";
 import { errorResponse } from "@/lib/api-response";
+import { getCurrentUser } from "@/lib/auth/dal";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -49,7 +50,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    const fabricante = await updateFabricante(id, parsed.data);
+    const user = await getCurrentUser();
+    const fabricante = await updateFabricante(id, parsed.data, user?.id ?? null);
     return NextResponse.json(fabricante);
   } catch (error) {
     return errorResponse(error);
@@ -65,7 +67,8 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    await deleteFabricante(id);
+    const user = await getCurrentUser();
+    await deleteFabricante(id, user?.id ?? null);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return errorResponse(error);
