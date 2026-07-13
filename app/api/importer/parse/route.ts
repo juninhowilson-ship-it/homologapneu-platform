@@ -21,10 +21,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const allowed = /\.(csv|xlsx|xls)$/i.test(file.name);
+  const allowed = /\.(csv|xlsx|xls|ods|json|xml|pdf)$/i.test(file.name);
   if (!allowed) {
     return NextResponse.json(
-      { error: "Formato não suportado. Use CSV, XLSX ou XLS." },
+      { error: "Formato não suportado. Use CSV, XLSX, XLS, ODS, JSON, XML ou PDF." },
       { status: 400 }
     );
   }
@@ -41,9 +41,14 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(parsed);
-  } catch {
+  } catch (error) {
     return NextResponse.json(
-      { error: "Não foi possível ler o arquivo enviado" },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Não foi possível ler o arquivo enviado",
+      },
       { status: 400 }
     );
   }

@@ -27,7 +27,10 @@ type Props = {
   title: string;
   fields: ImportField[];
   templateUrl?: string;
-  onImport: (rows: Record<string, string>[]) => Promise<ImportacaoResultado>;
+  onImport: (
+    rows: Record<string, string>[],
+    fileName: string
+  ) => Promise<ImportacaoResultado>;
 };
 
 function suggestMapping(
@@ -76,6 +79,7 @@ export default function ImportWizard({
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
   const [parsed, setParsed] = useState<ParsedFile | null>(null);
+  const [fileName, setFileName] = useState<string>("");
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportacaoResultado | null>(null);
@@ -86,6 +90,7 @@ export default function ImportWizard({
     setParsing(false);
     setParseError(null);
     setParsed(null);
+    setFileName("");
     setMapping({});
     setImporting(false);
     setResult(null);
@@ -120,6 +125,7 @@ export default function ImportWizard({
       }
 
       setParsed(data);
+      setFileName(file.name);
       setMapping(suggestMapping(data.headers, fields));
       setStep("mapping");
     } catch {
@@ -146,7 +152,7 @@ export default function ImportWizard({
 
     try {
       const mappedRows = parsed.rows.map((row) => mapRow(row, mapping, fields));
-      const resultado = await onImport(mappedRows);
+      const resultado = await onImport(mappedRows, fileName);
       setResult(resultado);
       setStep("result");
     } catch (error) {
@@ -166,9 +172,9 @@ export default function ImportWizard({
         {step === "upload" && (
           <div className="space-y-4">
             <p className="text-muted-foreground">
-              Envie um arquivo CSV ou Excel (XLSX). Na próxima etapa você
-              poderá conferir e ajustar o mapeamento das colunas antes de
-              importar.
+              Envie um arquivo CSV, Excel (XLSX), ODS, JSON ou XML. Na
+              próxima etapa você poderá conferir e ajustar o mapeamento das
+              colunas antes de importar.
             </p>
 
             {templateUrl && (
@@ -181,7 +187,7 @@ export default function ImportWizard({
               <input
                 ref={inputRef}
                 type="file"
-                accept=".csv,.xlsx,.xls,text/csv"
+                accept=".csv,.xlsx,.xls,.ods,.json,.xml,text/csv"
                 className="hidden"
                 onChange={handleFileChange}
               />

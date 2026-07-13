@@ -9,12 +9,13 @@ export function useImportarPneus() {
   const { showToast } = useToast();
 
   return async function importarPneus(
-    rows: Record<string, string>[]
+    rows: Record<string, string>[],
+    fileName: string
   ): Promise<ImportacaoResultado> {
     const response = await fetch("/api/pneus/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rows }),
+      body: JSON.stringify({ rows, fileName }),
     });
 
     if (!response.ok) {
