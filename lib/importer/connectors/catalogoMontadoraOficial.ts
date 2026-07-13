@@ -12,9 +12,15 @@ import type { ConnectorFetchResult, ImportConnector } from "./types";
  * 1. Defina MANUFACTURER_CATALOG_API_URL (e MANUFACTURER_CATALOG_API_KEY,
  *    se a fonte exigir autenticação) no ambiente.
  * 2. Implemente fetchRows() consultando o endpoint real e mapeando cada
- *    linha para os campos aceitos por importVeiculos (marca, modelo,
- *    versao, anoInicial, anoFinal, motorizacao, potencia, combustivel,
- *    categoria, segmento, pais, observacoes, status).
+ *    linha para os campos aceitos por importVeiculos:
+ *      obrigatorios — marca, modelo, versao, anoInicial, anoFinal,
+ *        motorizacao, combustivel, categoria;
+ *      opcionais — potencia, torque, codigoInterno, anoFabricacaoInicial,
+ *        anoFabricacaoFinal, categoriaRegulatoria, segmento, plataforma,
+ *        tracao (Dianteira/Traseira/Integral), portas, pais, observacoes,
+ *        status.
+ *    Campos opcionais ausentes preservam o valor ja cadastrado em
+ *    reimportacoes (nunca sao apagados por uma linha incompleta).
  * 3. Ajuste `entity`/`id`/`label` se o catalogo cobrir apenas uma marca
  *    especifica, ou duplique este arquivo por montadora.
  */
