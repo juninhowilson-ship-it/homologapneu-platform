@@ -504,6 +504,12 @@ model ImportBatch {
   /// (distinta de startedAt, que e quando este lote rodou). Null quando
   /// a fonte nao informa.
   collectedAt    DateTime?
+  /// URL do endpoint/pagina de origem, quando existir (arquivos enviados
+  /// manualmente nao tem URL).
+  sourceUrl      String?
+  /// Hash SHA-256 do conteudo importado (linhas brutas), para verificar
+  /// integridade e detectar reimportacoes identicas de uma mesma fonte.
+  importHash     String?
   startedAt      DateTime          @default(now())
   finishedAt     DateTime?
   durationMs     Int?
