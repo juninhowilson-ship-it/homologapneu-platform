@@ -295,10 +295,19 @@ export default function ImportWizard({
         {step === "result" && result && (
           <div className="space-y-4">
             <p className="font-semibold">
-              {result.sucesso} de {result.total} registro(s) importado(s) com
+              {result.sucesso} de {result.total} linha(s) processada(s) com
               sucesso
               {result.falhas > 0 && ` • ${result.falhas} falha(s)`}
             </p>
+
+            <div className="flex flex-wrap gap-2 text-sm">
+              <Badge tone="success">{result.criados} criado(s)</Badge>
+              <Badge tone="neutral">{result.atualizados} atualizado(s)</Badge>
+              <Badge tone="warning">{result.duplicados} sem alteração</Badge>
+              {result.falhas > 0 && (
+                <Badge tone="danger">{result.falhas} com erro</Badge>
+              )}
+            </div>
 
             {result.falhas > 0 && (
               <div className="max-h-60 overflow-y-auto rounded-lg border border-border">

@@ -14,6 +14,7 @@ export type ImportBatchResumo = {
   userName: string | null;
   totalRows: number;
   importedCount: number;
+  updatedCount: number;
   duplicateCount: number;
   errorCount: number;
   startedAt: string;

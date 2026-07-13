@@ -60,3 +60,15 @@ export async function deleteVehicleVersion(id: number) {
 export async function deleteTire(id: number) {
   await prisma.tire.delete({ where: { id } });
 }
+
+export async function deleteManufacturer(id: number) {
+  await prisma.manufacturer.delete({ where: { id } });
+}
+
+export async function deleteTireManufacturer(id: number) {
+  await prisma.tireManufacturer.delete({ where: { id } });
+}
+
+export async function deleteHomologationById(id: number) {
+  await prisma.homologation.delete({ where: { id } });
+}

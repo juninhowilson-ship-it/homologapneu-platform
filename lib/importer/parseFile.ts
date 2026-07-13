@@ -23,6 +23,37 @@ function extensionOf(filename: string): string {
   return filename.toLowerCase().split(".").pop() ?? "";
 }
 
+export type ImportFileTypeValue =
+  | "CSV"
+  | "XLSX"
+  | "ODS"
+  | "JSON"
+  | "XML"
+  | "PDF"
+  | "API";
+
+export function inferFileType(filename: string): ImportFileTypeValue {
+  const ext = extensionOf(filename);
+
+  switch (ext) {
+    case "xlsx":
+    case "xls":
+      return "XLSX";
+    case "ods":
+      return "ODS";
+    case "json":
+      return "JSON";
+    case "xml":
+      return "XML";
+    case "pdf":
+      return "PDF";
+    case "csv":
+      return "CSV";
+    default:
+      return "CSV";
+  }
+}
+
 export async function parseImportFile(
   buffer: ArrayBuffer,
   filename: string

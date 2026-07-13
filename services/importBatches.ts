@@ -9,12 +9,23 @@ import {
   findAuditLogsForBatch,
   deleteVehicleVersion,
   deleteTire,
+  deleteManufacturer,
+  deleteTireManufacturer,
+  deleteHomologationById,
 } from "@/repositories/importBatches";
 import { NotFoundError, ConflictError } from "@/lib/errors";
+import type { ChangeSet } from "@/lib/importer/diff";
 import type { Prisma } from "@prisma/client";
 
 type ImportFileType = Prisma.ImportBatchUncheckedCreateInput["fileType"];
 type ImportEntity = Prisma.ImportBatchUncheckedCreateInput["entity"];
+
+export type AuditableEntity =
+  | "Manufacturer"
+  | "TireManufacturer"
+  | "VehicleVersion"
+  | "Tire"
+  | "Homologation";
 
 export async function iniciarLote(params: {
   fileName: string;
@@ -32,7 +43,7 @@ export async function iniciarLote(params: {
 }
 
 export async function registrarCriacao(
-  entity: "VehicleVersion" | "Tire",
+  entity: AuditableEntity,
   entityId: number,
   importBatchId: number,
   userId: number | null
@@ -46,11 +57,49 @@ export async function registrarCriacao(
   });
 }
 
+export async function registrarAtualizacao(
+  entity: AuditableEntity,
+  entityId: number,
+  importBatchId: number,
+  userId: number | null,
+  changes: ChangeSet | null
+) {
+  await createAuditLog({
+    entity,
+    entityId,
+    action: "UPDATE",
+    importBatchId,
+    userId,
+    changes: changes ? JSON.stringify(changes) : null,
+  });
+}
+
+/**
+ * Auditoria genérica para uso fora do pipeline de importação (CRUD manual
+ * via UI/API). importBatchId fica nulo nesses casos.
+ */
+export async function registrarAlteracaoManual(params: {
+  entity: AuditableEntity;
+  entityId: number;
+  action: "CREATE" | "UPDATE" | "DELETE";
+  userId: number | null;
+  changes?: ChangeSet | null;
+}) {
+  await createAuditLog({
+    entity: params.entity,
+    entityId: params.entityId,
+    action: params.action,
+    userId: params.userId,
+    changes: params.changes ? JSON.stringify(params.changes) : null,
+  });
+}
+
 export async function finalizarLote(
   id: number,
   params: {
     totalRows: number;
     importedCount: number;
+    updatedCount: number;
     duplicateCount: number;
     errorCount: number;
     durationMs: number;
@@ -60,7 +109,7 @@ export async function finalizarLote(
   const status =
     params.errorCount === 0
       ? "CONCLUIDO"
-      : params.importedCount > 0
+      : params.importedCount + params.updatedCount > 0
         ? "CONCLUIDO_COM_ERROS"
         : "FALHOU";
 
@@ -71,6 +120,7 @@ export async function finalizarLote(
   await updateImportBatch(id, {
     totalRows: params.totalRows,
     importedCount: params.importedCount,
+    updatedCount: params.updatedCount,
     duplicateCount: params.duplicateCount,
     errorCount: params.errorCount,
     status,
@@ -90,6 +140,7 @@ export async function listarLotes() {
     userName: lote.user?.name ?? null,
     totalRows: lote.totalRows,
     importedCount: lote.importedCount,
+    updatedCount: lote.updatedCount,
     duplicateCount: lote.duplicateCount,
     errorCount: lote.errorCount,
     startedAt: lote.startedAt.toISOString(),
@@ -114,6 +165,7 @@ export async function obterLote(id: number) {
     userName: lote.user?.name ?? null,
     totalRows: lote.totalRows,
     importedCount: lote.importedCount,
+    updatedCount: lote.updatedCount,
     duplicateCount: lote.duplicateCount,
     errorCount: lote.errorCount,
     startedAt: lote.startedAt.toISOString(),
@@ -132,6 +184,9 @@ export async function obterLote(id: number) {
 const DELETE_BY_ENTITY: Record<string, (id: number) => Promise<void>> = {
   VehicleVersion: deleteVehicleVersion,
   Tire: deleteTire,
+  Manufacturer: deleteManufacturer,
+  TireManufacturer: deleteTireManufacturer,
+  Homologation: deleteHomologationById,
 };
 
 export async function reverterLote(id: number) {
