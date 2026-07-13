@@ -248,6 +248,12 @@ model Tire {
   rim                Int
   loadIndex          String
   speedIndex         String
+  // Referencias normalizadas para os mesmos codigos de loadIndex/speedIndex
+  // acima. Mantidas em paralelo aos campos de texto (usados pelos
+  // formularios/CSV) para nao alterar a interface; preenchidas
+  // automaticamente via find-or-create a cada gravacao.
+  loadIndexId        Int?
+  speedIndexId       Int?
   runFlat            Boolean          @default(false)
   xl                 Boolean          @default(false)
   seal               Boolean          @default(false)
@@ -273,6 +279,8 @@ model Tire {
 
   tireManufacturer   TireManufacturer   @relation(fields: [tireManufacturerId], references: [id])
   tireFamily         TireFamily?        @relation(fields: [tireFamilyId], references: [id])
+  loadIndexRef       LoadIndex?         @relation(fields: [loadIndexId], references: [id])
+  speedIndexRef      SpeedIndex?        @relation(fields: [speedIndexId], references: [id])
   homologationTires  HomologationTire[]
   technologies       TireTechnology[]
   images             TireImage[]
@@ -282,7 +290,37 @@ model Tire {
   @@index([size])
   @@index([category])
   @@index([validationStatus])
+  @@index([loadIndexId])
+  @@index([speedIndexId])
   @@map("tires")
+}
+
+// Tabelas de referencia (normalizacao) para os codigos de indice de carga e
+// velocidade. Nao sao pre-populadas nesta EPIC — cada codigo e
+// registrado (find-or-create) na primeira vez que aparece em um pneu
+// criado manualmente ou importado, junto com a origem que o trouxe.
+model LoadIndex {
+  id         Int      @id @default(autoincrement())
+  code       String   @unique
+  maxLoadKg  Int?
+  source     String?
+  createdAt  DateTime @default(now())
+
+  tires      Tire[]
+
+  @@map("load_indexes")
+}
+
+model SpeedIndex {
+  id           Int      @id @default(autoincrement())
+  code         String   @unique
+  maxSpeedKmh  Int?
+  source       String?
+  createdAt    DateTime @default(now())
+
+  tires        Tire[]
+
+  @@map("speed_indexes")
 }
 
 // Galeria de fotos oficiais do pneu (complementar ao Tire.imageUrl, que
@@ -459,6 +497,13 @@ model ImportBatch {
   updatedCount   Int               @default(0)
   duplicateCount Int               @default(0)
   errorCount     Int               @default(0)
+  /// Versao/identificador da fonte oficial (ex.: "2026.1", ETag, hash do
+  /// catalogo), quando o conector/arquivo informar. Null quando desconhecida.
+  sourceVersion  String?
+  /// Data em que a fonte informa ter publicado/coletado os dados
+  /// (distinta de startedAt, que e quando este lote rodou). Null quando
+  /// a fonte nao informa.
+  collectedAt    DateTime?
   startedAt      DateTime          @default(now())
   finishedAt     DateTime?
   durationMs     Int?
