@@ -50,6 +50,11 @@ const menus = [
     rota: "/usuarios",
     adminOnly: true,
   },
+  {
+    nome: "Administração",
+    rota: "/administracao",
+    adminOnly: true,
+  },
 ];
 
 const menusDev = [

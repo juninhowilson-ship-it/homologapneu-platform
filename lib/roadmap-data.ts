@@ -122,6 +122,30 @@ export const EPICS: Epic[] = [
     status: "pendente",
     data: "2026-07-26",
   },
+  {
+    id: "base-oficial",
+    titulo: "Base Oficial HomologaPneu — Infraestrutura de Dados",
+    descricao:
+      "Modelo de dados normalizado (Montadora → Modelo → Geração → Motor → Versão; Fabricante → Família → Pneu), rastreamento de validação (Necessita Validação/Validado/Rejeitado com fonte e responsável), pipeline de importação multi-formato (CSV/Excel/ODS/JSON/XML, PDF preparado) com lotes auditáveis e reversíveis, e painel administrativo de importação/auditoria/estatísticas.",
+    status: "concluido",
+    data: "2026-07-12",
+  },
+  {
+    id: "postgres-producao",
+    titulo: "Migração para PostgreSQL em Produção",
+    descricao:
+      "SQLite atende o volume atual, mas não escala com segurança para centenas de milhares de veículos e milhões de homologações em produção multiusuário. Migrar o datasource do Prisma para PostgreSQL antes do lançamento.",
+    status: "pendente",
+    data: "2026-08-09",
+  },
+  {
+    id: "importador-pdf-imagens",
+    titulo: "Importador de PDF & Pipeline de Imagens",
+    descricao:
+      "Implementar o parser de PDF (estrutura já preparada em lib/importer/parsers/pdf.ts), criar importadores dedicados para Montadoras e Homologações, e construir a API/UI de upload de fotos por veículo (principal, frontal, traseira, lateral, logotipo).",
+    status: "pendente",
+    data: "2026-08-23",
+  },
 ];
 
 export function calcularProgresso(epics: Epic[]): number {

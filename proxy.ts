@@ -12,6 +12,7 @@ const ADMIN_ONLY_PAGE_PREFIXES = [
   "/relatorios",
   "/dev",
   "/roadmap",
+  "/administracao",
 ];
 
 const ALWAYS_ADMIN_API_PREFIXES = [
@@ -22,6 +23,7 @@ const ALWAYS_ADMIN_API_PREFIXES = [
   "/api/importer",
   "/api/auditoria",
   "/api/status-dev",
+  "/api/import-batches",
 ];
 
 function matchesPrefix(pathname: string, prefixes: string[]) {
