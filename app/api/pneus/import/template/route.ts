@@ -5,6 +5,7 @@ const EXAMPLE_ROW = [
   "Michelin",
   "Michelin",
   "Primacy 4",
+  "Primacy",
   "205",
   "55",
   "16",

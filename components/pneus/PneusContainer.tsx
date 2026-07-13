@@ -48,6 +48,7 @@ const IMPORT_FIELDS: ImportField[] = [
   { key: "fabricante", label: "Fabricante", required: true },
   { key: "marca", label: "Marca" },
   { key: "modelo", label: "Modelo", required: true },
+  { key: "familia", label: "Família" },
   { key: "largura", label: "Largura", required: true },
   { key: "perfil", label: "Perfil", required: true },
   { key: "aro", label: "Aro", required: true },

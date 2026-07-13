@@ -42,6 +42,7 @@ export const PNEU_CSV_HEADERS = [
   "fabricante",
   "marca",
   "modelo",
+  "familia",
   "largura",
   "perfil",
   "aro",

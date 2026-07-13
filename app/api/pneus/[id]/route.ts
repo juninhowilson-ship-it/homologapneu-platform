@@ -47,7 +47,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
   try {
     const user = await getCurrentUser();
-    const pneu = await updatePneu(id, parsed.data, user?.name ?? null);
+    const pneu = await updatePneu(
+      id,
+      parsed.data,
+      user?.name ?? null,
+      user?.id ?? null
+    );
     return NextResponse.json(pneu);
   } catch (error) {
     return errorResponse(error);
@@ -63,7 +68,8 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    await deletePneu(id);
+    const user = await getCurrentUser();
+    await deletePneu(id, user?.id ?? null);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return errorResponse(error);
