@@ -20,11 +20,11 @@ export async function listPneus(
 
   if (query.q) {
     where.OR = [
-      { brand: { contains: query.q } },
-      { model: { contains: query.q } },
-      { size: { contains: query.q } },
-      { ean: { contains: query.q } },
-      { tireManufacturer: { name: { contains: query.q } } },
+      { brand: { contains: query.q, mode: "insensitive" } },
+      { model: { contains: query.q, mode: "insensitive" } },
+      { size: { contains: query.q, mode: "insensitive" } },
+      { ean: { contains: query.q, mode: "insensitive" } },
+      { tireManufacturer: { name: { contains: query.q, mode: "insensitive" } } },
     ];
   }
 

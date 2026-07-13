@@ -18,8 +18,8 @@ export async function listFabricantes(
 
   if (query.q) {
     where.OR = [
-      { name: { contains: query.q } },
-      { country: { contains: query.q } },
+      { name: { contains: query.q, mode: "insensitive" } },
+      { country: { contains: query.q, mode: "insensitive" } },
     ];
   }
 

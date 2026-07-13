@@ -26,18 +26,34 @@ export async function listHomologacoes(
 
   if (query.q) {
     where.OR = [
-      { code: { contains: query.q } },
-      { vehicleVersion: { name: { contains: query.q } } },
-      { vehicleVersion: { vehicleModel: { name: { contains: query.q } } } },
+      { code: { contains: query.q, mode: "insensitive" } },
+      { vehicleVersion: { name: { contains: query.q, mode: "insensitive" } } },
       {
         vehicleVersion: {
-          vehicleModel: { manufacturer: { name: { contains: query.q } } },
+          vehicleModel: { name: { contains: query.q, mode: "insensitive" } },
         },
       },
-      { tires: { some: { tire: { model: { contains: query.q } } } } },
+      {
+        vehicleVersion: {
+          vehicleModel: {
+            manufacturer: { name: { contains: query.q, mode: "insensitive" } },
+          },
+        },
+      },
       {
         tires: {
-          some: { tire: { tireManufacturer: { name: { contains: query.q } } } },
+          some: { tire: { model: { contains: query.q, mode: "insensitive" } } },
+        },
+      },
+      {
+        tires: {
+          some: {
+            tire: {
+              tireManufacturer: {
+                name: { contains: query.q, mode: "insensitive" },
+              },
+            },
+          },
         },
       },
     ];

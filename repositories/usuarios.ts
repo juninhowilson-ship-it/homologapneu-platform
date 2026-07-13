@@ -12,8 +12,8 @@ export async function listUsuarios(
 
   if (query.q) {
     where.OR = [
-      { name: { contains: query.q } },
-      { email: { contains: query.q } },
+      { name: { contains: query.q, mode: "insensitive" } },
+      { email: { contains: query.q, mode: "insensitive" } },
     ];
   }
 

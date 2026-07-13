@@ -37,10 +37,14 @@ export async function listVeiculos(
 
   if (query.q) {
     where.OR = [
-      { name: { contains: query.q } },
-      { vehicleModel: { name: { contains: query.q } } },
-      { engine: { name: { contains: query.q } } },
-      { vehicleModel: { manufacturer: { name: { contains: query.q } } } },
+      { name: { contains: query.q, mode: "insensitive" } },
+      { vehicleModel: { name: { contains: query.q, mode: "insensitive" } } },
+      { engine: { name: { contains: query.q, mode: "insensitive" } } },
+      {
+        vehicleModel: {
+          manufacturer: { name: { contains: query.q, mode: "insensitive" } },
+        },
+      },
     ];
   }
 
