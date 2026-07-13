@@ -63,9 +63,16 @@ export default function HomologacaoDetailModal({ open, onClose, id }: Props) {
             </div>
 
             <div>
-              <p className="text-muted-foreground">Ano</p>
+              <p className="text-muted-foreground">Ano Modelo</p>
               <p className="font-semibold">{homologacao.year}</p>
             </div>
+
+            {homologacao.manufactureYear && (
+              <div>
+                <p className="text-muted-foreground">Ano de Fabricação</p>
+                <p className="font-semibold">{homologacao.manufactureYear}</p>
+              </div>
+            )}
 
             <div>
               <p className="text-muted-foreground">Versão</p>

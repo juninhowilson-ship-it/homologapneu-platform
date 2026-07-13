@@ -116,6 +116,7 @@ type HomologacaoWriteData = {
   vehicleVersionId: number;
   code: string;
   year: number;
+  manufactureYear: number | null;
   notes: string | null;
   validationStatus: Prisma.HomologationUncheckedCreateInput["validationStatus"];
   source: string | null;
@@ -132,6 +133,7 @@ export async function createHomologacao(
       vehicleVersionId: data.vehicleVersionId,
       code: data.code,
       year: data.year,
+      manufactureYear: data.manufactureYear,
       notes: data.notes,
       validationStatus: data.validationStatus,
       source: data.source,
@@ -153,6 +155,7 @@ export async function updateHomologacao(
       vehicleVersionId: data.vehicleVersionId,
       code: data.code,
       year: data.year,
+      manufactureYear: data.manufactureYear,
       notes: data.notes,
       validationStatus: data.validationStatus,
       source: data.source,
@@ -175,8 +178,42 @@ export async function findVehicleVersionById(id: number) {
   return prisma.vehicleVersion.findUnique({ where: { id } });
 }
 
+export async function findVehicleVersionByNaturalKey(
+  manufacturerName: string,
+  modelName: string,
+  versionName: string
+): Promise<{ id: number } | null> {
+  return prisma.vehicleVersion.findFirst({
+    where: {
+      name: { equals: versionName, mode: "insensitive" },
+      vehicleModel: {
+        name: { equals: modelName, mode: "insensitive" },
+        manufacturer: { name: { equals: manufacturerName, mode: "insensitive" } },
+      },
+    },
+    select: { id: true },
+  });
+}
+
 export async function findTireById(id: number) {
   return prisma.tire.findUnique({ where: { id } });
+}
+
+export async function findTireByNaturalKey(
+  manufacturerName: string,
+  model: string,
+  size: string
+): Promise<{ id: number } | null> {
+  return prisma.tire.findFirst({
+    where: {
+      model: { equals: model, mode: "insensitive" },
+      size: { equals: size, mode: "insensitive" },
+      tireManufacturer: {
+        name: { equals: manufacturerName, mode: "insensitive" },
+      },
+    },
+    select: { id: true },
+  });
 }
 
 export async function findTiresByIds(ids: number[]) {

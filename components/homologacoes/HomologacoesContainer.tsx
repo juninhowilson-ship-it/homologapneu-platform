@@ -9,18 +9,34 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import HomologacoesTable from "./HomologacoesTable";
 import HomologacaoFormModal from "./HomologacaoFormModal";
 import HomologacaoDetailModal from "./HomologacaoDetailModal";
+import ImportWizard, { type ImportField } from "@/components/importer/ImportWizard";
 import {
   useHomologacoes,
   type HomologacoesQuery,
 } from "@/hooks/useHomologacoes";
 import { useExcluirHomologacao } from "@/hooks/useHomologacaoMutations";
 import { useHomologacaoOpcoes } from "@/hooks/useHomologacaoOpcoes";
+import { useImportarHomologacoes } from "@/hooks/useImportarHomologacoes";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import type { Homologacao } from "@/types/homologacao";
 
 const SIM_NAO_OPTIONS = [
   { value: "true", label: "Sim" },
   { value: "false", label: "Não" },
+];
+
+const IMPORT_FIELDS: ImportField[] = [
+  { key: "codigo", label: "Código", required: true },
+  { key: "marca", label: "Marca do veículo", required: true },
+  { key: "modelo", label: "Modelo do veículo", required: true },
+  { key: "versao", label: "Versão do veículo", required: true },
+  { key: "anoModelo", label: "Ano Modelo", required: true },
+  { key: "anoFabricacao", label: "Ano de Fabricação" },
+  { key: "pneuOriginalFabricante", label: "Fabricante do Pneu Original", required: true },
+  { key: "pneuOriginalModelo", label: "Modelo do Pneu Original", required: true },
+  { key: "pneuOriginalMedida", label: "Medida do Pneu Original", required: true },
+  { key: "pneusOpcionais", label: "Pneus Opcionais (fabricante|modelo|medida;...)" },
+  { key: "observacoes", label: "Observações" },
 ];
 
 const PAGE_SIZE = 10;
@@ -42,8 +58,10 @@ export default function HomologacoesContainer() {
   }>({ open: false, homologacao: null });
   const [detailId, setDetailId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Homologacao | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const { data: opcoes } = useHomologacaoOpcoes();
+  const importarHomologacoes = useImportarHomologacoes();
 
   const query: HomologacoesQuery = {
     q: debouncedSearch,
@@ -160,12 +178,22 @@ export default function HomologacoesContainer() {
           </div>
         </div>
 
-        <Button
-          type="button"
-          onClick={() => setFormModal({ open: true, homologacao: null })}
-        >
-          + Nova Homologação
-        </Button>
+        <div className="flex gap-3">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setImportOpen(true)}
+          >
+            Importar
+          </Button>
+
+          <Button
+            type="button"
+            onClick={() => setFormModal({ open: true, homologacao: null })}
+          >
+            + Nova Homologação
+          </Button>
+        </div>
       </div>
 
       <HomologacoesTable
@@ -198,6 +226,15 @@ export default function HomologacoesContainer() {
         open={detailId !== null}
         id={detailId}
         onClose={() => setDetailId(null)}
+      />
+
+      <ImportWizard
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        title="Importar Homologações"
+        fields={IMPORT_FIELDS}
+        templateUrl="/api/homologacoes/import/template"
+        onImport={importarHomologacoes}
       />
 
       <ConfirmDialog

@@ -20,6 +20,7 @@ export type Homologacao = {
   vehicleLabel: string;
   manufacturerName: string;
   year: number;
+  manufactureYear: number | null;
   version: string;
   engine: string;
   notes: string | null;

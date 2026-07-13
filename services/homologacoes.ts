@@ -4,7 +4,9 @@ import {
   findHomologacaoById,
   findHomologacaoByBusinessKey,
   findVehicleVersionById,
+  findVehicleVersionByNaturalKey,
   findTiresByIds,
+  findTireByNaturalKey,
   listVehicleOptions as listVehicleOptionsRepo,
   listTireOptions as listTireOptionsRepo,
   createHomologacao as createHomologacaoRepo,
@@ -13,15 +15,30 @@ import {
   type HomologacaoRecord,
 } from "@/repositories/homologacoes";
 import { NotFoundError, ConflictError, ValidationError } from "@/lib/errors";
-import type {
-  HomologacaoFormValues,
-  HomologacaoListQuery,
+import {
+  homologacaoFormSchema,
+  type HomologacaoFormValues,
+  type HomologacaoListQuery,
 } from "@/lib/validations/homologacao";
+import { inferFileType } from "@/lib/importer/parseFile";
+import type { ImportContexto } from "@/lib/importer/context";
+import { diffRecords } from "@/lib/importer/diff";
+import {
+  iniciarLote,
+  finalizarLote,
+  registrarCriacao,
+  registrarAtualizacao,
+  registrarAlteracaoManual,
+} from "@/services/importBatches";
 import type {
   Homologacao,
   HomologacaoListResponse,
   HomologacaoTireItem,
 } from "@/types/homologacao";
+import type {
+  ImportacaoResultado,
+  ImportacaoLinhaResultado,
+} from "@/types/importacao";
 
 function toDTO(record: HomologacaoRecord): Homologacao {
   const tires: HomologacaoTireItem[] = record.tires.map((entry) => ({
@@ -42,6 +59,7 @@ function toDTO(record: HomologacaoRecord): Homologacao {
     vehicleLabel: `${record.vehicleVersion.vehicleModel.manufacturer.name} ${record.vehicleVersion.vehicleModel.name} ${record.vehicleVersion.name}`,
     manufacturerName: record.vehicleVersion.vehicleModel.manufacturer.name,
     year: record.year,
+    manufactureYear: record.manufactureYear,
     version: record.vehicleVersion.name,
     engine: record.vehicleVersion.engine.name,
     notes: record.notes,
@@ -68,6 +86,7 @@ function normalizeInput(
     vehicleVersionId: input.vehicleId,
     code: input.code,
     year: input.year,
+    manufactureYear: input.manufactureYear ?? null,
     notes: input.notes ? input.notes : null,
     validationStatus,
     source: input.source ? input.source : null,
@@ -164,7 +183,8 @@ export async function listOpcoes() {
 
 export async function createHomologacao(
   input: HomologacaoFormValues,
-  validadoPor: string | null = null
+  validadoPor: string | null = null,
+  userId: number | null = null
 ): Promise<Homologacao> {
   await assertVehicleExists(input.vehicleId);
   await assertTiresExist(input);
@@ -173,13 +193,21 @@ export async function createHomologacao(
   const record = await createHomologacaoRepo(
     normalizeInput(input, validadoPor)
   );
-  return toDTO(record);
+  const dto = toDTO(record);
+  await registrarAlteracaoManual({
+    entity: "Homologation",
+    entityId: dto.id,
+    action: "CREATE",
+    userId,
+  });
+  return dto;
 }
 
 export async function updateHomologacao(
   id: number,
   input: HomologacaoFormValues,
-  validadoPor: string | null = null
+  validadoPor: string | null = null,
+  userId: number | null = null
 ): Promise<Homologacao> {
   const current = await findHomologacaoById(id);
   if (!current) {
@@ -190,18 +218,299 @@ export async function updateHomologacao(
   await assertTiresExist(input);
   await assertNoDuplicate(input, id);
 
+  const before = toDTO(current);
   const record = await updateHomologacaoRepo(
     id,
     normalizeInput(input, validadoPor)
   );
-  return toDTO(record);
+  const after = toDTO(record);
+
+  const changes = diffRecords(
+    {
+      code: before.code,
+      year: before.year,
+      manufactureYear: before.manufactureYear,
+      notes: before.notes,
+      validationStatus: before.validationStatus,
+      tireOriginalId: before.originalTire?.tireId ?? null,
+      optionalTires: JSON.stringify(
+        before.optionalTires.map((t) => t.tireId).sort((a, b) => a - b)
+      ),
+    },
+    {
+      code: after.code,
+      year: after.year,
+      manufactureYear: after.manufactureYear,
+      notes: after.notes,
+      validationStatus: after.validationStatus,
+      tireOriginalId: after.originalTire?.tireId ?? null,
+      optionalTires: JSON.stringify(
+        after.optionalTires.map((t) => t.tireId).sort((a, b) => a - b)
+      ),
+    }
+  );
+
+  if (changes) {
+    await registrarAlteracaoManual({
+      entity: "Homologation",
+      entityId: id,
+      action: "UPDATE",
+      userId,
+      changes,
+    });
+  }
+
+  return after;
 }
 
-export async function deleteHomologacao(id: number): Promise<void> {
+export async function deleteHomologacao(
+  id: number,
+  userId: number | null = null
+): Promise<void> {
   const current = await findHomologacaoById(id);
   if (!current) {
     throw new NotFoundError("Homologação não encontrada");
   }
 
   await deleteHomologacaoRepo(id);
+  await registrarAlteracaoManual({
+    entity: "Homologation",
+    entityId: id,
+    action: "DELETE",
+    userId,
+  });
+}
+
+function parseOptionalTiresField(
+  raw: string
+): { manufacturer: string; model: string; size: string }[] {
+  if (!raw.trim()) return [];
+
+  return raw
+    .split(";")
+    .map((group) => group.trim())
+    .filter(Boolean)
+    .map((group) => {
+      const [manufacturer, model, size] = group.split("|").map((p) => p.trim());
+      return { manufacturer: manufacturer ?? "", model: model ?? "", size: size ?? "" };
+    })
+    .filter((g) => g.manufacturer && g.model && g.size);
+}
+
+export async function importHomologacoes(
+  rows: Record<string, string>[],
+  contexto?: ImportContexto
+): Promise<ImportacaoResultado> {
+  const inicio = Date.now();
+
+  const lote = contexto
+    ? await iniciarLote({
+        fileName: contexto.fileName,
+        fileType: contexto.fileType ?? inferFileType(contexto.fileName),
+        entity: "HOMOLOGACOES",
+        userId: contexto.userId,
+      })
+    : null;
+
+  let criados = 0;
+  let atualizados = 0;
+  let duplicados = 0;
+  const detalhes: ImportacaoLinhaResultado[] = [];
+
+  for (const [index, record] of rows.entries()) {
+    const linha = index + 2;
+    const label = `${record.marca ?? ""} ${record.modelo ?? ""} ${record.versao ?? ""} - ${record.codigo ?? ""}`.trim();
+
+    try {
+      const vehicle = await findVehicleVersionByNaturalKey(
+        record.marca ?? "",
+        record.modelo ?? "",
+        record.versao ?? ""
+      );
+      if (!vehicle) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: `Veículo "${record.marca ?? ""} ${record.modelo ?? ""} ${record.versao ?? ""}" não encontrado. Importe os veículos antes das homologações.`,
+          rotulo: label,
+        });
+        continue;
+      }
+
+      const originalTire = await findTireByNaturalKey(
+        record.pneuOriginalFabricante ?? "",
+        record.pneuOriginalModelo ?? "",
+        record.pneuOriginalMedida ?? ""
+      );
+      if (!originalTire) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: `Pneu original "${record.pneuOriginalFabricante ?? ""} ${record.pneuOriginalModelo ?? ""} ${record.pneuOriginalMedida ?? ""}" não encontrado. Importe os pneus antes das homologações.`,
+          rotulo: label,
+        });
+        continue;
+      }
+
+      const optionalGroups = parseOptionalTiresField(record.pneusOpcionais ?? "");
+      const optionalTireIds: number[] = [];
+      let optionalError: string | null = null;
+
+      for (const group of optionalGroups) {
+        const tire = await findTireByNaturalKey(
+          group.manufacturer,
+          group.model,
+          group.size
+        );
+        if (!tire) {
+          optionalError = `Pneu opcional "${group.manufacturer} ${group.model} ${group.size}" não encontrado`;
+          break;
+        }
+        optionalTireIds.push(tire.id);
+      }
+
+      if (optionalError) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: optionalError,
+          rotulo: label,
+        });
+        continue;
+      }
+
+      const parsed = homologacaoFormSchema.safeParse({
+        vehicleId: vehicle.id,
+        code: record.codigo,
+        year: Number(record.anoModelo),
+        manufactureYear: record.anoFabricacao ? Number(record.anoFabricacao) : null,
+        tireOriginalId: originalTire.id,
+        tireOptionalIds: optionalTireIds,
+        notes: record.observacoes,
+        validationStatus: "NECESSITA_VALIDACAO",
+        source: contexto ? `Importação: ${contexto.fileName}` : "",
+      });
+
+      if (!parsed.success) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: parsed.error.issues.map((issue) => issue.message).join("; "),
+          rotulo: label,
+        });
+        continue;
+      }
+
+      const existing = await findHomologacaoByBusinessKey(
+        vehicle.id,
+        parsed.data.code
+      );
+
+      if (existing) {
+        const current = await getHomologacao(existing.id);
+
+        const merged: HomologacaoFormValues = {
+          ...parsed.data,
+          manufactureYear: parsed.data.manufactureYear ?? current.manufactureYear,
+          notes: parsed.data.notes || current.notes || "",
+        };
+
+        const currentOptionalIds = current.optionalTires
+          .map((t) => t.tireId)
+          .sort((a, b) => a - b);
+        const nextOptionalIds = [...merged.tireOptionalIds].sort((a, b) => a - b);
+
+        const changes = diffRecords(
+          {
+            year: current.year,
+            manufactureYear: current.manufactureYear,
+            notes: current.notes,
+            tireOriginalId: current.originalTire?.tireId ?? null,
+            optionalTires: JSON.stringify(currentOptionalIds),
+          },
+          {
+            year: merged.year,
+            manufactureYear: merged.manufactureYear ?? null,
+            notes: merged.notes || null,
+            tireOriginalId: merged.tireOriginalId,
+            optionalTires: JSON.stringify(nextOptionalIds),
+          }
+        );
+
+        if (!changes) {
+          duplicados++;
+          detalhes.push({ linha, status: "duplicado", sucesso: true, rotulo: label });
+          continue;
+        }
+
+        await updateHomologacao(existing.id, merged);
+        if (lote) {
+          await registrarAtualizacao(
+            "Homologation",
+            existing.id,
+            lote.id,
+            contexto?.userId ?? null,
+            changes
+          );
+        }
+        atualizados++;
+        detalhes.push({ linha, status: "atualizado", sucesso: true, rotulo: label });
+      } else {
+        const criado = await createHomologacao(parsed.data);
+        if (lote) {
+          await registrarCriacao(
+            "Homologation",
+            criado.id,
+            lote.id,
+            contexto?.userId ?? null
+          );
+        }
+        criados++;
+        detalhes.push({ linha, status: "criado", sucesso: true, rotulo: label });
+      }
+    } catch (error) {
+      detalhes.push({
+        linha,
+        status: "erro",
+        sucesso: false,
+        erro: error instanceof Error ? error.message : "Erro desconhecido",
+        rotulo: label,
+      });
+    }
+  }
+
+  const falhas = detalhes.filter((d) => d.status === "erro").length;
+  const sucesso = criados + atualizados;
+
+  if (lote) {
+    await finalizarLote(lote.id, {
+      totalRows: rows.length,
+      importedCount: criados,
+      updatedCount: atualizados,
+      duplicateCount: duplicados,
+      errorCount: falhas,
+      durationMs: Date.now() - inicio,
+      erros: detalhes
+        .filter((d) => d.status === "erro")
+        .map((d) => ({
+          rowNumber: d.linha,
+          message: d.erro ?? "Erro desconhecido",
+          rawData: d.rotulo ? JSON.stringify({ rotulo: d.rotulo }) : null,
+        })),
+    });
+  }
+
+  return {
+    total: rows.length,
+    sucesso,
+    criados,
+    atualizados,
+    duplicados,
+    falhas,
+    detalhes,
+  };
 }

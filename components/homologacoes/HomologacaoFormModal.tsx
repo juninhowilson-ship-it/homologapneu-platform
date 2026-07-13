@@ -33,6 +33,7 @@ const DEFAULT_VALUES: HomologacaoFormValues = {
   vehicleId: 0,
   code: "",
   year: new Date().getFullYear(),
+  manufactureYear: null,
   tireOriginalId: 0,
   tireOptionalIds: [],
   notes: "",
@@ -76,6 +77,7 @@ export default function HomologacaoFormModal({
             vehicleId: homologacao.vehicleId,
             code: homologacao.code,
             year: homologacao.year,
+            manufactureYear: homologacao.manufactureYear,
             tireOriginalId: homologacao.originalTire?.tireId ?? 0,
             tireOptionalIds: homologacao.optionalTires.map((t) => t.tireId),
             notes: homologacao.notes ?? "",
@@ -150,10 +152,20 @@ export default function HomologacaoFormModal({
           />
 
           <Input
-            label="Ano"
+            label="Ano Modelo"
             type="number"
             error={errors.year?.message}
             {...register("year", { valueAsNumber: true })}
+          />
+
+          <Input
+            label="Ano de Fabricação"
+            type="number"
+            placeholder="Opcional, se divergir do ano modelo"
+            error={errors.manufactureYear?.message}
+            {...register("manufactureYear", {
+              setValueAs: (v) => (v === "" || v === null ? null : Number(v)),
+            })}
           />
         </div>
 

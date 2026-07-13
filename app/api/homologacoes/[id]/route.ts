@@ -51,7 +51,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
   try {
     const user = await getCurrentUser();
-    const homologacao = await updateHomologacao(id, parsed.data, user?.name ?? null);
+    const homologacao = await updateHomologacao(
+      id,
+      parsed.data,
+      user?.name ?? null,
+      user?.id ?? null
+    );
     return NextResponse.json(homologacao);
   } catch (error) {
     return errorResponse(error);
@@ -67,7 +72,8 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    await deleteHomologacao(id);
+    const user = await getCurrentUser();
+    await deleteHomologacao(id, user?.id ?? null);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return errorResponse(error);

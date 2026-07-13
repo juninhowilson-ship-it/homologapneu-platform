@@ -10,6 +10,7 @@ export const homologacaoFormSchema = z
       .min(1, "Código de homologação é obrigatório")
       .max(10),
     year: z.number().int().min(1950).max(2100),
+    manufactureYear: z.number().int().min(1950).max(2100).nullable().optional(),
     tireOriginalId: z.number().int().positive("Selecione o pneu original"),
     tireOptionalIds: z.array(z.number().int().positive()),
     notes: z.string().trim().max(1000).optional().or(z.literal("")),
