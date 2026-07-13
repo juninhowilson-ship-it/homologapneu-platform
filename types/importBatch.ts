@@ -19,6 +19,8 @@ export type ImportBatchResumo = {
   errorCount: number;
   sourceVersion: string | null;
   collectedAt: string | null;
+  sourceUrl: string | null;
+  importHash: string | null;
   startedAt: string;
   finishedAt: string | null;
   durationMs: number | null;

@@ -18,6 +18,7 @@ import { parseBooleanPtBr } from "@/lib/enum-utils";
 import { inferFileType } from "@/lib/importer/parseFile";
 import type { ImportContexto } from "@/lib/importer/context";
 import { diffRecords } from "@/lib/importer/diff";
+import { computeImportHash } from "@/lib/importer/hash";
 import {
   iniciarLote,
   finalizarLote,
@@ -193,6 +194,8 @@ export async function importFabricantes(
         userId: contexto.userId,
         sourceVersion: contexto.sourceVersion,
         collectedAt: contexto.collectedAt,
+        sourceUrl: contexto.sourceUrl,
+        importHash: computeImportHash(rows),
       })
     : null;
 

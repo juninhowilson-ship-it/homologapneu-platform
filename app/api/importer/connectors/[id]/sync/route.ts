@@ -29,7 +29,8 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
 
   try {
     const user = await getCurrentUser();
-    const { rows, sourceVersion, collectedAt } = await connector.fetchRows();
+    const { rows, sourceVersion, collectedAt, sourceUrl } =
+      await connector.fetchRows();
     const importer = importerFor(connector.entity);
     const resultado = await importer(rows, {
       fileName: `api:${connector.id}`,
@@ -37,6 +38,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
       userId: user?.id ?? null,
       sourceVersion,
       collectedAt,
+      sourceUrl,
     });
     return NextResponse.json(resultado);
   } catch (error) {

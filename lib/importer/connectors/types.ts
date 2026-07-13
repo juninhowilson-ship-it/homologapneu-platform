@@ -8,6 +8,8 @@ export type ConnectorFetchResult = {
   sourceVersion?: string;
   /** Data em que a fonte declara ter publicado/coletado os dados. */
   collectedAt?: Date;
+  /** URL do endpoint efetivamente consultado. */
+  sourceUrl?: string;
 };
 
 /**

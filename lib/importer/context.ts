@@ -12,4 +12,6 @@ export type ImportContexto = {
   /** Data em que a fonte declara ter publicado/coletado os dados,
    * distinta de quando este lote foi efetivamente executado. */
   collectedAt?: Date;
+  /** URL do endpoint/pagina de origem, quando existir. */
+  sourceUrl?: string;
 };
