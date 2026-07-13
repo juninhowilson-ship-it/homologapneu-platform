@@ -1,7 +1,7 @@
-import Link from "next/link";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import LotesImportacaoPanel from "@/components/administracao/LotesImportacaoPanel";
+import ImportadoresPanel from "@/components/administracao/ImportadoresPanel";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -83,12 +83,14 @@ export default async function AdministracaoPage() {
 
       <div>
         <h2 className="mb-4 text-lg font-bold">Importação de arquivos</h2>
-        <Card className="flex flex-wrap items-center justify-between gap-4">
+        <Card className="space-y-4">
           <div>
             <p className="text-muted-foreground">
-              Os importadores de Veículos e Pneus aceitam arquivos CSV, Excel
-              (XLSX), ODS, JSON e XML. Cada importação gera um lote
-              rastreável, listado abaixo, com opção de reversão.
+              Todos os importadores aceitam CSV, Excel (XLSX), ODS, JSON e
+              XML (PDF estruturado com suporte preparado). Cada importação
+              gera um lote rastreável, listado abaixo, com opção de reversão.
+              Importe na ordem: Montadoras/Fabricantes → Veículos/Pneus →
+              Homologações, pois cada etapa referencia a anterior por nome.
             </p>
             <div className="mt-3 flex gap-4 text-sm">
               <span>
@@ -100,20 +102,7 @@ export default async function AdministracaoPage() {
             </div>
           </div>
 
-          <div className="flex shrink-0 gap-3">
-            <Link
-              href="/veiculos"
-              className="rounded-lg bg-brand px-4 py-2 font-semibold text-brand-foreground transition hover:opacity-90"
-            >
-              Importar Veículos
-            </Link>
-            <Link
-              href="/pneus"
-              className="rounded-lg bg-brand px-4 py-2 font-semibold text-brand-foreground transition hover:opacity-90"
-            >
-              Importar Pneus
-            </Link>
-          </div>
+          <ImportadoresPanel />
         </Card>
       </div>
 

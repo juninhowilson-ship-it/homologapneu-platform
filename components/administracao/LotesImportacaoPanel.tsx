@@ -39,6 +39,7 @@ const STATUS_TONE: Record<
 
 const ENTITY_LABEL: Record<string, string> = {
   MONTADORAS: "Montadoras",
+  FABRICANTES_PNEUS: "Fabricantes de Pneus",
   VEICULOS: "Veículos",
   PNEUS: "Pneus",
   HOMOLOGACOES: "Homologações",
@@ -144,7 +145,8 @@ export default function LotesImportacaoPanel() {
             <TableTh>Status</TableTh>
             <TableTh>Usuário</TableTh>
             <TableTh>Total</TableTh>
-            <TableTh>Importados</TableTh>
+            <TableTh>Criados</TableTh>
+            <TableTh>Atualizados</TableTh>
             <TableTh>Duplicados</TableTh>
             <TableTh>Erros</TableTh>
             <TableTh>Iniciado em</TableTh>
@@ -166,6 +168,7 @@ export default function LotesImportacaoPanel() {
               <TableTd>{lote.userName ?? "—"}</TableTd>
               <TableTd>{lote.totalRows}</TableTd>
               <TableTd>{lote.importedCount}</TableTd>
+              <TableTd>{lote.updatedCount}</TableTd>
               <TableTd>{lote.duplicateCount}</TableTd>
               <TableTd>{lote.errorCount}</TableTd>
               <TableTd>{formatDateTime(lote.startedAt)}</TableTd>
