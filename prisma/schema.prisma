@@ -275,6 +275,7 @@ model Tire {
   tireFamily         TireFamily?        @relation(fields: [tireFamilyId], references: [id])
   homologationTires  HomologationTire[]
   technologies       TireTechnology[]
+  images             TireImage[]
 
   @@unique([tireManufacturerId, model, size])
   @@index([tireManufacturerId])
@@ -282,6 +283,23 @@ model Tire {
   @@index([category])
   @@index([validationStatus])
   @@map("tires")
+}
+
+// Galeria de fotos oficiais do pneu (complementar ao Tire.imageUrl, que
+// permanece a foto de capa editavel manualmente). Permite multiplas fotos
+// por fonte, todas rastreaveis por origem.
+model TireImage {
+  id        Int      @id @default(autoincrement())
+  tireId    Int
+  url       String
+  source    String?
+  isCover   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  tire      Tire     @relation(fields: [tireId], references: [id], onDelete: Cascade)
+
+  @@index([tireId])
+  @@map("tire_images")
 }
 
 model Technology {
@@ -410,10 +428,12 @@ enum ImportFileType {
   JSON
   XML
   PDF
+  API
 }
 
 enum ImportEntity {
   MONTADORAS
+  FABRICANTES_PNEUS
   VEICULOS
   PNEUS
   HOMOLOGACOES
@@ -436,6 +456,7 @@ model ImportBatch {
   userId         Int?
   totalRows      Int               @default(0)
   importedCount  Int               @default(0)
+  updatedCount   Int               @default(0)
   duplicateCount Int               @default(0)
   errorCount     Int               @default(0)
   startedAt      DateTime          @default(now())
