@@ -37,10 +37,6 @@ yarn-error.log*
 # vercel
 .vercel
 
-# local sqlite database
-/dev.db
-/dev.db-journal
-
 # user uploads (local dev storage)
 /public/uploads/
 
