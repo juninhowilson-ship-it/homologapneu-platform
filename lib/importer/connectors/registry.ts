@@ -1,22 +1,28 @@
 import "server-only";
 import type { ImportConnector } from "./types";
+import { fipeMontadorasConnector } from "./fipeMontadoras";
+import { catalogoMontadoraOficialConnector } from "./catalogoMontadoraOficial";
+import { catalogoFabricantePneuOficialConnector } from "./catalogoFabricantePneuOficial";
 
 /**
- * Registro de conectores de APIs oficiais para importação automatizada.
+ * Registro de conectores de fontes oficiais para importação automatizada.
  *
- * Nenhum conector está registrado ainda: não há, até o momento, uma fonte
- * pública e oficial única para o catálogo completo de veículos e pneus
- * homologados no Brasil, e este projeto não fabrica integrações contra
- * endpoints que não existem ou não foram confirmados.
+ * - fipe-montadoras: funcional, sem autenticação (API pública da FIPE).
+ * - catalogo-montadora-oficial / catalogo-fabricante-pneu-oficial: estrutura
+ *   pronta, aguardando a definição de uma fonte oficial específica
+ *   (endpoint + credenciais) para cada montadora/fabricante de pneus.
  *
- * Quando uma fonte oficial for definida (ex.: API de um fabricante, do
- * Inmetro, da Fenauto, etc.), implemente `ImportConnector` (types.ts) em um
- * novo arquivo neste diretório e adicione a instância à lista abaixo. O
- * pipeline (rotas /api/importer/connectors e /api/importer/connectors/[id]/sync,
- * rastreamento de lote, deduplicação, log e rollback) já está pronto para
- * recebê-lo sem nenhuma outra mudança.
+ * Para adicionar um novo conector: implemente `ImportConnector` (types.ts)
+ * em um novo arquivo neste diretório e adicione a instância à lista abaixo.
+ * O pipeline (rotas /api/importer/connectors e
+ * /api/importer/connectors/[id]/sync, rastreamento de lote, deduplicação,
+ * log e rollback) já está pronto para recebê-lo sem nenhuma outra mudança.
  */
-export const CONNECTORS: ImportConnector[] = [];
+export const CONNECTORS: ImportConnector[] = [
+  fipeMontadorasConnector,
+  catalogoMontadoraOficialConnector,
+  catalogoFabricantePneuOficialConnector,
+];
 
 export function getConnector(id: string): ImportConnector | undefined {
   return CONNECTORS.find((connector) => connector.id === id);
