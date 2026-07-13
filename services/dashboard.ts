@@ -8,7 +8,7 @@ import type {
 
 async function calcularUltimaAtualizacao(): Promise<string | null> {
   const [veiculo, pneu, homologacao, fabricante] = await Promise.all([
-    prisma.vehicle.aggregate({ _max: { updatedAt: true } }),
+    prisma.vehicleVersion.aggregate({ _max: { updatedAt: true } }),
     prisma.tire.aggregate({ _max: { updatedAt: true } }),
     prisma.homologation.aggregate({ _max: { updatedAt: true } }),
     prisma.tireManufacturer.aggregate({ _max: { updatedAt: true } }),
@@ -38,7 +38,7 @@ async function calcularKpis() {
   ] = await Promise.all([
     prisma.tireManufacturer.count(),
     prisma.manufacturer.count(),
-    prisma.vehicle.count(),
+    prisma.vehicleVersion.count(),
     prisma.tire.count(),
     prisma.homologation.count(),
     prisma.tire.findMany({ select: { size: true }, distinct: ["size"] }),
@@ -58,12 +58,16 @@ async function calcularKpis() {
 
 async function calcularHomologacoesPorFabricante(): Promise<RankingItem[]> {
   const registros = await prisma.homologation.findMany({
-    select: { vehicle: { select: { manufacturer: { select: { name: true } } } } },
+    select: {
+      vehicleVersion: {
+        select: { vehicleModel: { select: { manufacturer: { select: { name: true } } } } },
+      },
+    },
   });
 
   const contagem = new Map<string, number>();
   for (const registro of registros) {
-    const nome = registro.vehicle.manufacturer.name;
+    const nome = registro.vehicleVersion.vehicleModel.manufacturer.name;
     contagem.set(nome, (contagem.get(nome) ?? 0) + 1);
   }
 
@@ -73,23 +77,21 @@ async function calcularHomologacoesPorFabricante(): Promise<RankingItem[]> {
 }
 
 async function calcularTopFabricantesVeiculos(): Promise<RankingItem[]> {
-  const grupos = await prisma.vehicle.groupBy({
-    by: ["manufacturerId"],
-    _count: { manufacturerId: true },
-    orderBy: { _count: { manufacturerId: "desc" } },
-    take: 8,
+  const versoes = await prisma.vehicleVersion.findMany({
+    select: {
+      vehicleModel: { select: { manufacturer: { select: { name: true } } } },
+    },
   });
 
-  const fabricantesInfo = await prisma.manufacturer.findMany({
-    where: { id: { in: grupos.map((g) => g.manufacturerId) } },
-    select: { id: true, name: true },
-  });
-  const nomes = new Map(fabricantesInfo.map((f) => [f.id, f.name]));
+  const contagem = new Map<string, number>();
+  for (const versao of versoes) {
+    const nome = versao.vehicleModel.manufacturer.name;
+    contagem.set(nome, (contagem.get(nome) ?? 0) + 1);
+  }
 
-  return grupos.map((grupo) => ({
-    name: nomes.get(grupo.manufacturerId) ?? "Desconhecido",
-    value: grupo._count.manufacturerId,
-  }));
+  return Array.from(contagem, ([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
 }
 
 async function calcularTopFabricantesPneus(): Promise<RankingItem[]> {
@@ -156,11 +158,12 @@ async function calcularHomologacoesMaisUtilizadas(): Promise<RankingItem[]> {
 }
 
 async function calcularVeiculosComMaisHomologacoes(): Promise<RankingItem[]> {
-  const veiculos = await prisma.vehicle.findMany({
+  const veiculos = await prisma.vehicleVersion.findMany({
     select: {
-      model: true,
-      version: true,
-      manufacturer: { select: { name: true } },
+      name: true,
+      vehicleModel: {
+        select: { name: true, manufacturer: { select: { name: true } } },
+      },
       _count: { select: { homologations: true } },
     },
     orderBy: { homologations: { _count: "desc" } },
@@ -170,13 +173,13 @@ async function calcularVeiculosComMaisHomologacoes(): Promise<RankingItem[]> {
   return veiculos
     .filter((veiculo) => veiculo._count.homologations > 0)
     .map((veiculo) => ({
-      name: `${veiculo.manufacturer.name} ${veiculo.model} ${veiculo.version}`,
+      name: `${veiculo.vehicleModel.manufacturer.name} ${veiculo.vehicleModel.name} ${veiculo.name}`,
       value: veiculo._count.homologations,
     }));
 }
 
 async function calcularDistribuicaoCategoria(): Promise<RankingItem[]> {
-  const grupos = await prisma.vehicle.groupBy({
+  const grupos = await prisma.vehicleVersion.groupBy({
     by: ["category"],
     _count: { category: true },
   });
@@ -187,7 +190,7 @@ async function calcularDistribuicaoCategoria(): Promise<RankingItem[]> {
 }
 
 async function calcularDistribuicaoSegmento(): Promise<RankingItem[]> {
-  const grupos = await prisma.vehicle.groupBy({
+  const grupos = await prisma.vehicleVersion.groupBy({
     by: ["segment"],
     _count: { segment: true },
   });
@@ -199,14 +202,19 @@ async function calcularDistribuicaoSegmento(): Promise<RankingItem[]> {
 }
 
 async function calcularDistribuicaoCombustivel(): Promise<RankingItem[]> {
-  const grupos = await prisma.vehicle.groupBy({
-    by: ["fuel"],
-    _count: { fuel: true },
+  const versoes = await prisma.vehicleVersion.findMany({
+    select: { engine: { select: { fuel: true } } },
   });
 
-  return grupos
-    .map((grupo) => ({ name: grupo.fuel, value: grupo._count.fuel }))
-    .sort((a, b) => b.value - a.value);
+  const contagem = new Map<string, number>();
+  for (const versao of versoes) {
+    const fuel = versao.engine.fuel;
+    contagem.set(fuel, (contagem.get(fuel) ?? 0) + 1);
+  }
+
+  return Array.from(contagem, ([name, value]) => ({ name, value })).sort(
+    (a, b) => b.value - a.value
+  );
 }
 
 async function calcularPesquisasMaisRealizadas(): Promise<RankingItem[]> {

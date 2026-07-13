@@ -20,18 +20,18 @@ export async function listarOpcoesFiltro(): Promise<OpcoesFiltroPesquisa> {
       select: { name: true },
       orderBy: { name: "asc" },
     }),
-    prisma.vehicle.findMany({
-      select: { model: true },
-      distinct: ["model"],
-      orderBy: { model: "asc" },
+    prisma.vehicleModel.findMany({
+      select: { name: true },
+      distinct: ["name"],
+      orderBy: { name: "asc" },
     }),
-    prisma.vehicle.findMany({
+    prisma.vehicleVersion.findMany({
       select: { yearStart: true, yearEnd: true },
     }),
-    prisma.vehicle.findMany({
-      select: { engine: true },
-      distinct: ["engine"],
-      orderBy: { engine: "asc" },
+    prisma.engine.findMany({
+      select: { name: true },
+      distinct: ["name"],
+      orderBy: { name: "asc" },
     }),
     prisma.tire.findMany({
       select: { size: true },
@@ -77,9 +77,9 @@ export async function listarOpcoesFiltro(): Promise<OpcoesFiltroPesquisa> {
 
   return {
     fabricantes: manufacturers.map((m) => m.name),
-    modelos: vehicleModels.map((v) => v.model),
+    modelos: vehicleModels.map((v) => v.name),
     anos: Array.from(anosCobertos).sort((a, b) => b - a),
-    motorizacoes: vehicleEngines.map((v) => v.engine),
+    motorizacoes: vehicleEngines.map((v) => v.name),
     medidas: tireSizes.map((t) => t.size),
     homologacoes: homologationCodes.map((h) => h.code),
     fabricantesPneu: tireManufacturers.map((tm) => tm.name),

@@ -24,6 +24,8 @@ function toDTO(record: FabricanteRecord): Fabricante {
     notes: record.notes,
     logoUrl: record.logoUrl,
     isActive: record.isActive,
+    validationStatus: record.validationStatus,
+    source: record.source,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     tiresCount: record._count.tires,
@@ -38,6 +40,8 @@ function normalizeInput(input: FabricanteFormValues) {
     notes: input.notes ? input.notes : null,
     logoUrl: input.logoUrl ? input.logoUrl : null,
     isActive: input.isActive,
+    validationStatus: input.validationStatus ?? "NECESSITA_VALIDACAO",
+    source: input.source ? input.source : null,
   };
 }
 

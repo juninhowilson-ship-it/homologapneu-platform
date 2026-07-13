@@ -5,6 +5,7 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Dialog from "@/components/ui/Dialog";
 import Input from "@/components/ui/Input";
+import Select from "@/components/ui/Select";
 import Textarea from "@/components/ui/Textarea";
 import Switch from "@/components/ui/Switch";
 import Button from "@/components/ui/Button";
@@ -13,6 +14,10 @@ import {
   fabricanteFormSchema,
   type FabricanteFormValues,
 } from "@/lib/validations/fabricante";
+import {
+  VALIDATION_STATUSES,
+  VALIDATION_STATUS_LABELS,
+} from "@/lib/constants/validacao";
 import {
   useCriarFabricante,
   useAtualizarFabricante,
@@ -32,7 +37,14 @@ const DEFAULT_VALUES: FabricanteFormValues = {
   notes: "",
   logoUrl: "",
   isActive: true,
+  validationStatus: "NECESSITA_VALIDACAO",
+  source: "",
 };
+
+const VALIDATION_STATUS_OPTIONS = VALIDATION_STATUSES.map((value) => ({
+  value,
+  label: VALIDATION_STATUS_LABELS[value],
+}));
 
 export default function FabricanteFormModal({
   open,
@@ -66,6 +78,8 @@ export default function FabricanteFormModal({
             notes: fabricante.notes ?? "",
             logoUrl: fabricante.logoUrl ?? "",
             isActive: fabricante.isActive,
+            validationStatus: fabricante.validationStatus,
+            source: fabricante.source ?? "",
           }
         : DEFAULT_VALUES
     );
@@ -123,6 +137,23 @@ export default function FabricanteFormModal({
             />
           )}
         />
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Select
+            label="Status de Validação"
+            options={VALIDATION_STATUS_OPTIONS}
+            hidePlaceholder
+            error={errors.validationStatus?.message}
+            {...register("validationStatus")}
+          />
+
+          <Input
+            label="Fonte do dado"
+            placeholder="Ex: Site oficial do fabricante"
+            error={errors.source?.message}
+            {...register("source")}
+          />
+        </div>
 
         <Controller
           control={control}

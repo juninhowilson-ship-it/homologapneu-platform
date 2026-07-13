@@ -1,3 +1,5 @@
+import type { ValidationStatus } from "@/lib/constants/validacao";
+
 export type Fabricante = {
   id: number;
   name: string;
@@ -6,6 +8,8 @@ export type Fabricante = {
   notes: string | null;
   logoUrl: string | null;
   isActive: boolean;
+  validationStatus: ValidationStatus;
+  source: string | null;
   createdAt: string;
   updatedAt: string;
   tiresCount: number;

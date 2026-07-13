@@ -10,6 +10,10 @@ import {
   TableTh,
   TableTd,
 } from "@/components/ui/Table";
+import {
+  VALIDATION_STATUS_LABELS,
+  VALIDATION_STATUS_TONE,
+} from "@/lib/constants/validacao";
 import type { Fabricante } from "@/types/fabricante";
 import type { FabricantesQuery } from "@/hooks/useFabricantes";
 
@@ -82,6 +86,7 @@ export default function FabricantesTable({
           ))}
 
           <TableTh>Status</TableTh>
+          <TableTh>Validação</TableTh>
           <TableTh>Pneus</TableTh>
           <TableTh>Ações</TableTh>
         </tr>
@@ -113,6 +118,12 @@ export default function FabricantesTable({
             <TableTd>
               <Badge tone={fabricante.isActive ? "success" : "danger"}>
                 {fabricante.isActive ? "Ativo" : "Inativo"}
+              </Badge>
+            </TableTd>
+
+            <TableTd>
+              <Badge tone={VALIDATION_STATUS_TONE[fabricante.validationStatus]}>
+                {VALIDATION_STATUS_LABELS[fabricante.validationStatus]}
               </Badge>
             </TableTd>
 

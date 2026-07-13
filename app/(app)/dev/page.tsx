@@ -25,6 +25,7 @@ const TELAS = [
   { title: "Centro Técnico", route: "/centro-tecnico" },
   { title: "Usuários", route: "/usuarios" },
   { title: "Relatórios", route: "/relatorios" },
+  { title: "Administração", route: "/administracao" },
 ];
 
 export default async function DevPage() {
@@ -32,7 +33,7 @@ export default async function DevPage() {
     await Promise.all([
       prisma.tireManufacturer.count(),
       prisma.manufacturer.count(),
-      prisma.vehicle.count(),
+      prisma.vehicleVersion.count(),
       prisma.tire.count(),
       prisma.homologation.count(),
       prisma.user.count(),

@@ -1,4 +1,5 @@
 import * as z from "zod";
+import { VALIDATION_STATUSES } from "@/lib/constants/validacao";
 
 export const fabricanteFormSchema = z.object({
   name: z
@@ -22,6 +23,8 @@ export const fabricanteFormSchema = z.object({
     .or(z.literal("")),
   logoUrl: z.string().trim().optional().or(z.literal("")),
   isActive: z.boolean(),
+  validationStatus: z.enum(VALIDATION_STATUSES),
+  source: z.string().trim().max(300).optional().or(z.literal("")),
 });
 
 export type FabricanteFormValues = z.infer<typeof fabricanteFormSchema>;

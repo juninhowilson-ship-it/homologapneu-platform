@@ -45,15 +45,22 @@ async function auditarHomologacoes(): Promise<AuditFinding[]> {
   const findings: AuditFinding[] = [];
   const tires = await prisma.tire.findMany();
   const homologations = await prisma.homologation.findMany({
-    include: { tires: true, vehicle: { include: { manufacturer: true } } },
+    include: {
+      tires: true,
+      vehicleVersion: {
+        include: { vehicleModel: { include: { manufacturer: true } } },
+      },
+    },
   });
 
   for (const h of homologations) {
+    const veiculoLabel = `${h.vehicleVersion.vehicleModel.manufacturer.name} ${h.vehicleVersion.vehicleModel.name} ${h.vehicleVersion.name}`;
+
     if (h.tires.length === 0) {
       findings.push({
         categoria: "Dado órfão",
         severidade: "erro",
-        descricao: `Homologação #${h.id} (${h.vehicle.manufacturer.name} ${h.vehicle.model} ${h.vehicle.version}) não possui nenhum pneu vinculado.`,
+        descricao: `Homologação #${h.id} (${veiculoLabel}) não possui nenhum pneu vinculado.`,
         corrigidoAutomaticamente: false,
       });
       continue;
@@ -65,7 +72,7 @@ async function auditarHomologacoes(): Promise<AuditFinding[]> {
       findings.push({
         categoria: "Homologação inconsistente",
         severidade: "erro",
-        descricao: `Homologação #${h.id} (${h.vehicle.manufacturer.name} ${h.vehicle.model}) não possui pneu ORIGINAL definido. Requer correção manual.`,
+        descricao: `Homologação #${h.id} (${veiculoLabel}) não possui pneu ORIGINAL definido. Requer correção manual.`,
         corrigidoAutomaticamente: false,
       });
     } else if (originais.length > 1) {
@@ -83,14 +90,15 @@ async function auditarHomologacoes(): Promise<AuditFinding[]> {
       });
     }
 
-    const [min, max] = RIM_RANGE_BY_CATEGORY[h.vehicle.category] ?? [13, 22];
+    const [min, max] =
+      RIM_RANGE_BY_CATEGORY[h.vehicleVersion.category] ?? [13, 22];
     for (const entry of h.tires) {
       const tire = tires.find((t) => t.id === entry.tireId);
       if (tire && (tire.rim < min || tire.rim > max)) {
         findings.push({
           categoria: "Pneu incompatível",
           severidade: "erro",
-          descricao: `Homologação #${h.id} (${h.vehicle.model}, categoria ${h.vehicle.category}) usa pneu aro ${tire.rim}, fora da faixa plausível ${min}-${max} para essa categoria.`,
+          descricao: `Homologação #${h.id} (${h.vehicleVersion.vehicleModel.name}, categoria ${h.vehicleVersion.category}) usa pneu aro ${tire.rim}, fora da faixa plausível ${min}-${max} para essa categoria.`,
           corrigidoAutomaticamente: false,
         });
       }
@@ -102,13 +110,16 @@ async function auditarHomologacoes(): Promise<AuditFinding[]> {
 
 async function auditarVersoesDuplicadas(): Promise<AuditFinding[]> {
   const findings: AuditFinding[] = [];
-  const vehicles = await prisma.vehicle.findMany({
-    include: { manufacturer: true },
+  const versions = await prisma.vehicleVersion.findMany({
+    include: {
+      vehicleModel: { include: { manufacturer: true } },
+      engine: true,
+    },
   });
 
-  const porChave = new Map<string, typeof vehicles>();
-  for (const v of vehicles) {
-    const chave = `${v.manufacturerId}|${v.model.trim().toLowerCase()}|${v.version.trim().toLowerCase()}`;
+  const porChave = new Map<string, typeof versions>();
+  for (const v of versions) {
+    const chave = `${v.vehicleModelId}|${v.name.trim().toLowerCase()}`;
     const lista = porChave.get(chave) ?? [];
     lista.push(v);
     porChave.set(chave, lista);
@@ -119,7 +130,7 @@ async function auditarVersoesDuplicadas(): Promise<AuditFinding[]> {
       findings.push({
         categoria: "Versão duplicada",
         severidade: "aviso",
-        descricao: `${lista.length} cadastros para "${lista[0].manufacturer.name} ${lista[0].model} ${lista[0].version}" com motorizações diferentes (${lista.map((v) => v.engine).join(", ")}). Verifique se é intencional.`,
+        descricao: `${lista.length} cadastros para "${lista[0].vehicleModel.manufacturer.name} ${lista[0].vehicleModel.name} ${lista[0].name}" com motorizações diferentes (${lista.map((v) => v.engine.name).join(", ")}). Verifique se é intencional.`,
         corrigidoAutomaticamente: false,
       });
     }
@@ -128,12 +139,40 @@ async function auditarVersoesDuplicadas(): Promise<AuditFinding[]> {
   return findings;
 }
 
-export async function executarAuditoria(): Promise<AuditFinding[]> {
-  const [medidas, homologacoes, versoes] = await Promise.all([
-    auditarMedidasDePneu(),
-    auditarHomologacoes(),
-    auditarVersoesDuplicadas(),
+async function auditarDadosNecessitandoValidacao(): Promise<AuditFinding[]> {
+  const findings: AuditFinding[] = [];
+
+  const [veiculos, pneus, homologacoes] = await Promise.all([
+    prisma.vehicleVersion.count({
+      where: { validationStatus: "NECESSITA_VALIDACAO" },
+    }),
+    prisma.tire.count({ where: { validationStatus: "NECESSITA_VALIDACAO" } }),
+    prisma.homologation.count({
+      where: { validationStatus: "NECESSITA_VALIDACAO" },
+    }),
   ]);
 
-  return [...medidas, ...homologacoes, ...versoes];
+  const total = veiculos + pneus + homologacoes;
+  if (total > 0) {
+    findings.push({
+      categoria: "Necessita Validação",
+      severidade: "aviso",
+      descricao: `${total} registro(s) aguardando validação: ${veiculos} veículo(s), ${pneus} pneu(s), ${homologacoes} homologação(ões). Revise em cada cadastro e marque como Validado quando confirmado.`,
+      corrigidoAutomaticamente: false,
+    });
+  }
+
+  return findings;
+}
+
+export async function executarAuditoria(): Promise<AuditFinding[]> {
+  const [medidas, homologacoes, versoes, necessitandoValidacao] =
+    await Promise.all([
+      auditarMedidasDePneu(),
+      auditarHomologacoes(),
+      auditarVersoesDuplicadas(),
+      auditarDadosNecessitandoValidacao(),
+    ]);
+
+  return [...medidas, ...homologacoes, ...versoes, ...necessitandoValidacao];
 }

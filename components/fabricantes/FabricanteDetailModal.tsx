@@ -3,6 +3,10 @@
 import Dialog from "@/components/ui/Dialog";
 import Badge from "@/components/ui/Badge";
 import Skeleton from "@/components/ui/Skeleton";
+import {
+  VALIDATION_STATUS_LABELS,
+  VALIDATION_STATUS_TONE,
+} from "@/lib/constants/validacao";
 import { useFabricante } from "@/hooks/useFabricante";
 
 type Props = {
@@ -86,6 +90,17 @@ export default function FabricanteDetailModal({ open, onClose, id }: Props) {
           <p className="text-sm text-muted-foreground">
             Pneus cadastrados: {fabricante.tiresCount}
           </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone={VALIDATION_STATUS_TONE[fabricante.validationStatus]}>
+              {VALIDATION_STATUS_LABELS[fabricante.validationStatus]}
+            </Badge>
+            {fabricante.source && (
+              <span className="text-sm text-muted-foreground">
+                Fonte: {fabricante.source}
+              </span>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 gap-4 border-t border-border pt-4 text-sm text-muted-foreground">
             <div>

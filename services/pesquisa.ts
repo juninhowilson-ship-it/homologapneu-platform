@@ -13,12 +13,16 @@ export async function buscarHomologacoes(
     where.code = filtros.homologacao;
   }
 
-  const vehicleWhere: Prisma.VehicleWhereInput = {};
+  const vehicleWhere: Prisma.VehicleVersionWhereInput = {};
+  const vehicleModelWhere: Prisma.VehicleModelWhereInput = {};
   if (filtros.fabricante) {
-    vehicleWhere.manufacturer = { name: filtros.fabricante };
+    vehicleModelWhere.manufacturer = { name: filtros.fabricante };
   }
   if (filtros.modelo) {
-    vehicleWhere.model = filtros.modelo;
+    vehicleModelWhere.name = filtros.modelo;
+  }
+  if (Object.keys(vehicleModelWhere).length > 0) {
+    vehicleWhere.vehicleModel = vehicleModelWhere;
   }
   if (filtros.ano) {
     const ano = Number(filtros.ano);
@@ -26,10 +30,10 @@ export async function buscarHomologacoes(
     vehicleWhere.yearEnd = { gte: ano };
   }
   if (filtros.motorizacao) {
-    vehicleWhere.engine = filtros.motorizacao;
+    vehicleWhere.engine = { name: filtros.motorizacao };
   }
   if (Object.keys(vehicleWhere).length > 0) {
-    where.vehicle = vehicleWhere;
+    where.vehicleVersion = vehicleWhere;
   }
 
   const tireWhere: Prisma.TireWhereInput = {};
@@ -64,12 +68,17 @@ export async function buscarHomologacoes(
   const homologacoes = await prisma.homologation.findMany({
     where,
     include: {
-      vehicle: { include: { manufacturer: true } },
+      vehicleVersion: {
+        include: {
+          vehicleModel: { include: { manufacturer: true } },
+          engine: true,
+        },
+      },
       tires: { include: { tire: { include: { tireManufacturer: true } } } },
     },
     orderBy: [
-      { vehicle: { manufacturer: { name: "asc" } } },
-      { vehicle: { model: "asc" } },
+      { vehicleVersion: { vehicleModel: { manufacturer: { name: "asc" } } } },
+      { vehicleVersion: { vehicleModel: { name: "asc" } } },
     ],
   });
 
@@ -80,11 +89,11 @@ export async function buscarHomologacoes(
       homologacaoId: homologacao.id,
       homologacaoCodigo: homologacao.code,
       homologacaoAno: homologacao.year,
-      veiculoFabricante: homologacao.vehicle.manufacturer.name,
-      veiculoModelo: homologacao.vehicle.model,
-      veiculoAnoInicial: homologacao.vehicle.yearStart,
-      veiculoAnoFinal: homologacao.vehicle.yearEnd,
-      veiculoMotorizacao: homologacao.vehicle.engine,
+      veiculoFabricante: homologacao.vehicleVersion.vehicleModel.manufacturer.name,
+      veiculoModelo: homologacao.vehicleVersion.vehicleModel.name,
+      veiculoAnoInicial: homologacao.vehicleVersion.yearStart,
+      veiculoAnoFinal: homologacao.vehicleVersion.yearEnd,
+      veiculoMotorizacao: homologacao.vehicleVersion.engine.name,
       pneuTipo: tireEntry.role,
       pneuFabricante: tireEntry.tire.tireManufacturer.name,
       pneuModelo: tireEntry.tire.model,
