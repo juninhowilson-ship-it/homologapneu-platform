@@ -252,6 +252,10 @@ model Tire {
   xl                 Boolean          @default(false)
   seal               Boolean          @default(false)
   tubeless           Boolean          @default(true)
+  // Codigo/selo PNCS (Programa Nacional de Conservacao de Combustivel/etiquetagem
+  // Inmetro para pneus). Campo livre ate confirmarmos o formato oficial com o
+  // usuario; permanece null ate ser validado por uma fonte oficial.
+  pncs               String?
   type               TireType         @default(RADIAL)
   category           TireCategory
   segment            TireSegment?
@@ -270,6 +274,7 @@ model Tire {
   tireManufacturer   TireManufacturer   @relation(fields: [tireManufacturerId], references: [id])
   tireFamily         TireFamily?        @relation(fields: [tireFamilyId], references: [id])
   homologationTires  HomologationTire[]
+  technologies       TireTechnology[]
 
   @@unique([tireManufacturerId, model, size])
   @@index([tireManufacturerId])
@@ -277,6 +282,30 @@ model Tire {
   @@index([category])
   @@index([validationStatus])
   @@map("tires")
+}
+
+model Technology {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  tires       TireTechnology[]
+
+  @@map("technologies")
+}
+
+model TireTechnology {
+  tireId       Int
+  technologyId Int
+  createdAt    DateTime @default(now())
+
+  tire       Tire       @relation(fields: [tireId], references: [id], onDelete: Cascade)
+  technology Technology @relation(fields: [technologyId], references: [id], onDelete: Cascade)
+
+  @@id([tireId, technologyId])
+  @@index([technologyId])
+  @@map("tire_technologies")
 }
 
 enum HomologationTireRole {
@@ -288,7 +317,11 @@ model Homologation {
   id               Int              @id @default(autoincrement())
   code             String
   vehicleVersionId Int
+  /// Ano modelo (ano de referencia comercial do veiculo, ex.: "2024").
   year             Int
+  /// Ano de fabricacao (ano civil em que a unidade foi efetivamente
+  /// fabricada; pode divergir do ano modelo). Null ate ser confirmado.
+  manufactureYear  Int?
   notes            String?
   validationStatus ValidationStatus @default(NECESSITA_VALIDACAO)
   source           String?
