@@ -6,6 +6,8 @@ import {
   findPneuByEan,
   findTireManufacturerById,
   findOrCreateTireFamily,
+  findOrCreateTechnology,
+  syncTireTechnologies,
   listTireManufacturers as listTireManufacturersRepo,
   createPneu as createPneuRepo,
   updatePneu as updatePneuRepo,
@@ -75,7 +77,21 @@ function toDTO(record: PneuRecord): Pneu {
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     homologationsCount: record._count.homologationTires,
+    technologies: record.technologies.map((t) => t.technology.name),
   };
+}
+
+async function applyTechnologies(
+  tireId: number,
+  technologyNames: string[] | undefined,
+  source: string | null
+): Promise<void> {
+  if (technologyNames === undefined) return;
+
+  const ids = await Promise.all(
+    technologyNames.map((name) => findOrCreateTechnology(name, source))
+  );
+  await syncTireTechnologies(tireId, Array.from(new Set(ids)));
 }
 
 async function normalizeInput(
@@ -114,6 +130,18 @@ async function normalizeInput(
     validatedBy: validationStatus === "VALIDADO" ? validadoPor : null,
     validatedAt: validationStatus === "VALIDADO" ? new Date() : null,
   };
+}
+
+function parseTechnologiesField(raw: string | undefined): string[] | undefined {
+  if (raw === undefined) return undefined;
+  return Array.from(
+    new Set(
+      raw
+        .split(/[;,]/)
+        .map((name) => name.trim())
+        .filter(Boolean)
+    )
+  );
 }
 
 async function assertTireManufacturerExists(tireManufacturerId: number) {
@@ -173,13 +201,16 @@ export async function listTireManufacturers() {
 export async function createPneu(
   input: PneuFormValues,
   validadoPor: string | null = null,
-  userId: number | null = null
+  userId: number | null = null,
+  technologyNames?: string[]
 ): Promise<Pneu> {
   await assertTireManufacturerExists(input.tireManufacturerId);
   await assertNoDuplicate(input);
 
-  const record = await createPneuRepo(await normalizeInput(input, validadoPor));
-  const dto = toDTO(record);
+  const normalized = await normalizeInput(input, validadoPor);
+  const record = await createPneuRepo(normalized);
+  await applyTechnologies(record.id, technologyNames, normalized.source);
+  const dto = toDTO((await findPneuById(record.id)) ?? record);
   await registrarAlteracaoManual({
     entity: "Tire",
     entityId: dto.id,
@@ -193,7 +224,8 @@ export async function updatePneu(
   id: number,
   input: PneuFormValues,
   validadoPor: string | null = null,
-  userId: number | null = null
+  userId: number | null = null,
+  technologyNames?: string[]
 ): Promise<Pneu> {
   const current = await findPneuById(id);
   if (!current) {
@@ -204,8 +236,10 @@ export async function updatePneu(
   await assertNoDuplicate(input, id);
 
   const before = toDTO(current);
-  const record = await updatePneuRepo(id, await normalizeInput(input, validadoPor));
-  const after = toDTO(record);
+  const normalized = await normalizeInput(input, validadoPor);
+  await updatePneuRepo(id, normalized);
+  await applyTechnologies(id, technologyNames, normalized.source);
+  const after = toDTO((await findPneuById(id)) as PneuRecord);
 
   const changes = diffRecords(
     {
@@ -223,6 +257,7 @@ export async function updatePneu(
       segment: before.segment,
       isActive: before.isActive,
       validationStatus: before.validationStatus,
+      technologies: JSON.stringify([...before.technologies].sort()),
     },
     {
       brand: after.brand,
@@ -239,6 +274,7 @@ export async function updatePneu(
       segment: after.segment,
       isActive: after.isActive,
       validationStatus: after.validationStatus,
+      technologies: JSON.stringify([...after.technologies].sort()),
     }
   );
 
@@ -291,6 +327,8 @@ export async function importPneus(
         fileType: contexto.fileType ?? inferFileType(contexto.fileName),
         entity: "PNEUS",
         userId: contexto.userId,
+        sourceVersion: contexto.sourceVersion,
+        collectedAt: contexto.collectedAt,
       })
     : null;
 
@@ -368,6 +406,7 @@ export async function importPneus(
       }
 
       const size = `${parsed.data.width}/${parsed.data.profile}R${parsed.data.rim}`;
+      const technologyNames = parseTechnologiesField(record.tecnologias);
       const existing = await findPneuByBusinessKey(
         tireManufacturerId,
         parsed.data.model,
@@ -385,6 +424,8 @@ export async function importPneus(
           imageUrl: current.imageUrl || "",
         };
 
+        const nextTechnologies = technologyNames ?? current.technologies;
+
         const changes = diffRecords(
           {
             loadIndex: current.loadIndex,
@@ -398,6 +439,7 @@ export async function importPneus(
             ean: current.ean,
             description: current.description,
             isActive: current.isActive,
+            technologies: JSON.stringify([...current.technologies].sort()),
           },
           {
             loadIndex: merged.loadIndex,
@@ -411,6 +453,7 @@ export async function importPneus(
             ean: merged.ean || null,
             description: merged.description || null,
             isActive: merged.isActive,
+            technologies: JSON.stringify([...nextTechnologies].sort()),
           }
         );
 
@@ -420,7 +463,7 @@ export async function importPneus(
           continue;
         }
 
-        await updatePneu(existing.id, merged);
+        await updatePneu(existing.id, merged, null, null, technologyNames);
         if (lote) {
           await registrarAtualizacao(
             "Tire",
@@ -433,7 +476,7 @@ export async function importPneus(
         atualizados++;
         detalhes.push({ linha, status: "atualizado", sucesso: true, rotulo: label });
       } else {
-        const criado = await createPneu(parsed.data);
+        const criado = await createPneu(parsed.data, null, null, technologyNames);
         if (lote) {
           await registrarCriacao("Tire", criado.id, lote.id, contexto?.userId ?? null);
         }
