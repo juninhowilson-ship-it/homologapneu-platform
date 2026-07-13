@@ -309,6 +309,8 @@ export async function importHomologacoes(
         fileType: contexto.fileType ?? inferFileType(contexto.fileName),
         entity: "HOMOLOGACOES",
         userId: contexto.userId,
+        sourceVersion: contexto.sourceVersion,
+        collectedAt: contexto.collectedAt,
       })
     : null;
 

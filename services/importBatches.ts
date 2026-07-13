@@ -32,12 +32,16 @@ export async function iniciarLote(params: {
   fileType: ImportFileType;
   entity: ImportEntity;
   userId: number | null;
+  sourceVersion?: string;
+  collectedAt?: Date;
 }) {
   return createImportBatch({
     fileName: params.fileName,
     fileType: params.fileType,
     entity: params.entity,
     userId: params.userId,
+    sourceVersion: params.sourceVersion ?? null,
+    collectedAt: params.collectedAt ?? null,
     status: "PROCESSANDO",
   });
 }
@@ -143,6 +147,8 @@ export async function listarLotes() {
     updatedCount: lote.updatedCount,
     duplicateCount: lote.duplicateCount,
     errorCount: lote.errorCount,
+    sourceVersion: lote.sourceVersion,
+    collectedAt: lote.collectedAt ? lote.collectedAt.toISOString() : null,
     startedAt: lote.startedAt.toISOString(),
     finishedAt: lote.finishedAt ? lote.finishedAt.toISOString() : null,
     durationMs: lote.durationMs,
@@ -168,6 +174,8 @@ export async function obterLote(id: number) {
     updatedCount: lote.updatedCount,
     duplicateCount: lote.duplicateCount,
     errorCount: lote.errorCount,
+    sourceVersion: lote.sourceVersion,
+    collectedAt: lote.collectedAt ? lote.collectedAt.toISOString() : null,
     startedAt: lote.startedAt.toISOString(),
     finishedAt: lote.finishedAt ? lote.finishedAt.toISOString() : null,
     durationMs: lote.durationMs,

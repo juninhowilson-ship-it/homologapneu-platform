@@ -129,6 +129,8 @@ export async function importMontadoras(
         fileType: contexto.fileType ?? inferFileType(contexto.fileName),
         entity: "MONTADORAS",
         userId: contexto.userId,
+        sourceVersion: contexto.sourceVersion,
+        collectedAt: contexto.collectedAt,
       })
     : null;
 

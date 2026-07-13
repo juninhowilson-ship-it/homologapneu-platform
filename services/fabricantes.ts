@@ -191,6 +191,8 @@ export async function importFabricantes(
         fileType: contexto.fileType ?? inferFileType(contexto.fileName),
         entity: "FABRICANTES_PNEUS",
         userId: contexto.userId,
+        sourceVersion: contexto.sourceVersion,
+        collectedAt: contexto.collectedAt,
       })
     : null;
 

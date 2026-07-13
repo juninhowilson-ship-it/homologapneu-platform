@@ -271,6 +271,8 @@ export async function importVeiculos(
         fileType: contexto.fileType ?? inferFileType(contexto.fileName),
         entity: "VEICULOS",
         userId: contexto.userId,
+        sourceVersion: contexto.sourceVersion,
+        collectedAt: contexto.collectedAt,
       })
     : null;
 
