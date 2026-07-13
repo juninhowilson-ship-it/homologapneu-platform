@@ -27,12 +27,16 @@ import {
   type VehicleCategory,
   type VehicleSegment,
 } from "@/lib/constants/veiculo";
-import { parseCsvRecords } from "@/lib/csv";
 import { normalizeToEnum, parseBooleanPtBr } from "@/lib/enum-utils";
+import { inferFileType } from "@/lib/importer/parseFile";
+import type { ImportContexto } from "@/lib/importer/context";
+import { diffRecords } from "@/lib/importer/diff";
 import {
   iniciarLote,
   finalizarLote,
   registrarCriacao,
+  registrarAtualizacao,
+  registrarAlteracaoManual,
 } from "@/services/importBatches";
 import type { Veiculo, VeiculoListResponse } from "@/types/veiculo";
 import type {
@@ -150,19 +154,28 @@ export async function listManufacturers() {
 
 export async function createVeiculo(
   input: VeiculoFormValues,
-  validadoPor: string | null = null
+  validadoPor: string | null = null,
+  userId: number | null = null
 ): Promise<Veiculo> {
   await assertManufacturerExists(input.manufacturerId);
   await assertNoDuplicate(input);
 
   const record = await createVeiculoRepo(normalizeInput(input, validadoPor));
-  return toDTO(record);
+  const dto = toDTO(record);
+  await registrarAlteracaoManual({
+    entity: "VehicleVersion",
+    entityId: dto.id,
+    action: "CREATE",
+    userId,
+  });
+  return dto;
 }
 
 export async function updateVeiculo(
   id: number,
   input: VeiculoFormValues,
-  validadoPor: string | null = null
+  validadoPor: string | null = null,
+  userId: number | null = null
 ): Promise<Veiculo> {
   const current = await findVeiculoById(id);
   if (!current) {
@@ -172,11 +185,60 @@ export async function updateVeiculo(
   await assertManufacturerExists(input.manufacturerId);
   await assertNoDuplicate(input, id);
 
+  const before = toDTO(current);
   const record = await updateVeiculoRepo(id, normalizeInput(input, validadoPor));
-  return toDTO(record);
+  const after = toDTO(record);
+
+  const changes = diffRecords(
+    {
+      model: before.model,
+      version: before.version,
+      yearStart: before.yearStart,
+      yearEnd: before.yearEnd,
+      engine: before.engine,
+      power: before.power,
+      fuel: before.fuel,
+      category: before.category,
+      segment: before.segment,
+      country: before.country,
+      notes: before.notes,
+      isActive: before.isActive,
+      validationStatus: before.validationStatus,
+    },
+    {
+      model: after.model,
+      version: after.version,
+      yearStart: after.yearStart,
+      yearEnd: after.yearEnd,
+      engine: after.engine,
+      power: after.power,
+      fuel: after.fuel,
+      category: after.category,
+      segment: after.segment,
+      country: after.country,
+      notes: after.notes,
+      isActive: after.isActive,
+      validationStatus: after.validationStatus,
+    }
+  );
+
+  if (changes) {
+    await registrarAlteracaoManual({
+      entity: "VehicleVersion",
+      entityId: id,
+      action: "UPDATE",
+      userId,
+      changes,
+    });
+  }
+
+  return after;
 }
 
-export async function deleteVeiculo(id: number): Promise<void> {
+export async function deleteVeiculo(
+  id: number,
+  userId: number | null = null
+): Promise<void> {
   const current = await findVeiculoById(id);
   if (!current) {
     throw new NotFoundError("Veículo não encontrado");
@@ -189,19 +251,24 @@ export async function deleteVeiculo(id: number): Promise<void> {
   }
 
   await deleteVeiculoRepo(id);
+  await registrarAlteracaoManual({
+    entity: "VehicleVersion",
+    entityId: id,
+    action: "DELETE",
+    userId,
+  });
 }
 
-export async function importVeiculosCsv(
-  text: string,
-  contexto?: { fileName: string; userId: number | null }
+export async function importVeiculos(
+  rows: Record<string, string>[],
+  contexto?: ImportContexto
 ): Promise<ImportacaoResultado> {
   const inicio = Date.now();
-  const records = parseCsvRecords(text);
 
   const lote = contexto
     ? await iniciarLote({
         fileName: contexto.fileName,
-        fileType: "CSV",
+        fileType: contexto.fileType ?? inferFileType(contexto.fileName),
         entity: "VEICULOS",
         userId: contexto.userId,
       })
@@ -211,11 +278,13 @@ export async function importVeiculosCsv(
   const manufacturerIdByName = new Map(
     manufacturers.map((m) => [m.name.toLowerCase(), m.id])
   );
-  let duplicidades = 0;
 
+  let criados = 0;
+  let atualizados = 0;
+  let duplicados = 0;
   const detalhes: ImportacaoLinhaResultado[] = [];
 
-  for (const [index, record] of records.entries()) {
+  for (const [index, record] of rows.entries()) {
     const linha = index + 2;
     const label = `${record.marca ?? ""} ${record.modelo ?? ""} ${record.versao ?? ""}`.trim();
 
@@ -226,8 +295,9 @@ export async function importVeiculosCsv(
       if (!manufacturerId) {
         detalhes.push({
           linha,
+          status: "erro",
           sucesso: false,
-          erro: `Marca "${record.marca ?? ""}" não encontrada`,
+          erro: `Marca "${record.marca ?? ""}" não encontrada. Importe as montadoras antes dos veículos.`,
           rotulo: label,
         });
         continue;
@@ -268,6 +338,7 @@ export async function importVeiculosCsv(
       if (!parsed.success) {
         detalhes.push({
           linha,
+          status: "erro",
           sucesso: false,
           erro: parsed.error.issues.map((issue) => issue.message).join("; "),
           rotulo: label,
@@ -275,40 +346,105 @@ export async function importVeiculosCsv(
         continue;
       }
 
-      const criado = await createVeiculo(parsed.data);
-      if (lote) {
-        await registrarCriacao(
-          "VehicleVersion",
-          criado.id,
-          lote.id,
-          contexto?.userId ?? null
+      const existing = await findVeiculoByBusinessKey(
+        manufacturerId,
+        parsed.data.model,
+        parsed.data.version,
+        parsed.data.engine,
+        parsed.data.fuel,
+        parsed.data.power ? parsed.data.power : null
+      );
+
+      if (existing) {
+        const current = await getVeiculo(existing.id);
+
+        const merged: VeiculoFormValues = {
+          ...parsed.data,
+          power: parsed.data.power || current.power || "",
+          country: parsed.data.country || current.country || "",
+          segment: parsed.data.segment || current.segment || "",
+          notes: parsed.data.notes || current.notes || "",
+          imageUrl: current.imageUrl || "",
+        };
+
+        const changes = diffRecords(
+          {
+            yearStart: current.yearStart,
+            yearEnd: current.yearEnd,
+            power: current.power,
+            category: current.category,
+            segment: current.segment,
+            country: current.country,
+            notes: current.notes,
+            isActive: current.isActive,
+          },
+          {
+            yearStart: merged.yearStart,
+            yearEnd: merged.yearEnd,
+            power: merged.power || null,
+            category: merged.category,
+            segment: merged.segment || null,
+            country: merged.country || null,
+            notes: merged.notes || null,
+            isActive: merged.isActive,
+          }
         );
+
+        if (!changes) {
+          duplicados++;
+          detalhes.push({ linha, status: "duplicado", sucesso: true, rotulo: label });
+          continue;
+        }
+
+        await updateVeiculo(existing.id, merged);
+        if (lote) {
+          await registrarAtualizacao(
+            "VehicleVersion",
+            existing.id,
+            lote.id,
+            contexto?.userId ?? null,
+            changes
+          );
+        }
+        atualizados++;
+        detalhes.push({ linha, status: "atualizado", sucesso: true, rotulo: label });
+      } else {
+        const criado = await createVeiculo(parsed.data);
+        if (lote) {
+          await registrarCriacao(
+            "VehicleVersion",
+            criado.id,
+            lote.id,
+            contexto?.userId ?? null
+          );
+        }
+        criados++;
+        detalhes.push({ linha, status: "criado", sucesso: true, rotulo: label });
       }
-      detalhes.push({ linha, sucesso: true, rotulo: label });
     } catch (error) {
-      const duplicidade = error instanceof ConflictError;
       detalhes.push({
         linha,
+        status: "erro",
         sucesso: false,
         erro: error instanceof Error ? error.message : "Erro desconhecido",
         rotulo: label,
       });
-      if (duplicidade) duplicidades++;
     }
   }
 
-  const sucesso = detalhes.filter((d) => d.sucesso).length;
-  const falhas = detalhes.filter((d) => !d.sucesso).length;
+  const falhas = detalhes.filter((d) => d.status === "erro").length;
+  const sucesso = criados + atualizados;
 
   if (lote) {
     await finalizarLote(lote.id, {
-      totalRows: records.length,
-      importedCount: sucesso,
-      duplicateCount: duplicidades,
+      totalRows: rows.length,
+      importedCount: criados,
+      updatedCount: atualizados,
+      duplicateCount: duplicados,
       errorCount: falhas,
       durationMs: Date.now() - inicio,
       erros: detalhes
-        .filter((d) => !d.sucesso)
+        .filter((d) => d.status === "erro")
         .map((d) => ({
           rowNumber: d.linha,
           message: d.erro ?? "Erro desconhecido",
@@ -318,8 +454,11 @@ export async function importVeiculosCsv(
   }
 
   return {
-    total: records.length,
+    total: rows.length,
     sucesso,
+    criados,
+    atualizados,
+    duplicados,
     falhas,
     detalhes,
   };

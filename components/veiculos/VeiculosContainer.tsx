@@ -9,9 +9,10 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import VeiculosTable from "./VeiculosTable";
 import VeiculoFormModal from "./VeiculoFormModal";
 import VeiculoDetailModal from "./VeiculoDetailModal";
-import ImportCsvModal from "./ImportCsvModal";
+import ImportWizard, { type ImportField } from "@/components/importer/ImportWizard";
 import { useVeiculos, type VeiculosQuery } from "@/hooks/useVeiculos";
 import { useExcluirVeiculo } from "@/hooks/useVeiculoMutations";
+import { useImportarVeiculos } from "@/hooks/useImportarVeiculos";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useManufacturers } from "@/hooks/useManufacturers";
 import {
@@ -23,6 +24,22 @@ import {
   SEGMENT_LABELS,
 } from "@/lib/constants/veiculo";
 import type { Veiculo } from "@/types/veiculo";
+
+const IMPORT_FIELDS: ImportField[] = [
+  { key: "marca", label: "Marca", required: true },
+  { key: "modelo", label: "Modelo", required: true },
+  { key: "versao", label: "Versão", required: true },
+  { key: "anoInicial", label: "Ano Inicial", required: true },
+  { key: "anoFinal", label: "Ano Final", required: true },
+  { key: "motorizacao", label: "Motorização", required: true },
+  { key: "potencia", label: "Potência" },
+  { key: "combustivel", label: "Combustível", required: true },
+  { key: "categoria", label: "Categoria", required: true },
+  { key: "segmento", label: "Segmento" },
+  { key: "pais", label: "País" },
+  { key: "observacoes", label: "Observações" },
+  { key: "status", label: "Status" },
+];
 
 const STATUS_OPTIONS = [
   { value: "all", label: "Todos" },
@@ -68,6 +85,7 @@ export default function VeiculosContainer() {
   const [importOpen, setImportOpen] = useState(false);
 
   const { data: manufacturers } = useManufacturers();
+  const importarVeiculos = useImportarVeiculos();
 
   const query: VeiculosQuery = {
     q: debouncedSearch,
@@ -199,7 +217,7 @@ export default function VeiculosContainer() {
             variant="secondary"
             onClick={() => setImportOpen(true)}
           >
-            Importar CSV
+            Importar
           </Button>
 
           <Button
@@ -243,9 +261,13 @@ export default function VeiculosContainer() {
         onClose={() => setDetailId(null)}
       />
 
-      <ImportCsvModal
+      <ImportWizard
         open={importOpen}
         onClose={() => setImportOpen(false)}
+        title="Importar Veículos"
+        fields={IMPORT_FIELDS}
+        templateUrl="/api/veiculos/import/template"
+        onImport={importarVeiculos}
       />
 
       <ConfirmDialog

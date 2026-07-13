@@ -1,24 +1,27 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { importVeiculosCsv } from "@/services/veiculos";
+import { importVeiculos } from "@/services/veiculos";
 import { errorResponse } from "@/lib/api-response";
 import { getCurrentUser } from "@/lib/auth/dal";
 
 export async function POST(request: NextRequest) {
   try {
-    const formData = await request.formData();
-    const file = formData.get("file");
+    const body = await request.json();
+    const rows = Array.isArray(body?.rows) ? body.rows : null;
+    const fileName =
+      typeof body?.fileName === "string" && body.fileName
+        ? body.fileName
+        : "importacao-veiculos";
 
-    if (!(file instanceof File)) {
+    if (!rows) {
       return NextResponse.json(
-        { error: "Arquivo CSV não enviado" },
+        { error: "Nenhuma linha para importar" },
         { status: 400 }
       );
     }
 
     const user = await getCurrentUser();
-    const text = await file.text();
-    const resultado = await importVeiculosCsv(text, {
-      fileName: file.name,
+    const resultado = await importVeiculos(rows, {
+      fileName,
       userId: user?.id ?? null,
     });
     return NextResponse.json(resultado);

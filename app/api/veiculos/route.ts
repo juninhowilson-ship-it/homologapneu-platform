@@ -35,7 +35,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const user = await getCurrentUser();
-    const veiculo = await createVeiculo(parsed.data, user?.name ?? null);
+    const veiculo = await createVeiculo(
+      parsed.data,
+      user?.name ?? null,
+      user?.id ?? null
+    );
     return NextResponse.json(veiculo, { status: 201 });
   } catch (error) {
     return errorResponse(error);
