@@ -29,12 +29,14 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
 
   try {
     const user = await getCurrentUser();
-    const { rows } = await connector.fetchRows();
+    const { rows, sourceVersion, collectedAt } = await connector.fetchRows();
     const importer = importerFor(connector.entity);
     const resultado = await importer(rows, {
       fileName: `api:${connector.id}`,
       fileType: "API",
       userId: user?.id ?? null,
+      sourceVersion,
+      collectedAt,
     });
     return NextResponse.json(resultado);
   } catch (error) {

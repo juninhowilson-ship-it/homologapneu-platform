@@ -26,6 +26,7 @@ export function listConnectors() {
   return CONNECTORS.map((connector) => ({
     id: connector.id,
     label: connector.label,
+    kind: connector.kind,
     entity: connector.entity,
     description: connector.description,
     configured: connector.isConfigured(),
