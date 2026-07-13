@@ -54,6 +54,16 @@ export const SEGMENT_LABELS: Record<VehicleSegment, string> = {
   LUXO: "Luxo",
 };
 
+export const DRIVETRAIN_TYPES = ["DIANTEIRA", "TRASEIRA", "INTEGRAL"] as const;
+
+export type DrivetrainType = (typeof DRIVETRAIN_TYPES)[number];
+
+export const DRIVETRAIN_LABELS: Record<DrivetrainType, string> = {
+  DIANTEIRA: "Dianteira",
+  TRASEIRA: "Traseira",
+  INTEGRAL: "Integral",
+};
+
 export const VEICULO_CSV_HEADERS = [
   "marca",
   "modelo",

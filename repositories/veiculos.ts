@@ -9,7 +9,9 @@ const withRelations = {
     engine: true,
     transmission: true,
     generation: true,
+    platform: true,
     images: true,
+    documents: true,
     _count: { select: { homologations: true } },
   },
 } satisfies Prisma.VehicleVersionDefaultArgs;
@@ -121,16 +123,45 @@ export async function findOrCreateVehicleModel(
 export async function findOrCreateEngine(
   name: string,
   fuel: Prisma.EngineUncheckedCreateInput["fuel"],
-  power: string | null
+  power: string | null,
+  torque?: string | null
 ): Promise<number> {
   const existing = await prisma.engine.findFirst({
     where: { name, fuel, power },
     select: { id: true },
   });
-  if (existing) return existing.id;
+  if (existing) {
+    if (torque) {
+      await prisma.engine.update({
+        where: { id: existing.id },
+        data: { torque },
+      });
+    }
+    return existing.id;
+  }
 
   const created = await prisma.engine.create({
-    data: { name, fuel, power, turbo: /turbo|tsi|tfsi/i.test(name) },
+    data: {
+      name,
+      fuel,
+      power,
+      torque: torque ?? null,
+      turbo: /turbo|tsi|tfsi/i.test(name),
+    },
+    select: { id: true },
+  });
+  return created.id;
+}
+
+export async function findOrCreatePlatform(name: string): Promise<number> {
+  const existing = await prisma.platform.findUnique({
+    where: { name },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  const created = await prisma.platform.create({
+    data: { name },
     select: { id: true },
   });
   return created.id;
@@ -142,11 +173,19 @@ type VeiculoWriteData = {
   version: string;
   yearStart: number;
   yearEnd: number;
+  manufactureYearStart?: number | null;
+  manufactureYearEnd?: number | null;
   engine: string;
   power: string | null;
+  torque?: string | null;
   fuel: Prisma.EngineUncheckedCreateInput["fuel"];
   category: Prisma.VehicleVersionUncheckedCreateInput["category"];
+  regulatoryCategory?: string | null;
   segment: Prisma.VehicleVersionUncheckedCreateInput["segment"];
+  internalCode?: string | null;
+  platformName?: string | null;
+  drivetrain?: Prisma.VehicleVersionUncheckedCreateInput["drivetrain"];
+  doors?: number | null;
   country: string | null;
   imageUrl: string | null;
   notes: string | null;
@@ -181,17 +220,32 @@ export async function createVeiculo(
     data.manufacturerId,
     data.model
   );
-  const engineId = await findOrCreateEngine(data.engine, data.fuel, data.power);
+  const engineId = await findOrCreateEngine(
+    data.engine,
+    data.fuel,
+    data.power,
+    data.torque
+  );
+  const platformId = data.platformName
+    ? await findOrCreatePlatform(data.platformName)
+    : undefined;
 
   const record = await prisma.vehicleVersion.create({
     data: {
       vehicleModelId,
       engineId,
+      platformId,
       name: data.version,
+      internalCode: data.internalCode ?? null,
       yearStart: data.yearStart,
       yearEnd: data.yearEnd,
+      manufactureYearStart: data.manufactureYearStart ?? null,
+      manufactureYearEnd: data.manufactureYearEnd ?? null,
       category: data.category,
+      regulatoryCategory: data.regulatoryCategory ?? null,
       segment: data.segment,
+      drivetrain: data.drivetrain,
+      doors: data.doors ?? null,
       country: data.country,
       notes: data.notes,
       isActive: data.isActive,
@@ -215,18 +269,33 @@ export async function updateVeiculo(
     data.manufacturerId,
     data.model
   );
-  const engineId = await findOrCreateEngine(data.engine, data.fuel, data.power);
+  const engineId = await findOrCreateEngine(
+    data.engine,
+    data.fuel,
+    data.power,
+    data.torque
+  );
+  const platformId = data.platformName
+    ? await findOrCreatePlatform(data.platformName)
+    : undefined;
 
   await prisma.vehicleVersion.update({
     where: { id },
     data: {
       vehicleModelId,
       engineId,
+      platformId,
       name: data.version,
+      internalCode: data.internalCode ?? null,
       yearStart: data.yearStart,
       yearEnd: data.yearEnd,
+      manufactureYearStart: data.manufactureYearStart ?? null,
+      manufactureYearEnd: data.manufactureYearEnd ?? null,
       category: data.category,
+      regulatoryCategory: data.regulatoryCategory ?? null,
       segment: data.segment,
+      drivetrain: data.drivetrain,
+      doors: data.doors ?? null,
       country: data.country,
       notes: data.notes,
       isActive: data.isActive,
@@ -259,4 +328,19 @@ export async function findManufacturerById(
   id: number
 ): Promise<{ id: number } | null> {
   return prisma.manufacturer.findUnique({ where: { id }, select: { id: true } });
+}
+
+/**
+ * Documentos oficiais do veiculo (manual, catalogo). Estrutura pronta para
+ * uso futuro por conectores/importadores que informem URLs de documentos —
+ * nenhuma fonte atual fornece isso, entao nao ha nenhum fluxo chamando
+ * esta funcao ainda.
+ */
+export async function createVehicleDocument(data: {
+  vehicleVersionId: number;
+  name: string;
+  url: string;
+  type?: string | null;
+}): Promise<void> {
+  await prisma.vehicleDocument.create({ data });
 }

@@ -2,6 +2,7 @@ import type {
   FuelType,
   VehicleCategory,
   VehicleSegment,
+  DrivetrainType,
 } from "@/lib/constants/veiculo";
 import type { ValidationStatus } from "@/lib/constants/validacao";
 
@@ -11,13 +12,21 @@ export type Veiculo = {
   manufacturerName: string;
   model: string;
   version: string;
+  internalCode: string | null;
   yearStart: number;
   yearEnd: number;
+  manufactureYearStart: number | null;
+  manufactureYearEnd: number | null;
   engine: string;
   power: string | null;
+  torque: string | null;
   fuel: FuelType;
   category: VehicleCategory;
+  regulatoryCategory: string | null;
   segment: VehicleSegment | null;
+  platformName: string | null;
+  drivetrain: DrivetrainType | null;
+  doors: number | null;
   country: string | null;
   imageUrl: string | null;
   notes: string | null;
