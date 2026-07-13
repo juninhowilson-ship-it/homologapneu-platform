@@ -29,6 +29,15 @@ export const TIRE_SEGMENT_LABELS: Record<TireSegment, string> = {
   LUXO: "Luxo",
 };
 
+export const TIRE_TYPES = ["RADIAL", "DIAGONAL"] as const;
+
+export type TireType = (typeof TIRE_TYPES)[number];
+
+export const TIRE_TYPE_LABELS: Record<TireType, string> = {
+  RADIAL: "Radial",
+  DIAGONAL: "Diagonal",
+};
+
 export const PNEU_CSV_HEADERS = [
   "fabricante",
   "marca",

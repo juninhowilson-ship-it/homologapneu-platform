@@ -6,6 +6,7 @@ import type { Prisma } from "@prisma/client";
 const withRelations = {
   include: {
     tireManufacturer: true,
+    tireFamily: true,
     _count: { select: { homologationTires: true } },
   },
 } satisfies Prisma.TireDefaultArgs;
@@ -85,6 +86,23 @@ export async function findPneuByEan(
     },
     select: { id: true },
   });
+}
+
+export async function findOrCreateTireFamily(
+  tireManufacturerId: number,
+  name: string
+): Promise<number> {
+  const existing = await prisma.tireFamily.findFirst({
+    where: { tireManufacturerId, name },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  const created = await prisma.tireFamily.create({
+    data: { tireManufacturerId, name },
+    select: { id: true },
+  });
+  return created.id;
 }
 
 export async function createPneu(

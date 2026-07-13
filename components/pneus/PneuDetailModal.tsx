@@ -4,7 +4,11 @@ import Dialog from "@/components/ui/Dialog";
 import Badge from "@/components/ui/Badge";
 import Skeleton from "@/components/ui/Skeleton";
 import { usePneu } from "@/hooks/usePneu";
-import { TIRE_CATEGORY_LABELS, TIRE_SEGMENT_LABELS } from "@/lib/constants/pneu";
+import { TIRE_CATEGORY_LABELS, TIRE_SEGMENT_LABELS, TIRE_TYPE_LABELS } from "@/lib/constants/pneu";
+import {
+  VALIDATION_STATUS_LABELS,
+  VALIDATION_STATUS_TONE,
+} from "@/lib/constants/validacao";
 
 type Props = {
   open: boolean;
@@ -52,9 +56,14 @@ export default function PneuDetailModal({ open, onClose, id }: Props) {
               </p>
             </div>
 
-            <Badge tone={pneu.isActive ? "success" : "danger"} className="ml-auto">
-              {pneu.isActive ? "Ativo" : "Inativo"}
-            </Badge>
+            <div className="ml-auto flex flex-col items-end gap-2">
+              <Badge tone={pneu.isActive ? "success" : "danger"}>
+                {pneu.isActive ? "Ativo" : "Inativo"}
+              </Badge>
+              <Badge tone={VALIDATION_STATUS_TONE[pneu.validationStatus]}>
+                {VALIDATION_STATUS_LABELS[pneu.validationStatus]}
+              </Badge>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-3">
@@ -106,6 +115,16 @@ export default function PneuDetailModal({ open, onClose, id }: Props) {
               <p className="text-muted-foreground">EAN</p>
               <p className="font-semibold">{pneu.ean ?? "—"}</p>
             </div>
+
+            <div>
+              <p className="text-muted-foreground">Família</p>
+              <p className="font-semibold">{pneu.family ?? "—"}</p>
+            </div>
+
+            <div>
+              <p className="text-muted-foreground">Tipo</p>
+              <p className="font-semibold">{TIRE_TYPE_LABELS[pneu.type]}</p>
+            </div>
           </div>
 
           {pneu.description && (
@@ -120,6 +139,12 @@ export default function PneuDetailModal({ open, onClose, id }: Props) {
           <p className="text-sm text-muted-foreground">
             Homologações associadas: {pneu.homologationsCount}
           </p>
+
+          {pneu.source && (
+            <p className="text-sm text-muted-foreground">
+              Fonte: {pneu.source}
+            </p>
+          )}
 
           <div className="grid grid-cols-2 gap-4 border-t border-border pt-4 text-sm text-muted-foreground">
             <div>

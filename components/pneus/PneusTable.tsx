@@ -11,6 +11,10 @@ import {
   TableTd,
 } from "@/components/ui/Table";
 import { TIRE_CATEGORY_LABELS } from "@/lib/constants/pneu";
+import {
+  VALIDATION_STATUS_LABELS,
+  VALIDATION_STATUS_TONE,
+} from "@/lib/constants/validacao";
 import type { Pneu } from "@/types/pneu";
 import type { PneusQuery } from "@/hooks/usePneus";
 
@@ -82,6 +86,7 @@ export default function PneusTable({
           <TableTh>XL</TableTh>
           <TableTh>Categoria</TableTh>
           <TableTh>Status</TableTh>
+          <TableTh>Validação</TableTh>
           <TableTh>Ações</TableTh>
         </tr>
       </TableHead>
@@ -117,6 +122,12 @@ export default function PneusTable({
             <TableTd>
               <Badge tone={pneu.isActive ? "success" : "danger"}>
                 {pneu.isActive ? "Ativo" : "Inativo"}
+              </Badge>
+            </TableTd>
+
+            <TableTd>
+              <Badge tone={VALIDATION_STATUS_TONE[pneu.validationStatus]}>
+                {VALIDATION_STATUS_LABELS[pneu.validationStatus]}
               </Badge>
             </TableTd>
 

@@ -19,7 +19,13 @@ import {
   TIRE_CATEGORY_LABELS,
   TIRE_SEGMENTS,
   TIRE_SEGMENT_LABELS,
+  TIRE_TYPES,
+  TIRE_TYPE_LABELS,
 } from "@/lib/constants/pneu";
+import {
+  VALIDATION_STATUSES,
+  VALIDATION_STATUS_LABELS,
+} from "@/lib/constants/validacao";
 import { useTireManufacturers } from "@/hooks/useTireManufacturers";
 import { useCriarPneu, useAtualizarPneu } from "@/hooks/usePneuMutations";
 import type { Pneu } from "@/types/pneu";
@@ -34,6 +40,7 @@ const DEFAULT_VALUES: PneuFormValues = {
   tireManufacturerId: 0,
   brand: "",
   model: "",
+  family: "",
   width: 195,
   profile: 60,
   rim: 15,
@@ -43,12 +50,15 @@ const DEFAULT_VALUES: PneuFormValues = {
   xl: false,
   seal: false,
   tubeless: true,
+  type: "RADIAL",
   category: "PASSEIO",
   segment: "",
   ean: "",
   description: "",
   imageUrl: "",
   isActive: true,
+  validationStatus: "NECESSITA_VALIDACAO",
+  source: "",
 };
 
 const CATEGORY_OPTIONS = TIRE_CATEGORIES.map((value) => ({
@@ -59,6 +69,16 @@ const CATEGORY_OPTIONS = TIRE_CATEGORIES.map((value) => ({
 const SEGMENT_OPTIONS = TIRE_SEGMENTS.map((value) => ({
   value,
   label: TIRE_SEGMENT_LABELS[value],
+}));
+
+const TYPE_OPTIONS = TIRE_TYPES.map((value) => ({
+  value,
+  label: TIRE_TYPE_LABELS[value],
+}));
+
+const VALIDATION_STATUS_OPTIONS = VALIDATION_STATUSES.map((value) => ({
+  value,
+  label: VALIDATION_STATUS_LABELS[value],
 }));
 
 export default function PneuFormModal({ open, onClose, pneu }: Props) {
@@ -88,6 +108,7 @@ export default function PneuFormModal({ open, onClose, pneu }: Props) {
             tireManufacturerId: pneu.tireManufacturerId,
             brand: pneu.brand,
             model: pneu.model,
+            family: pneu.family ?? "",
             width: pneu.width,
             profile: pneu.profile,
             rim: pneu.rim,
@@ -97,12 +118,15 @@ export default function PneuFormModal({ open, onClose, pneu }: Props) {
             xl: pneu.xl,
             seal: pneu.seal,
             tubeless: pneu.tubeless,
+            type: pneu.type,
             category: pneu.category,
             segment: pneu.segment ?? "",
             ean: pneu.ean ?? "",
             description: pneu.description ?? "",
             imageUrl: pneu.imageUrl ?? "",
             isActive: pneu.isActive,
+            validationStatus: pneu.validationStatus,
+            source: pneu.source ?? "",
           }
         : DEFAULT_VALUES
     );
@@ -150,6 +174,13 @@ export default function PneuFormModal({ open, onClose, pneu }: Props) {
             label="Modelo"
             error={errors.model?.message}
             {...register("model")}
+          />
+
+          <Input
+            label="Família"
+            placeholder="Ex: Cinturato, Turanza"
+            error={errors.family?.message}
+            {...register("family")}
           />
 
           <div className="grid grid-cols-3 gap-3">
@@ -200,8 +231,40 @@ export default function PneuFormModal({ open, onClose, pneu }: Props) {
             {...register("segment")}
           />
 
+          <Select
+            label="Tipo"
+            options={TYPE_OPTIONS}
+            hidePlaceholder
+            error={errors.type?.message}
+            {...register("type")}
+          />
+
           <Input label="EAN" error={errors.ean?.message} {...register("ean")} />
         </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Select
+            label="Status de Validação"
+            options={VALIDATION_STATUS_OPTIONS}
+            hidePlaceholder
+            error={errors.validationStatus?.message}
+            {...register("validationStatus")}
+          />
+
+          <Input
+            label="Fonte do dado"
+            placeholder="Ex: Catálogo oficial do fabricante"
+            error={errors.source?.message}
+            {...register("source")}
+          />
+        </div>
+
+        {isEditing && pneu?.validatedAt && (
+          <p className="text-sm text-muted-foreground">
+            Validado por {pneu.validatedBy ?? "—"} em{" "}
+            {new Date(pneu.validatedAt).toLocaleString("pt-BR")}
+          </p>
+        )}
 
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <Controller

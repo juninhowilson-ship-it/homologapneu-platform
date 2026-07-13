@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { pneuFormSchema } from "@/lib/validations/pneu";
 import { getPneu, updatePneu, deletePneu } from "@/services/pneus";
 import { errorResponse } from "@/lib/api-response";
+import { getCurrentUser } from "@/lib/auth/dal";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -45,7 +46,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    const pneu = await updatePneu(id, parsed.data);
+    const user = await getCurrentUser();
+    const pneu = await updatePneu(id, parsed.data, user?.name ?? null);
     return NextResponse.json(pneu);
   } catch (error) {
     return errorResponse(error);
