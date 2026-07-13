@@ -52,22 +52,55 @@ enum VehicleImageType {
   LATERAL
 }
 
+enum DrivetrainType {
+  DIANTEIRA
+  TRASEIRA
+  INTEGRAL
+}
+
 model Manufacturer {
-  id               Int              @id @default(autoincrement())
-  name             String           @unique
-  country          String?
-  logoUrl          String?
-  website          String?
-  notes            String?
-  isActive         Boolean          @default(true)
-  validationStatus ValidationStatus @default(NECESSITA_VALIDACAO)
-  source           String?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  id                Int              @id @default(autoincrement())
+  /// Marca comercial (ex.: "Chevrolet"). Nome principal, usado em toda a
+  /// aplicacao (busca, homologacoes, etc.).
+  name              String           @unique
+  /// Montadora/razao social da entidade fabricante, quando distinta da
+  /// marca comercial (ex.: "General Motors do Brasil Ltda."). Null quando
+  /// marca e montadora coincidem ou ainda nao foi confirmada.
+  legalName         String?
+  automotiveGroupId Int?
+  country           String?
+  logoUrl           String?
+  website           String?
+  notes             String?
+  isActive          Boolean          @default(true)
+  /// Data de inicio da comercializacao oficial no Brasil.
+  marketStartDate   DateTime?
+  /// Data de encerramento da comercializacao no Brasil (null = ainda ativa
+  /// ou desconhecida).
+  marketEndDate     DateTime?
+  validationStatus  ValidationStatus @default(NECESSITA_VALIDACAO)
+  source            String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
-  models           VehicleModel[]
+  automotiveGroup   AutomotiveGroup? @relation(fields: [automotiveGroupId], references: [id])
+  models            VehicleModel[]
 
+  @@index([automotiveGroupId])
   @@map("manufacturers")
+}
+
+/// Grupo automotivo/holding que controla uma ou mais montadoras/marcas
+/// (ex.: "Stellantis", "Volkswagen Group"). Tabela de referencia, vazia ate
+/// ser populada via find-or-create pelo pipeline de importacao.
+model AutomotiveGroup {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  manufacturers Manufacturer[]
+
+  @@map("automotive_groups")
 }
 
 model VehicleModel {
@@ -109,6 +142,9 @@ model Engine {
   name      String
   fuel      FuelType
   power     String?
+  /// Torque maximo (texto livre, ex.: "20,4 kgfm" ou "200 Nm") — formatos
+  /// variam por fabricante/fonte, por isso mantido como texto como `power`.
+  torque    String?
   turbo     Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -117,6 +153,20 @@ model Engine {
 
   @@unique([name, fuel, power])
   @@map("engines")
+}
+
+/// Plataforma/arquitetura veicular (ex.: "MQB", "GM Gamma II"),
+/// compartilhada por varias versoes/modelos. Tabela de referencia, vazia
+/// ate ser populada via find-or-create pelo pipeline de importacao.
+model Platform {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  versions    VehicleVersion[]
+
+  @@map("platforms")
 }
 
 model Transmission {
@@ -133,32 +183,49 @@ model Transmission {
 }
 
 model VehicleVersion {
-  id               Int              @id @default(autoincrement())
-  vehicleModelId   Int
-  generationId     Int?
-  engineId         Int
-  transmissionId   Int?
-  name             String
-  yearStart        Int
-  yearEnd          Int
-  category         VehicleCategory
-  segment          VehicleSegment?
-  country          String?
-  notes            String?
-  isActive         Boolean          @default(true)
-  validationStatus ValidationStatus @default(NECESSITA_VALIDACAO)
-  source           String?
-  validatedBy      String?
-  validatedAt      DateTime?
-  confidence       Int?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  id                   Int              @id @default(autoincrement())
+  vehicleModelId       Int
+  generationId         Int?
+  engineId             Int
+  transmissionId       Int?
+  platformId           Int?
+  name                 String
+  /// Codigo interno do fabricante/fonte para esta versao (ex.: codigo de
+  /// catalogo, codigo FIPE), quando existir.
+  internalCode         String?
+  yearStart            Int
+  yearEnd              Int
+  /// Ano de fabricacao (faixa), distinto do ano modelo (yearStart/yearEnd)
+  /// quando a fonte informar essa diferenca. Null ate ser confirmado.
+  manufactureYearStart Int?
+  manufactureYearEnd   Int?
+  category             VehicleCategory
+  /// Categoria oficial de uso/classificacao do veiculo conforme orgao de
+  /// transito (ex.: "Automovel", "Camioneta", "Utilitario") — distinta de
+  /// `category` (carroceria). Texto livre ate normalizarmos com uma fonte
+  /// oficial confirmada.
+  regulatoryCategory   String?
+  segment              VehicleSegment?
+  drivetrain           DrivetrainType?
+  doors                Int?
+  country              String?
+  notes                String?
+  isActive             Boolean          @default(true)
+  validationStatus     ValidationStatus @default(NECESSITA_VALIDACAO)
+  source               String?
+  validatedBy          String?
+  validatedAt          DateTime?
+  confidence           Int?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
 
   vehicleModel     VehicleModel       @relation(fields: [vehicleModelId], references: [id])
   generation       VehicleGeneration? @relation(fields: [generationId], references: [id])
   engine           Engine             @relation(fields: [engineId], references: [id])
   transmission     Transmission?      @relation(fields: [transmissionId], references: [id])
+  platform         Platform?          @relation(fields: [platformId], references: [id])
   images           VehicleImage[]
+  documents        VehicleDocument[]
   homologations    Homologation[]
 
   @@unique([vehicleModelId, name, engineId])
@@ -166,7 +233,25 @@ model VehicleVersion {
   @@index([category])
   @@index([yearStart, yearEnd])
   @@index([validationStatus])
+  @@index([platformId])
   @@map("vehicle_versions")
+}
+
+/// Documentos oficiais do veiculo (manual do proprietario, catalogo/ficha
+/// tecnica), complementares as fotos em VehicleImage. type distingue o
+/// tipo de documento (ex.: "MANUAL", "CATALOGO").
+model VehicleDocument {
+  id               Int      @id @default(autoincrement())
+  vehicleVersionId Int
+  name             String
+  url              String
+  type             String?
+  createdAt        DateTime @default(now())
+
+  vehicleVersion   VehicleVersion @relation(fields: [vehicleVersionId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleVersionId])
+  @@map("vehicle_documents")
 }
 
 model VehicleImage {
