@@ -12,6 +12,10 @@ import {
 } from "@/components/ui/Table";
 import type { Homologacao } from "@/types/homologacao";
 import type { HomologacoesQuery } from "@/hooks/useHomologacoes";
+import {
+  VALIDATION_STATUS_LABELS,
+  VALIDATION_STATUS_TONE,
+} from "@/lib/constants/validacao";
 
 type Props = {
   homologacoes: Homologacao[];
@@ -79,6 +83,7 @@ export default function HomologacoesTable({
           <TableTh>Run Flat</TableTh>
           <TableTh>XL</TableTh>
           <TableTh>Opcionais</TableTh>
+          <TableTh>Validação</TableTh>
           <TableTh>Ações</TableTh>
         </tr>
       </TableHead>
@@ -100,6 +105,11 @@ export default function HomologacoesTable({
               {homologacao.optionalTires.length > 0
                 ? `${homologacao.optionalTires.length} pneu(s)`
                 : "—"}
+            </TableTd>
+            <TableTd>
+              <Badge tone={VALIDATION_STATUS_TONE[homologacao.validationStatus]}>
+                {VALIDATION_STATUS_LABELS[homologacao.validationStatus]}
+              </Badge>
             </TableTd>
 
             <TableTd>

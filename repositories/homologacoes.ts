@@ -5,7 +5,9 @@ import type { Prisma } from "@prisma/client";
 
 const withRelations = {
   include: {
-    vehicle: { include: { manufacturer: true } },
+    vehicleVersion: {
+      include: { vehicleModel: { include: { manufacturer: true } }, engine: true },
+    },
     tires: {
       include: { tire: { include: { tireManufacturer: true } } },
       orderBy: { role: "asc" },
@@ -25,9 +27,13 @@ export async function listHomologacoes(
   if (query.q) {
     where.OR = [
       { code: { contains: query.q } },
-      { version: { contains: query.q } },
-      { vehicle: { model: { contains: query.q } } },
-      { vehicle: { manufacturer: { name: { contains: query.q } } } },
+      { vehicleVersion: { name: { contains: query.q } } },
+      { vehicleVersion: { vehicleModel: { name: { contains: query.q } } } },
+      {
+        vehicleVersion: {
+          vehicleModel: { manufacturer: { name: { contains: query.q } } },
+        },
+      },
       { tires: { some: { tire: { model: { contains: query.q } } } } },
       {
         tires: {
@@ -37,7 +43,7 @@ export async function listHomologacoes(
     ];
   }
 
-  if (query.vehicleId) where.vehicleId = query.vehicleId;
+  if (query.vehicleId) where.vehicleVersionId = query.vehicleId;
 
   const tireCondition: Prisma.HomologationTireWhereInput = {};
   if (query.tireId) tireCondition.tireId = query.tireId;
@@ -74,13 +80,13 @@ export async function findHomologacaoById(
 }
 
 export async function findHomologacaoByBusinessKey(
-  vehicleId: number,
+  vehicleVersionId: number,
   code: string,
   excludeId?: number
 ): Promise<{ id: number } | null> {
   return prisma.homologation.findFirst({
     where: {
-      vehicleId,
+      vehicleVersionId,
       code,
       ...(excludeId ? { id: { not: excludeId } } : {}),
     },
@@ -91,12 +97,14 @@ export async function findHomologacaoByBusinessKey(
 type TireAssignment = { tireId: number; role: "ORIGINAL" | "OPCIONAL" };
 
 type HomologacaoWriteData = {
-  vehicleId: number;
+  vehicleVersionId: number;
   code: string;
   year: number;
-  version: string;
-  engine: string;
   notes: string | null;
+  validationStatus: Prisma.HomologationUncheckedCreateInput["validationStatus"];
+  source: string | null;
+  validatedBy: string | null;
+  validatedAt: Date | null;
   tires: TireAssignment[];
 };
 
@@ -105,12 +113,14 @@ export async function createHomologacao(
 ): Promise<HomologacaoRecord> {
   return prisma.homologation.create({
     data: {
-      vehicleId: data.vehicleId,
+      vehicleVersionId: data.vehicleVersionId,
       code: data.code,
       year: data.year,
-      version: data.version,
-      engine: data.engine,
       notes: data.notes,
+      validationStatus: data.validationStatus,
+      source: data.source,
+      validatedBy: data.validatedBy,
+      validatedAt: data.validatedAt,
       tires: { create: data.tires },
     },
     ...withRelations,
@@ -124,12 +134,14 @@ export async function updateHomologacao(
   return prisma.homologation.update({
     where: { id },
     data: {
-      vehicleId: data.vehicleId,
+      vehicleVersionId: data.vehicleVersionId,
       code: data.code,
       year: data.year,
-      version: data.version,
-      engine: data.engine,
       notes: data.notes,
+      validationStatus: data.validationStatus,
+      source: data.source,
+      validatedBy: data.validatedBy,
+      validatedAt: data.validatedAt,
       tires: {
         deleteMany: {},
         create: data.tires,
@@ -143,8 +155,8 @@ export async function deleteHomologacao(id: number): Promise<void> {
   await prisma.homologation.delete({ where: { id } });
 }
 
-export async function findVehicleById(id: number) {
-  return prisma.vehicle.findUnique({ where: { id } });
+export async function findVehicleVersionById(id: number) {
+  return prisma.vehicleVersion.findUnique({ where: { id } });
 }
 
 export async function findTireById(id: number) {
@@ -156,18 +168,32 @@ export async function findTiresByIds(ids: number[]) {
 }
 
 export async function listVehicleOptions() {
-  return prisma.vehicle.findMany({
+  const versions = await prisma.vehicleVersion.findMany({
     select: {
       id: true,
-      model: true,
-      version: true,
-      engine: true,
+      name: true,
       yearStart: true,
       yearEnd: true,
-      manufacturer: { select: { name: true } },
+      engine: { select: { name: true } },
+      vehicleModel: {
+        select: { name: true, manufacturer: { select: { name: true } } },
+      },
     },
-    orderBy: [{ manufacturer: { name: "asc" } }, { model: "asc" }],
+    orderBy: [
+      { vehicleModel: { manufacturer: { name: "asc" } } },
+      { vehicleModel: { name: "asc" } },
+    ],
   });
+
+  return versions.map((v) => ({
+    id: v.id,
+    model: v.vehicleModel.name,
+    version: v.name,
+    engine: v.engine.name,
+    yearStart: v.yearStart,
+    yearEnd: v.yearEnd,
+    manufacturer: { name: v.vehicleModel.manufacturer.name },
+  }));
 }
 
 export async function listTireOptions() {

@@ -12,6 +12,10 @@ import {
   TableTd,
 } from "@/components/ui/Table";
 import { useHomologacao } from "@/hooks/useHomologacao";
+import {
+  VALIDATION_STATUS_LABELS,
+  VALIDATION_STATUS_TONE,
+} from "@/lib/constants/validacao";
 
 type Props = {
   open: boolean;
@@ -44,6 +48,12 @@ export default function HomologacaoDetailModal({ open, onClose, id }: Props) {
           <div className="flex items-center gap-3">
             <Badge tone="warning">{homologacao.code}</Badge>
             <h3 className="text-lg font-bold">{homologacao.vehicleLabel}</h3>
+            <Badge
+              tone={VALIDATION_STATUS_TONE[homologacao.validationStatus]}
+              className="ml-auto"
+            >
+              {VALIDATION_STATUS_LABELS[homologacao.validationStatus]}
+            </Badge>
           </div>
 
           <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-3">
@@ -109,6 +119,12 @@ export default function HomologacaoDetailModal({ open, onClose, id }: Props) {
                 Observações:
               </span>
               {homologacao.notes}
+            </p>
+          )}
+
+          {homologacao.source && (
+            <p className="text-sm text-muted-foreground">
+              Fonte: {homologacao.source}
             </p>
           )}
 

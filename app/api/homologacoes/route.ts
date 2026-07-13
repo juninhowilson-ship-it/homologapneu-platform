@@ -5,6 +5,7 @@ import {
 } from "@/lib/validations/homologacao";
 import { listHomologacoes, createHomologacao } from "@/services/homologacoes";
 import { errorResponse } from "@/lib/api-response";
+import { getCurrentUser } from "@/lib/auth/dal";
 
 export async function GET(request: NextRequest) {
   const params = Object.fromEntries(request.nextUrl.searchParams);
@@ -33,7 +34,8 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const homologacao = await createHomologacao(parsed.data);
+    const user = await getCurrentUser();
+    const homologacao = await createHomologacao(parsed.data, user?.name ?? null);
     return NextResponse.json(homologacao, { status: 201 });
   } catch (error) {
     return errorResponse(error);

@@ -1,3 +1,5 @@
+import type { ValidationStatus } from "@/lib/constants/validacao";
+
 export type HomologacaoTireRole = "ORIGINAL" | "OPCIONAL";
 
 export type HomologacaoTireItem = {
@@ -21,6 +23,10 @@ export type Homologacao = {
   version: string;
   engine: string;
   notes: string | null;
+  validationStatus: ValidationStatus;
+  source: string | null;
+  validatedBy: string | null;
+  validatedAt: string | null;
   tires: HomologacaoTireItem[];
   originalTire: HomologacaoTireItem | null;
   optionalTires: HomologacaoTireItem[];

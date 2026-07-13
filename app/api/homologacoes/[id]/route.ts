@@ -6,6 +6,7 @@ import {
   deleteHomologacao,
 } from "@/services/homologacoes";
 import { errorResponse } from "@/lib/api-response";
+import { getCurrentUser } from "@/lib/auth/dal";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -49,7 +50,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    const homologacao = await updateHomologacao(id, parsed.data);
+    const user = await getCurrentUser();
+    const homologacao = await updateHomologacao(id, parsed.data, user?.name ?? null);
     return NextResponse.json(homologacao);
   } catch (error) {
     return errorResponse(error);

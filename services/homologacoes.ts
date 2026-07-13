@@ -3,7 +3,7 @@ import {
   listHomologacoes as listHomologacoesRepo,
   findHomologacaoById,
   findHomologacaoByBusinessKey,
-  findVehicleById,
+  findVehicleVersionById,
   findTiresByIds,
   listVehicleOptions as listVehicleOptionsRepo,
   listTireOptions as listTireOptionsRepo,
@@ -38,13 +38,17 @@ function toDTO(record: HomologacaoRecord): Homologacao {
   return {
     id: record.id,
     code: record.code,
-    vehicleId: record.vehicleId,
-    vehicleLabel: `${record.vehicle.manufacturer.name} ${record.vehicle.model} ${record.vehicle.version}`,
-    manufacturerName: record.vehicle.manufacturer.name,
+    vehicleId: record.vehicleVersionId,
+    vehicleLabel: `${record.vehicleVersion.vehicleModel.manufacturer.name} ${record.vehicleVersion.vehicleModel.name} ${record.vehicleVersion.name}`,
+    manufacturerName: record.vehicleVersion.vehicleModel.manufacturer.name,
     year: record.year,
-    version: record.version,
-    engine: record.engine,
+    version: record.vehicleVersion.name,
+    engine: record.vehicleVersion.engine.name,
     notes: record.notes,
+    validationStatus: record.validationStatus,
+    source: record.source,
+    validatedBy: record.validatedBy,
+    validatedAt: record.validatedAt ? record.validatedAt.toISOString() : null,
     tires,
     originalTire: tires.find((tire) => tire.role === "ORIGINAL") ?? null,
     optionalTires: tires.filter((tire) => tire.role === "OPCIONAL"),
@@ -53,16 +57,22 @@ function toDTO(record: HomologacaoRecord): Homologacao {
   };
 }
 
-function normalizeInput(input: HomologacaoFormValues) {
+function normalizeInput(
+  input: HomologacaoFormValues,
+  validadoPor: string | null
+) {
   const optionalIds = Array.from(new Set(input.tireOptionalIds));
+  const validationStatus = input.validationStatus ?? "NECESSITA_VALIDACAO";
 
   return {
-    vehicleId: input.vehicleId,
+    vehicleVersionId: input.vehicleId,
     code: input.code,
     year: input.year,
-    version: input.version,
-    engine: input.engine,
     notes: input.notes ? input.notes : null,
+    validationStatus,
+    source: input.source ? input.source : null,
+    validatedBy: validationStatus === "VALIDADO" ? validadoPor : null,
+    validatedAt: validationStatus === "VALIDADO" ? new Date() : null,
     tires: [
       { tireId: input.tireOriginalId, role: "ORIGINAL" as const },
       ...optionalIds.map((tireId) => ({
@@ -74,7 +84,7 @@ function normalizeInput(input: HomologacaoFormValues) {
 }
 
 async function assertVehicleExists(vehicleId: number) {
-  const vehicle = await findVehicleById(vehicleId);
+  const vehicle = await findVehicleVersionById(vehicleId);
   if (!vehicle) {
     throw new ValidationError("Veículo selecionado não existe");
   }
@@ -153,19 +163,23 @@ export async function listOpcoes() {
 }
 
 export async function createHomologacao(
-  input: HomologacaoFormValues
+  input: HomologacaoFormValues,
+  validadoPor: string | null = null
 ): Promise<Homologacao> {
   await assertVehicleExists(input.vehicleId);
   await assertTiresExist(input);
   await assertNoDuplicate(input);
 
-  const record = await createHomologacaoRepo(normalizeInput(input));
+  const record = await createHomologacaoRepo(
+    normalizeInput(input, validadoPor)
+  );
   return toDTO(record);
 }
 
 export async function updateHomologacao(
   id: number,
-  input: HomologacaoFormValues
+  input: HomologacaoFormValues,
+  validadoPor: string | null = null
 ): Promise<Homologacao> {
   const current = await findHomologacaoById(id);
   if (!current) {
@@ -176,7 +190,10 @@ export async function updateHomologacao(
   await assertTiresExist(input);
   await assertNoDuplicate(input, id);
 
-  const record = await updateHomologacaoRepo(id, normalizeInput(input));
+  const record = await updateHomologacaoRepo(
+    id,
+    normalizeInput(input, validadoPor)
+  );
   return toDTO(record);
 }
 

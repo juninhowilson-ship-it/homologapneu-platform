@@ -12,6 +12,10 @@ import {
   homologacaoFormSchema,
   type HomologacaoFormValues,
 } from "@/lib/validations/homologacao";
+import {
+  VALIDATION_STATUSES,
+  VALIDATION_STATUS_LABELS,
+} from "@/lib/constants/validacao";
 import { useHomologacaoOpcoes } from "@/hooks/useHomologacaoOpcoes";
 import {
   useCriarHomologacao,
@@ -29,12 +33,17 @@ const DEFAULT_VALUES: HomologacaoFormValues = {
   vehicleId: 0,
   code: "",
   year: new Date().getFullYear(),
-  version: "",
-  engine: "",
   tireOriginalId: 0,
   tireOptionalIds: [],
   notes: "",
+  validationStatus: "NECESSITA_VALIDACAO",
+  source: "",
 };
+
+const VALIDATION_STATUS_OPTIONS = VALIDATION_STATUSES.map((value) => ({
+  value,
+  label: VALIDATION_STATUS_LABELS[value],
+}));
 
 export default function HomologacaoFormModal({
   open,
@@ -67,11 +76,11 @@ export default function HomologacaoFormModal({
             vehicleId: homologacao.vehicleId,
             code: homologacao.code,
             year: homologacao.year,
-            version: homologacao.version,
-            engine: homologacao.engine,
             tireOriginalId: homologacao.originalTire?.tireId ?? 0,
             tireOptionalIds: homologacao.optionalTires.map((t) => t.tireId),
             notes: homologacao.notes ?? "",
+            validationStatus: homologacao.validationStatus,
+            source: homologacao.source ?? "",
           }
         : DEFAULT_VALUES
     );
@@ -83,8 +92,6 @@ export default function HomologacaoFormModal({
   function handleVehicleChange(vehicleId: number) {
     const vehicle = opcoes?.veiculos.find((v) => v.id === vehicleId);
     if (vehicle) {
-      setValue("version", vehicle.version);
-      setValue("engine", vehicle.engine);
       setValue("year", vehicle.yearStart);
     }
   }
@@ -148,18 +155,6 @@ export default function HomologacaoFormModal({
             error={errors.year?.message}
             {...register("year", { valueAsNumber: true })}
           />
-
-          <Input
-            label="Versão"
-            error={errors.version?.message}
-            {...register("version")}
-          />
-
-          <Input
-            label="Motor"
-            error={errors.engine?.message}
-            {...register("engine")}
-          />
         </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -210,6 +205,30 @@ export default function HomologacaoFormModal({
             )}
           />
         </div>
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Select
+            label="Status de Validação"
+            options={VALIDATION_STATUS_OPTIONS}
+            hidePlaceholder
+            error={errors.validationStatus?.message}
+            {...register("validationStatus")}
+          />
+
+          <Input
+            label="Fonte do dado"
+            placeholder="Ex: Ficha técnica oficial do fabricante"
+            error={errors.source?.message}
+            {...register("source")}
+          />
+        </div>
+
+        {isEditing && homologacao?.validatedAt && (
+          <p className="text-sm text-muted-foreground">
+            Validado por {homologacao.validatedBy ?? "—"} em{" "}
+            {new Date(homologacao.validatedAt).toLocaleString("pt-BR")}
+          </p>
+        )}
 
         <Textarea
           label="Observações"

@@ -1,4 +1,5 @@
 import * as z from "zod";
+import { VALIDATION_STATUSES } from "@/lib/constants/validacao";
 
 export const homologacaoFormSchema = z
   .object({
@@ -9,11 +10,11 @@ export const homologacaoFormSchema = z
       .min(1, "Código de homologação é obrigatório")
       .max(10),
     year: z.number().int().min(1950).max(2100),
-    version: z.string().trim().min(1, "Versão é obrigatória").max(120),
-    engine: z.string().trim().min(1, "Motor é obrigatório").max(80),
     tireOriginalId: z.number().int().positive("Selecione o pneu original"),
     tireOptionalIds: z.array(z.number().int().positive()),
     notes: z.string().trim().max(1000).optional().or(z.literal("")),
+    validationStatus: z.enum(VALIDATION_STATUSES),
+    source: z.string().trim().max(300).optional().or(z.literal("")),
   })
   .refine((data) => !data.tireOptionalIds.includes(data.tireOriginalId), {
     message: "O pneu opcional não pode ser igual ao pneu original",
