@@ -3,6 +3,7 @@ import type {
   VehicleCategory,
   VehicleSegment,
 } from "@/lib/constants/veiculo";
+import type { ValidationStatus } from "@/lib/constants/validacao";
 
 export type Veiculo = {
   id: number;
@@ -21,6 +22,10 @@ export type Veiculo = {
   imageUrl: string | null;
   notes: string | null;
   isActive: boolean;
+  validationStatus: ValidationStatus;
+  source: string | null;
+  validatedBy: string | null;
+  validatedAt: string | null;
   createdAt: string;
   updatedAt: string;
   homologationsCount: number;

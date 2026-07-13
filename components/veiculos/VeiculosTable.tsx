@@ -11,6 +11,10 @@ import {
   TableTd,
 } from "@/components/ui/Table";
 import { FUEL_LABELS, CATEGORY_LABELS } from "@/lib/constants/veiculo";
+import {
+  VALIDATION_STATUS_LABELS,
+  VALIDATION_STATUS_TONE,
+} from "@/lib/constants/validacao";
 import type { Veiculo } from "@/types/veiculo";
 import type { VeiculosQuery } from "@/hooks/useVeiculos";
 
@@ -86,6 +90,7 @@ export default function VeiculosTable({
           <TableTh>Combustível</TableTh>
           <TableTh>Categoria</TableTh>
           <TableTh>Status</TableTh>
+          <TableTh>Validação</TableTh>
           <TableTh>Ações</TableTh>
         </tr>
       </TableHead>
@@ -123,6 +128,12 @@ export default function VeiculosTable({
             <TableTd>
               <Badge tone={veiculo.isActive ? "success" : "danger"}>
                 {veiculo.isActive ? "Ativo" : "Inativo"}
+              </Badge>
+            </TableTd>
+
+            <TableTd>
+              <Badge tone={VALIDATION_STATUS_TONE[veiculo.validationStatus]}>
+                {VALIDATION_STATUS_LABELS[veiculo.validationStatus]}
               </Badge>
             </TableTd>
 

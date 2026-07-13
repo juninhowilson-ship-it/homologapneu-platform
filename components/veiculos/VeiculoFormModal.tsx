@@ -22,6 +22,10 @@ import {
   VEHICLE_SEGMENTS,
   SEGMENT_LABELS,
 } from "@/lib/constants/veiculo";
+import {
+  VALIDATION_STATUSES,
+  VALIDATION_STATUS_LABELS,
+} from "@/lib/constants/validacao";
 import { useManufacturers } from "@/hooks/useManufacturers";
 import {
   useCriarVeiculo,
@@ -50,6 +54,8 @@ const DEFAULT_VALUES: VeiculoFormValues = {
   imageUrl: "",
   notes: "",
   isActive: true,
+  validationStatus: "NECESSITA_VALIDACAO",
+  source: "",
 };
 
 const FUEL_OPTIONS = FUEL_TYPES.map((value) => ({
@@ -65,6 +71,11 @@ const CATEGORY_OPTIONS = VEHICLE_CATEGORIES.map((value) => ({
 const SEGMENT_OPTIONS = VEHICLE_SEGMENTS.map((value) => ({
   value,
   label: SEGMENT_LABELS[value],
+}));
+
+const VALIDATION_STATUS_OPTIONS = VALIDATION_STATUSES.map((value) => ({
+  value,
+  label: VALIDATION_STATUS_LABELS[value],
 }));
 
 export default function VeiculoFormModal({ open, onClose, veiculo }: Props) {
@@ -105,6 +116,8 @@ export default function VeiculoFormModal({ open, onClose, veiculo }: Props) {
             imageUrl: veiculo.imageUrl ?? "",
             notes: veiculo.notes ?? "",
             isActive: veiculo.isActive,
+            validationStatus: veiculo.validationStatus,
+            source: veiculo.source ?? "",
           }
         : DEFAULT_VALUES
     );
@@ -231,6 +244,30 @@ export default function VeiculoFormModal({ open, onClose, veiculo }: Props) {
             />
           )}
         />
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Select
+            label="Status de Validação"
+            options={VALIDATION_STATUS_OPTIONS}
+            hidePlaceholder
+            error={errors.validationStatus?.message}
+            {...register("validationStatus")}
+          />
+
+          <Input
+            label="Fonte do dado"
+            placeholder="Ex: Ficha técnica oficial do fabricante"
+            error={errors.source?.message}
+            {...register("source")}
+          />
+        </div>
+
+        {isEditing && veiculo?.validatedAt && (
+          <p className="text-sm text-muted-foreground">
+            Validado por {veiculo.validatedBy ?? "—"} em{" "}
+            {new Date(veiculo.validatedAt).toLocaleString("pt-BR")}
+          </p>
+        )}
 
         <Controller
           control={control}

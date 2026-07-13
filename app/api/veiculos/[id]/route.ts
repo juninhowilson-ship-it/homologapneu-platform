@@ -6,6 +6,7 @@ import {
   deleteVeiculo,
 } from "@/services/veiculos";
 import { errorResponse } from "@/lib/api-response";
+import { getCurrentUser } from "@/lib/auth/dal";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -49,7 +50,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    const veiculo = await updateVeiculo(id, parsed.data);
+    const user = await getCurrentUser();
+    const veiculo = await updateVeiculo(id, parsed.data, user?.name ?? null);
     return NextResponse.json(veiculo);
   } catch (error) {
     return errorResponse(error);

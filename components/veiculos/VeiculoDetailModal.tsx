@@ -9,6 +9,10 @@ import {
   CATEGORY_LABELS,
   SEGMENT_LABELS,
 } from "@/lib/constants/veiculo";
+import {
+  VALIDATION_STATUS_LABELS,
+  VALIDATION_STATUS_TONE,
+} from "@/lib/constants/validacao";
 
 type Props = {
   open: boolean;
@@ -63,12 +67,14 @@ export default function VeiculoDetailModal({ open, onClose, id }: Props) {
               </p>
             </div>
 
-            <Badge
-              tone={veiculo.isActive ? "success" : "danger"}
-              className="ml-auto"
-            >
-              {veiculo.isActive ? "Ativo" : "Inativo"}
-            </Badge>
+            <div className="ml-auto flex flex-col items-end gap-2">
+              <Badge tone={veiculo.isActive ? "success" : "danger"}>
+                {veiculo.isActive ? "Ativo" : "Inativo"}
+              </Badge>
+              <Badge tone={VALIDATION_STATUS_TONE[veiculo.validationStatus]}>
+                {VALIDATION_STATUS_LABELS[veiculo.validationStatus]}
+              </Badge>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-3">
@@ -119,6 +125,12 @@ export default function VeiculoDetailModal({ open, onClose, id }: Props) {
           <p className="text-sm text-muted-foreground">
             Homologações associadas: {veiculo.homologationsCount}
           </p>
+
+          {veiculo.source && (
+            <p className="text-sm text-muted-foreground">
+              Fonte: {veiculo.source}
+            </p>
+          )}
 
           <div className="grid grid-cols-2 gap-4 border-t border-border pt-4 text-sm text-muted-foreground">
             <div>

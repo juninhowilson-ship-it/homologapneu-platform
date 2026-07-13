@@ -4,6 +4,7 @@ import {
   VEHICLE_CATEGORIES,
   VEHICLE_SEGMENTS,
 } from "@/lib/constants/veiculo";
+import { VALIDATION_STATUSES } from "@/lib/constants/validacao";
 
 export const veiculoFormSchema = z
   .object({
@@ -21,6 +22,8 @@ export const veiculoFormSchema = z
     imageUrl: z.string().trim().optional().or(z.literal("")),
     notes: z.string().trim().max(1000).optional().or(z.literal("")),
     isActive: z.boolean(),
+    validationStatus: z.enum(VALIDATION_STATUSES),
+    source: z.string().trim().max(300).optional().or(z.literal("")),
   })
   .refine((data) => data.yearEnd >= data.yearStart, {
     message: "Ano final deve ser maior ou igual ao ano inicial",

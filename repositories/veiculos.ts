@@ -5,24 +5,42 @@ import type { Prisma } from "@prisma/client";
 
 const withRelations = {
   include: {
-    manufacturer: true,
+    vehicleModel: { include: { manufacturer: true } },
+    engine: true,
+    transmission: true,
+    generation: true,
+    images: true,
     _count: { select: { homologations: true } },
   },
-} satisfies Prisma.VehicleDefaultArgs;
+} satisfies Prisma.VehicleVersionDefaultArgs;
 
-export type VeiculoRecord = Prisma.VehicleGetPayload<typeof withRelations>;
+export type VeiculoRecord = Prisma.VehicleVersionGetPayload<typeof withRelations>;
+
+function buildOrderBy(
+  sortBy: VeiculoListQuery["sortBy"],
+  sortDir: VeiculoListQuery["sortDir"]
+): Prisma.VehicleVersionOrderByWithRelationInput {
+  switch (sortBy) {
+    case "model":
+      return { vehicleModel: { name: sortDir } };
+    case "version":
+      return { name: sortDir };
+    default:
+      return { [sortBy]: sortDir };
+  }
+}
 
 export async function listVeiculos(
   query: VeiculoListQuery
 ): Promise<{ data: VeiculoRecord[]; total: number }> {
-  const where: Prisma.VehicleWhereInput = {};
+  const where: Prisma.VehicleVersionWhereInput = {};
 
   if (query.q) {
     where.OR = [
-      { model: { contains: query.q } },
-      { version: { contains: query.q } },
-      { engine: { contains: query.q } },
-      { manufacturer: { name: { contains: query.q } } },
+      { name: { contains: query.q } },
+      { vehicleModel: { name: { contains: query.q } } },
+      { engine: { name: { contains: query.q } } },
+      { vehicleModel: { manufacturer: { name: { contains: query.q } } } },
     ];
   }
 
@@ -32,20 +50,22 @@ export async function listVeiculos(
     where.isActive = false;
   }
 
-  if (query.manufacturerId) where.manufacturerId = query.manufacturerId;
-  if (query.fuel) where.fuel = query.fuel;
+  if (query.manufacturerId) {
+    where.vehicleModel = { manufacturerId: query.manufacturerId };
+  }
+  if (query.fuel) where.engine = { fuel: query.fuel };
   if (query.category) where.category = query.category;
   if (query.segment) where.segment = query.segment;
 
   const [data, total] = await Promise.all([
-    prisma.vehicle.findMany({
+    prisma.vehicleVersion.findMany({
       where,
       ...withRelations,
-      orderBy: { [query.sortBy]: query.sortDir },
+      orderBy: buildOrderBy(query.sortBy, query.sortDir),
       skip: (query.page - 1) * query.pageSize,
       take: query.pageSize,
     }),
-    prisma.vehicle.count({ where }),
+    prisma.vehicleVersion.count({ where }),
   ]);
 
   return { data, total };
@@ -54,7 +74,7 @@ export async function listVeiculos(
 export async function findVeiculoById(
   id: number
 ): Promise<VeiculoRecord | null> {
-  return prisma.vehicle.findUnique({ where: { id }, ...withRelations });
+  return prisma.vehicleVersion.findUnique({ where: { id }, ...withRelations });
 }
 
 export async function findVeiculoByBusinessKey(
@@ -62,35 +82,164 @@ export async function findVeiculoByBusinessKey(
   model: string,
   version: string,
   engine: string,
+  fuel: Prisma.EngineUncheckedCreateInput["fuel"],
+  power: string | null,
   excludeId?: number
 ): Promise<{ id: number } | null> {
-  return prisma.vehicle.findFirst({
+  return prisma.vehicleVersion.findFirst({
     where: {
-      manufacturerId,
-      model,
-      version,
-      engine,
+      vehicleModel: { manufacturerId, name: model },
+      name: version,
+      engine: { name: engine, fuel, power },
       ...(excludeId ? { id: { not: excludeId } } : {}),
     },
     select: { id: true },
   });
 }
 
+export async function findOrCreateVehicleModel(
+  manufacturerId: number,
+  name: string
+): Promise<number> {
+  const existing = await prisma.vehicleModel.findFirst({
+    where: { manufacturerId, name },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  const created = await prisma.vehicleModel.create({
+    data: { manufacturerId, name },
+    select: { id: true },
+  });
+  return created.id;
+}
+
+export async function findOrCreateEngine(
+  name: string,
+  fuel: Prisma.EngineUncheckedCreateInput["fuel"],
+  power: string | null
+): Promise<number> {
+  const existing = await prisma.engine.findFirst({
+    where: { name, fuel, power },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  const created = await prisma.engine.create({
+    data: { name, fuel, power, turbo: /turbo|tsi|tfsi/i.test(name) },
+    select: { id: true },
+  });
+  return created.id;
+}
+
+type VeiculoWriteData = {
+  manufacturerId: number;
+  model: string;
+  version: string;
+  yearStart: number;
+  yearEnd: number;
+  engine: string;
+  power: string | null;
+  fuel: Prisma.EngineUncheckedCreateInput["fuel"];
+  category: Prisma.VehicleVersionUncheckedCreateInput["category"];
+  segment: Prisma.VehicleVersionUncheckedCreateInput["segment"];
+  country: string | null;
+  imageUrl: string | null;
+  notes: string | null;
+  isActive: boolean;
+  validationStatus: Prisma.VehicleVersionUncheckedCreateInput["validationStatus"];
+  source: string | null;
+  validatedBy: string | null;
+  validatedAt: Date | null;
+};
+
+async function upsertPrincipalImage(
+  vehicleVersionId: number,
+  imageUrl: string | null
+) {
+  if (imageUrl) {
+    await prisma.vehicleImage.upsert({
+      where: { vehicleVersionId_type: { vehicleVersionId, type: "PRINCIPAL" } },
+      update: { url: imageUrl },
+      create: { vehicleVersionId, type: "PRINCIPAL", url: imageUrl },
+    });
+  } else {
+    await prisma.vehicleImage.deleteMany({
+      where: { vehicleVersionId, type: "PRINCIPAL" },
+    });
+  }
+}
+
 export async function createVeiculo(
-  data: Prisma.VehicleUncheckedCreateInput
+  data: VeiculoWriteData
 ): Promise<VeiculoRecord> {
-  return prisma.vehicle.create({ data, ...withRelations });
+  const vehicleModelId = await findOrCreateVehicleModel(
+    data.manufacturerId,
+    data.model
+  );
+  const engineId = await findOrCreateEngine(data.engine, data.fuel, data.power);
+
+  const record = await prisma.vehicleVersion.create({
+    data: {
+      vehicleModelId,
+      engineId,
+      name: data.version,
+      yearStart: data.yearStart,
+      yearEnd: data.yearEnd,
+      category: data.category,
+      segment: data.segment,
+      country: data.country,
+      notes: data.notes,
+      isActive: data.isActive,
+      validationStatus: data.validationStatus,
+      source: data.source,
+      validatedBy: data.validatedBy,
+      validatedAt: data.validatedAt,
+    },
+    ...withRelations,
+  });
+
+  await upsertPrincipalImage(record.id, data.imageUrl);
+  return findVeiculoById(record.id) as Promise<VeiculoRecord>;
 }
 
 export async function updateVeiculo(
   id: number,
-  data: Prisma.VehicleUncheckedUpdateInput
+  data: VeiculoWriteData
 ): Promise<VeiculoRecord> {
-  return prisma.vehicle.update({ where: { id }, data, ...withRelations });
+  const vehicleModelId = await findOrCreateVehicleModel(
+    data.manufacturerId,
+    data.model
+  );
+  const engineId = await findOrCreateEngine(data.engine, data.fuel, data.power);
+
+  await prisma.vehicleVersion.update({
+    where: { id },
+    data: {
+      vehicleModelId,
+      engineId,
+      name: data.version,
+      yearStart: data.yearStart,
+      yearEnd: data.yearEnd,
+      category: data.category,
+      segment: data.segment,
+      country: data.country,
+      notes: data.notes,
+      isActive: data.isActive,
+      validationStatus: data.validationStatus,
+      source: data.source,
+      validatedBy: data.validatedBy,
+      validatedAt: data.validatedAt,
+    },
+    ...withRelations,
+  });
+
+  await upsertPrincipalImage(id, data.imageUrl);
+  return findVeiculoById(id) as Promise<VeiculoRecord>;
 }
 
 export async function deleteVeiculo(id: number): Promise<void> {
-  await prisma.vehicle.delete({ where: { id } });
+  await prisma.vehicleVersion.delete({ where: { id } });
 }
 
 export async function listManufacturers(): Promise<
