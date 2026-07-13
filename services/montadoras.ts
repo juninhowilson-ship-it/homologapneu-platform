@@ -6,6 +6,7 @@ import {
   createMontadora as createMontadoraRepo,
   updateMontadora as updateMontadoraRepo,
   deleteMontadora as deleteMontadoraRepo,
+  findOrCreateAutomotiveGroup,
   type MontadoraRecord,
 } from "@/repositories/montadoras";
 import { NotFoundError, ConflictError } from "@/lib/errors";
@@ -34,11 +35,19 @@ function toDTO(record: MontadoraRecord): Montadora {
   return {
     id: record.id,
     name: record.name,
+    legalName: record.legalName,
+    groupName: record.automotiveGroup?.name ?? null,
     country: record.country,
     website: record.website,
     notes: record.notes,
     logoUrl: record.logoUrl,
     isActive: record.isActive,
+    marketStartDate: record.marketStartDate
+      ? record.marketStartDate.toISOString()
+      : null,
+    marketEndDate: record.marketEndDate
+      ? record.marketEndDate.toISOString()
+      : null,
     validationStatus: record.validationStatus,
     source: record.source,
     createdAt: record.createdAt.toISOString(),
@@ -47,14 +56,28 @@ function toDTO(record: MontadoraRecord): Montadora {
   };
 }
 
-function normalizeInput(input: MontadoraFormValues) {
+function parseDateOrNull(value: string | undefined): Date | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+async function normalizeInput(input: MontadoraFormValues) {
+  const automotiveGroupId = input.groupName
+    ? await findOrCreateAutomotiveGroup(input.groupName)
+    : null;
+
   return {
     name: input.name,
+    legalName: input.legalName ? input.legalName : null,
+    automotiveGroupId,
     country: input.country ? input.country : null,
     website: input.website ? input.website : null,
     notes: input.notes ? input.notes : null,
     logoUrl: input.logoUrl ? input.logoUrl : null,
     isActive: input.isActive,
+    marketStartDate: parseDateOrNull(input.marketStartDate),
+    marketEndDate: parseDateOrNull(input.marketEndDate),
     validationStatus: input.validationStatus ?? "NECESSITA_VALIDACAO",
     source: input.source ? input.source : null,
   };
@@ -81,7 +104,7 @@ export async function createMontadora(
     throw new ConflictError("Já existe uma montadora com este nome");
   }
 
-  const record = await createMontadoraRepo(normalizeInput(input));
+  const record = await createMontadoraRepo(await normalizeInput(input));
   return toDTO(record);
 }
 
@@ -99,7 +122,7 @@ export async function updateMontadora(
     throw new ConflictError("Já existe uma montadora com este nome");
   }
 
-  const record = await updateMontadoraRepo(id, normalizeInput(input));
+  const record = await updateMontadoraRepo(id, await normalizeInput(input));
   return toDTO(record);
 }
 
@@ -149,11 +172,15 @@ export async function importMontadoras(
     try {
       const parsed = montadoraFormSchema.safeParse({
         name: record.nome,
+        legalName: record.montadora,
+        groupName: record.grupo,
         country: record.pais,
         website: record.site,
         notes: record.observacoes,
         logoUrl: record.logo,
         isActive: parseBooleanPtBr(record.status, true),
+        marketStartDate: record.inicioComercializacao,
+        marketEndDate: record.fimComercializacao,
         validationStatus: "NECESSITA_VALIDACAO",
         source: contexto ? `Importação: ${contexto.fileName}` : "",
       });
@@ -176,24 +203,42 @@ export async function importMontadoras(
 
         const merged: MontadoraFormValues = {
           ...parsed.data,
+          legalName: parsed.data.legalName || current.legalName || "",
+          groupName: parsed.data.groupName || current.groupName || "",
           country: parsed.data.country || current.country || "",
           website: parsed.data.website || current.website || "",
           notes: parsed.data.notes || current.notes || "",
           logoUrl: parsed.data.logoUrl || current.logoUrl || "",
+          marketStartDate:
+            parsed.data.marketStartDate ||
+            (current.marketStartDate
+              ? current.marketStartDate.slice(0, 10)
+              : ""),
+          marketEndDate:
+            parsed.data.marketEndDate ||
+            (current.marketEndDate ? current.marketEndDate.slice(0, 10) : ""),
         };
 
         const changes = diffRecords(
           {
+            legalName: current.legalName,
+            groupName: current.groupName,
             country: current.country,
             website: current.website,
             notes: current.notes,
             isActive: current.isActive,
+            marketStartDate: current.marketStartDate,
+            marketEndDate: current.marketEndDate,
           },
           {
+            legalName: merged.legalName || null,
+            groupName: merged.groupName || null,
             country: merged.country || null,
             website: merged.website || null,
             notes: merged.notes || null,
             isActive: merged.isActive,
+            marketStartDate: parseDateOrNull(merged.marketStartDate)?.toISOString() ?? null,
+            marketEndDate: parseDateOrNull(merged.marketEndDate)?.toISOString() ?? null,
           }
         );
 

@@ -3,7 +3,10 @@ import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 
 const withModelsCount = {
-  include: { _count: { select: { models: true } } },
+  include: {
+    automotiveGroup: true,
+    _count: { select: { models: true } },
+  },
 } satisfies Prisma.ManufacturerDefaultArgs;
 
 export type MontadoraRecord = Prisma.ManufacturerGetPayload<
@@ -37,18 +40,34 @@ export async function findMontadoraByName(
 }
 
 export async function createMontadora(
-  data: Prisma.ManufacturerCreateInput
+  data: Prisma.ManufacturerUncheckedCreateInput
 ): Promise<MontadoraRecord> {
   return prisma.manufacturer.create({ data, ...withModelsCount });
 }
 
 export async function updateMontadora(
   id: number,
-  data: Prisma.ManufacturerUpdateInput
+  data: Prisma.ManufacturerUncheckedUpdateInput
 ): Promise<MontadoraRecord> {
   return prisma.manufacturer.update({ where: { id }, data, ...withModelsCount });
 }
 
 export async function deleteMontadora(id: number): Promise<void> {
   await prisma.manufacturer.delete({ where: { id } });
+}
+
+export async function findOrCreateAutomotiveGroup(
+  name: string
+): Promise<number> {
+  const existing = await prisma.automotiveGroup.findUnique({
+    where: { name },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  const created = await prisma.automotiveGroup.create({
+    data: { name },
+    select: { id: true },
+  });
+  return created.id;
 }

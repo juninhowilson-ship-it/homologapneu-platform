@@ -7,6 +7,8 @@ export const montadoraFormSchema = z.object({
     .trim()
     .min(1, "Nome é obrigatório")
     .max(120, "Nome deve ter no máximo 120 caracteres"),
+  legalName: z.string().trim().max(160).optional().or(z.literal("")),
+  groupName: z.string().trim().max(120).optional().or(z.literal("")),
   country: z.string().trim().max(80).optional().or(z.literal("")),
   website: z
     .union([z.literal(""), z.string().trim().url("URL inválida")])
@@ -19,6 +21,8 @@ export const montadoraFormSchema = z.object({
     .or(z.literal("")),
   logoUrl: z.string().trim().optional().or(z.literal("")),
   isActive: z.boolean(),
+  marketStartDate: z.string().trim().optional().or(z.literal("")),
+  marketEndDate: z.string().trim().optional().or(z.literal("")),
   validationStatus: z.enum(VALIDATION_STATUSES),
   source: z.string().trim().max(300).optional().or(z.literal("")),
 });
