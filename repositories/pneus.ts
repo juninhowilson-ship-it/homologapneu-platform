@@ -7,6 +7,7 @@ const withRelations = {
   include: {
     tireManufacturer: true,
     tireFamily: true,
+    technologies: { include: { technology: true } },
     _count: { select: { homologationTires: true } },
   },
 } satisfies Prisma.TireDefaultArgs;
@@ -105,17 +106,117 @@ export async function findOrCreateTireFamily(
   return created.id;
 }
 
+export async function findOrCreateLoadIndex(
+  code: string,
+  source: string | null
+): Promise<number> {
+  const existing = await prisma.loadIndex.findUnique({
+    where: { code },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  const created = await prisma.loadIndex.create({
+    data: { code, source },
+    select: { id: true },
+  });
+  return created.id;
+}
+
+export async function findOrCreateSpeedIndex(
+  code: string,
+  source: string | null
+): Promise<number> {
+  const existing = await prisma.speedIndex.findUnique({
+    where: { code },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  const created = await prisma.speedIndex.create({
+    data: { code, source },
+    select: { id: true },
+  });
+  return created.id;
+}
+
+export async function findOrCreateTechnology(
+  name: string,
+  source: string | null
+): Promise<number> {
+  const existing = await prisma.technology.findUnique({
+    where: { name },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  const created = await prisma.technology.create({
+    data: { name, description: source ? `Origem: ${source}` : null },
+    select: { id: true },
+  });
+  return created.id;
+}
+
+export async function syncTireTechnologies(
+  tireId: number,
+  technologyIds: number[]
+): Promise<void> {
+  await prisma.$transaction([
+    prisma.tireTechnology.deleteMany({ where: { tireId } }),
+    ...(technologyIds.length > 0
+      ? [
+          prisma.tireTechnology.createMany({
+            data: technologyIds.map((technologyId) => ({ tireId, technologyId })),
+            skipDuplicates: true,
+          }),
+        ]
+      : []),
+  ]);
+}
+
+async function resolveIndexRefIds(
+  loadIndex: string | undefined,
+  speedIndex: string | undefined,
+  source: string | null
+): Promise<{ loadIndexId?: number; speedIndexId?: number }> {
+  const [loadIndexId, speedIndexId] = await Promise.all([
+    loadIndex ? findOrCreateLoadIndex(loadIndex, source) : Promise.resolve(undefined),
+    speedIndex
+      ? findOrCreateSpeedIndex(speedIndex, source)
+      : Promise.resolve(undefined),
+  ]);
+
+  return {
+    ...(loadIndexId !== undefined ? { loadIndexId } : {}),
+    ...(speedIndexId !== undefined ? { speedIndexId } : {}),
+  };
+}
+
 export async function createPneu(
   data: Prisma.TireUncheckedCreateInput
 ): Promise<PneuRecord> {
-  return prisma.tire.create({ data, ...withRelations });
+  const refs = await resolveIndexRefIds(
+    data.loadIndex,
+    data.speedIndex,
+    typeof data.source === "string" ? data.source : null
+  );
+  return prisma.tire.create({ data: { ...data, ...refs }, ...withRelations });
 }
 
 export async function updatePneu(
   id: number,
   data: Prisma.TireUncheckedUpdateInput
 ): Promise<PneuRecord> {
-  return prisma.tire.update({ where: { id }, data, ...withRelations });
+  const refs = await resolveIndexRefIds(
+    typeof data.loadIndex === "string" ? data.loadIndex : undefined,
+    typeof data.speedIndex === "string" ? data.speedIndex : undefined,
+    typeof data.source === "string" ? data.source : null
+  );
+  return prisma.tire.update({
+    where: { id },
+    data: { ...data, ...refs },
+    ...withRelations,
+  });
 }
 
 export async function deletePneu(id: number): Promise<void> {

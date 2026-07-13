@@ -32,6 +32,7 @@ export type Pneu = {
   createdAt: string;
   updatedAt: string;
   homologationsCount: number;
+  technologies: string[];
 };
 
 export type PneuListResponse = {
