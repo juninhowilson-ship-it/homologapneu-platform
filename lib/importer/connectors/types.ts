@@ -19,7 +19,8 @@ export type ConnectorFetchResult = {
 export type ConnectorKind =
   | "CATALOGO_MONTADORA"
   | "CATALOGO_FABRICANTE_PNEU"
-  | "API_PUBLICA";
+  | "API_PUBLICA"
+  | "BASE_GOVERNAMENTAL";
 
 /**
  * Contrato para um conector de fonte oficial (catálogo de montadora,
