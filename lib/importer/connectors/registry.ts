@@ -1,16 +1,23 @@
 import "server-only";
 import type { ImportConnector } from "./types";
 import { fipeMontadorasConnector } from "./fipeMontadoras";
+import { wikidataMontadorasConnector } from "./wikidataMontadoras";
+import { wikidataFabricantesPneusConnector } from "./wikidataFabricantesPneus";
 import { catalogoMontadoraOficialConnector } from "./catalogoMontadoraOficial";
 import { catalogoFabricantePneuOficialConnector } from "./catalogoFabricantePneuOficial";
+import { baseHomologacoesOficialConnector } from "./baseHomologacoesOficial";
 
 /**
  * Registro de conectores de fontes oficiais para importação automatizada.
  *
- * - fipe-montadoras: funcional, sem autenticação (API pública da FIPE).
- * - catalogo-montadora-oficial / catalogo-fabricante-pneu-oficial: estrutura
- *   pronta, aguardando a definição de uma fonte oficial específica
- *   (endpoint + credenciais) para cada montadora/fabricante de pneus.
+ * - fipe-montadoras: funcional (API pública da FIPE) — identificação/nomes.
+ * - wikidata-montadoras / wikidata-fabricantes-pneus: funcionais (SPARQL
+ *   público do Wikidata) — enriquecimento (país, site, logo, grupo) dos
+ *   registros já cadastrados, por correspondência exata de nome.
+ * - catalogo-montadora-oficial / catalogo-fabricante-pneu-oficial /
+ *   base-homologacoes-oficial: estrutura pronta, aguardando a definição de
+ *   uma fonte oficial específica (endpoint + credenciais) — ver o
+ *   comentário em cada arquivo para o motivo detalhado.
  *
  * Para adicionar um novo conector: implemente `ImportConnector` (types.ts)
  * em um novo arquivo neste diretório e adicione a instância à lista abaixo.
@@ -20,8 +27,11 @@ import { catalogoFabricantePneuOficialConnector } from "./catalogoFabricantePneu
  */
 export const CONNECTORS: ImportConnector[] = [
   fipeMontadorasConnector,
+  wikidataMontadorasConnector,
+  wikidataFabricantesPneusConnector,
   catalogoMontadoraOficialConnector,
   catalogoFabricantePneuOficialConnector,
+  baseHomologacoesOficialConnector,
 ];
 
 export function getConnector(id: string): ImportConnector | undefined {
