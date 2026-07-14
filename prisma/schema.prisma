@@ -523,6 +523,95 @@ model HomologationDocument {
   @@map("homologation_documents")
 }
 
+enum EvidenceSourceType {
+  MARKETPLACE
+  FABRICANTE_PNEU
+  MONTADORA
+  MANUAL
+  CATALOGO_OE
+}
+
+enum ApplicationStatus {
+  EVIDENCIA
+  APLICACAO_COMERCIAL
+  HOMOLOGACAO_VALIDADA
+}
+
+/// Agrupa todas as evidencias que descrevem a MESMA aplicacao (mesmo pneu
+/// + mesmo veiculo/versao/anos), por chave exata normalizada. O status e a
+/// confianca aqui sao SEMPRE derivados das evidencias associadas — nunca
+/// editados diretamente — conforme a regra de promocao definida pelo
+/// usuario (ver services/homologationEvidence.ts).
+model TireVehicleApplication {
+  id                       Int      @id @default(autoincrement())
+  tireManufacturerName     String
+  tireModel                String
+  tireSize                 String
+  vehicleManufacturerName  String
+  vehicleModel             String
+  /// String vazia quando a versao nao e informada pela fonte — campos
+  /// nulaveis nao funcionam de forma confiavel dentro de uma chave unica
+  /// composta (NULL != NULL no Postgres), entao usamos "" como sentinela.
+  vehicleVersion           String   @default("")
+  /// 0 quando o ano nao e informado pela fonte (mesmo motivo do
+  /// sentinela acima).
+  yearStart                Int      @default(0)
+  yearEnd                  Int      @default(0)
+  status                   ApplicationStatus @default(EVIDENCIA)
+  /// Confianca agregada (nao e a confianca de uma fonte isolada): cresce
+  /// quando fontes independentes confirmam a mesma aplicacao.
+  confidence               Int      @default(0)
+  evidenceCount            Int      @default(0)
+  firstSeenAt              DateTime @default(now())
+  lastConfirmedAt          DateTime @updatedAt
+
+  evidences                HomologationEvidence[]
+
+  @@unique([tireManufacturerName, tireModel, tireSize, vehicleManufacturerName, vehicleModel, vehicleVersion, yearStart, yearEnd], name: "chaveAplicacao")
+  @@index([status])
+  @@map("tire_vehicle_applications")
+}
+
+/// Registro bruto e imutavel de UMA coleta de UMA fonte. Nunca e
+/// atualizado nem apagado apos criado ("nunca perder nenhuma evidencia") —
+/// e o pipeline de coleta por evidencias descrito na missao correspondente
+/// (TireShop/Campneus/DPaschoal/PneuStore, fabricantes, montadoras,
+/// manuais, catalogos OE). Nao representa uma homologacao por si so; o
+/// status de homologacao vive em TireVehicleApplication.
+model HomologationEvidence {
+  id                       Int      @id @default(autoincrement())
+  applicationId            Int
+  tireManufacturerName     String
+  tireModel                String
+  tireSize                 String
+  vehicleManufacturerName  String
+  vehicleModel             String
+  /// "" quando a fonte nao informa a versao (mesmo sentinela usado em
+  /// TireVehicleApplication, para bater com a mesma chave normalizada).
+  vehicleVersion           String   @default("")
+  /// 0 quando a fonte nao informa o ano.
+  yearStart                Int      @default(0)
+  yearEnd                  Int      @default(0)
+  sourceUrl                String
+  sourceName               String
+  sourceType               EvidenceSourceType
+  collectedAt              DateTime
+  /// Hash SHA-256 do conteudo bruto coletado (mesmo espirito de
+  /// ImportBatch.importHash), para deteccao de recoleta identica.
+  contentHash              String
+  /// Confianca fixa atribuida ao TIPO da fonte no momento da coleta (ex.:
+  /// marketplace=40, fabricante=70, montadora=90) — distinta da confianca
+  /// agregada em TireVehicleApplication.
+  sourceConfidence         Int
+  createdAt                DateTime @default(now())
+
+  application              TireVehicleApplication @relation(fields: [applicationId], references: [id])
+
+  @@index([applicationId])
+  @@index([sourceType])
+  @@map("homologation_evidences")
+}
+
 enum UserRole {
   ADMIN
   USUARIO
