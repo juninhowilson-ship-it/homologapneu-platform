@@ -84,10 +84,13 @@ export const wikidataMontadorasConnector: ImportConnector = {
         grupo: info.group ?? "",
         logo: info.logo ?? "",
         status: "true",
+        // Correspondencia exata de rotulo + classe restrita, mas com risco
+        // conhecido de propriedades multivaloradas (ver comentario acima).
+        confianca: "75",
       }));
 
     return {
-      headers: ["nome", "pais", "site", "grupo", "logo", "status"],
+      headers: ["nome", "pais", "site", "grupo", "logo", "status", "confianca"],
       rows,
       collectedAt: new Date(),
       sourceUrl: "https://query.wikidata.org/sparql",

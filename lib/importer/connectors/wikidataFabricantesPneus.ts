@@ -81,10 +81,12 @@ export const wikidataFabricantesPneusConnector: ImportConnector = {
         site: info.website ?? "",
         logo: info.logo ?? "",
         status: "true",
+        // Correspondencia exata por nome + filtro de produto "tire" (P1056).
+        confianca: "75",
       }));
 
     return {
-      headers: ["nome", "pais", "site", "logo", "status"],
+      headers: ["nome", "pais", "site", "logo", "status", "confianca"],
       rows,
       collectedAt: new Date(),
       sourceUrl: "https://query.wikidata.org/sparql",
