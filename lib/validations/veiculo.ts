@@ -4,6 +4,7 @@ import {
   VEHICLE_CATEGORIES,
   VEHICLE_SEGMENTS,
   DRIVETRAIN_TYPES,
+  TRANSMISSION_TYPES,
 } from "@/lib/constants/veiculo";
 import { VALIDATION_STATUSES } from "@/lib/constants/validacao";
 
@@ -25,8 +26,12 @@ export const veiculoFormSchema = z
     regulatoryCategory: z.string().trim().max(80).optional().or(z.literal("")),
     segment: z.enum(VEHICLE_SEGMENTS).optional().or(z.literal("")),
     platformName: z.string().trim().max(80).optional().or(z.literal("")),
+    transmissionType: z.enum(TRANSMISSION_TYPES).optional().or(z.literal("")),
+    transmissionGears: z.number().int().min(1).max(10).nullable().optional(),
     drivetrain: z.enum(DRIVETRAIN_TYPES).optional().or(z.literal("")),
     doors: z.number().int().min(2).max(6).nullable().optional(),
+    wheelbase: z.number().int().min(1000).max(5000).nullable().optional(),
+    weight: z.number().int().min(200).max(10000).nullable().optional(),
     country: z.string().trim().max(80).optional().or(z.literal("")),
     imageUrl: z.string().trim().optional().or(z.literal("")),
     notes: z.string().trim().max(1000).optional().or(z.literal("")),

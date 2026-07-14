@@ -54,6 +54,24 @@ export const SEGMENT_LABELS: Record<VehicleSegment, string> = {
   LUXO: "Luxo",
 };
 
+export const TRANSMISSION_TYPES = [
+  "MANUAL",
+  "AUTOMATICA",
+  "CVT",
+  "AUTOMATIZADA",
+  "DUPLA_EMBREAGEM",
+] as const;
+
+export type TransmissionType = (typeof TRANSMISSION_TYPES)[number];
+
+export const TRANSMISSION_LABELS: Record<TransmissionType, string> = {
+  MANUAL: "Manual",
+  AUTOMATICA: "Automática",
+  CVT: "CVT",
+  AUTOMATIZADA: "Automatizada",
+  DUPLA_EMBREAGEM: "Dupla Embreagem",
+};
+
 export const DRIVETRAIN_TYPES = ["DIANTEIRA", "TRASEIRA", "INTEGRAL"] as const;
 
 export type DrivetrainType = (typeof DRIVETRAIN_TYPES)[number];

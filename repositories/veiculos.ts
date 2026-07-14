@@ -160,6 +160,23 @@ export async function findOrCreateEngine(
   return created.id;
 }
 
+export async function findOrCreateTransmission(
+  type: Prisma.TransmissionUncheckedCreateInput["type"],
+  gears: number | null
+): Promise<number> {
+  const existing = await prisma.transmission.findFirst({
+    where: { type, gears, description: null },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  const created = await prisma.transmission.create({
+    data: { type, gears, description: null },
+    select: { id: true },
+  });
+  return created.id;
+}
+
 export async function findOrCreatePlatform(name: string): Promise<number> {
   const existing = await prisma.platform.findUnique({
     where: { name },
@@ -190,9 +207,13 @@ type VeiculoWriteData = {
   regulatoryCategory?: string | null;
   segment: Prisma.VehicleVersionUncheckedCreateInput["segment"];
   internalCode?: string | null;
+  transmissionType?: Prisma.TransmissionUncheckedCreateInput["type"] | null;
+  transmissionGears?: number | null;
   platformName?: string | null;
   drivetrain?: Prisma.VehicleVersionUncheckedCreateInput["drivetrain"];
   doors?: number | null;
+  wheelbase?: number | null;
+  weight?: number | null;
   country: string | null;
   imageUrl: string | null;
   notes: string | null;
@@ -236,12 +257,16 @@ export async function createVeiculo(
   const platformId = data.platformName
     ? await findOrCreatePlatform(data.platformName)
     : undefined;
+  const transmissionId = data.transmissionType
+    ? await findOrCreateTransmission(data.transmissionType, data.transmissionGears ?? null)
+    : undefined;
 
   const record = await prisma.vehicleVersion.create({
     data: {
       vehicleModelId,
       engineId,
       platformId,
+      transmissionId,
       name: data.version,
       internalCode: data.internalCode ?? null,
       yearStart: data.yearStart,
@@ -253,6 +278,8 @@ export async function createVeiculo(
       segment: data.segment,
       drivetrain: data.drivetrain,
       doors: data.doors ?? null,
+      wheelbase: data.wheelbase ?? null,
+      weight: data.weight ?? null,
       country: data.country,
       notes: data.notes,
       isActive: data.isActive,
@@ -285,6 +312,9 @@ export async function updateVeiculo(
   const platformId = data.platformName
     ? await findOrCreatePlatform(data.platformName)
     : undefined;
+  const transmissionId = data.transmissionType
+    ? await findOrCreateTransmission(data.transmissionType, data.transmissionGears ?? null)
+    : undefined;
 
   await prisma.vehicleVersion.update({
     where: { id },
@@ -292,6 +322,7 @@ export async function updateVeiculo(
       vehicleModelId,
       engineId,
       platformId,
+      transmissionId,
       name: data.version,
       internalCode: data.internalCode ?? null,
       yearStart: data.yearStart,
@@ -303,6 +334,8 @@ export async function updateVeiculo(
       segment: data.segment,
       drivetrain: data.drivetrain,
       doors: data.doors ?? null,
+      wheelbase: data.wheelbase ?? null,
+      weight: data.weight ?? null,
       country: data.country,
       notes: data.notes,
       isActive: data.isActive,

@@ -211,6 +211,12 @@ model VehicleVersion {
   segment              VehicleSegment?
   drivetrain           DrivetrainType?
   doors                Int?
+  /// Distancia entre eixos, em milimetros. Null ate ser confirmada por uma
+  /// fonte real (ex.: ficha tecnica/infobox de fabricante ou enciclopedia).
+  wheelbase            Int?
+  /// Peso em ordem de marcha, em quilogramas. Null ate ser confirmado por
+  /// uma fonte real.
+  weight               Int?
   country              String?
   notes                String?
   isActive             Boolean          @default(true)

@@ -3,6 +3,7 @@ import type {
   VehicleCategory,
   VehicleSegment,
   DrivetrainType,
+  TransmissionType,
 } from "@/lib/constants/veiculo";
 import type { ValidationStatus } from "@/lib/constants/validacao";
 
@@ -25,8 +26,12 @@ export type Veiculo = {
   regulatoryCategory: string | null;
   segment: VehicleSegment | null;
   platformName: string | null;
+  transmissionType: TransmissionType | null;
+  transmissionGears: number | null;
   drivetrain: DrivetrainType | null;
   doors: number | null;
+  wheelbase: number | null;
+  weight: number | null;
   country: string | null;
   imageUrl: string | null;
   notes: string | null;
