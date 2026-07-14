@@ -1,7 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { decrypt } from "@/lib/auth/jwt";
 
-const PUBLIC_API_PREFIXES = ["/api/auth/login"];
+const PUBLIC_API_PREFIXES = ["/api/auth/login", "/api/status"];
+
+// Página pública de observabilidade (sem necessidade de login) — ver
+// app/status/page.tsx.
+const PUBLIC_PAGE_PATHS = ["/status"];
 
 const ADMIN_ONLY_PAGE_PREFIXES = [
   "/fabricantes",
@@ -77,7 +81,11 @@ export default async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isApi = pathname.startsWith("/api/");
 
-  if (pathname === "/login" || matchesPrefix(pathname, PUBLIC_API_PREFIXES)) {
+  if (
+    pathname === "/login" ||
+    matchesPrefix(pathname, PUBLIC_API_PREFIXES) ||
+    matchesPrefix(pathname, PUBLIC_PAGE_PATHS)
+  ) {
     if (pathname === "/login") {
       const session = await decrypt(request.cookies.get("session")?.value);
       if (session) {

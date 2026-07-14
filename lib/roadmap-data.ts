@@ -146,6 +146,22 @@ export const EPICS: Epic[] = [
     status: "pendente",
     data: "2026-08-23",
   },
+  {
+    id: "base-propria",
+    titulo: "Base Própria — Múltiplas Fontes Reais",
+    descricao:
+      "Conectores reais e verificáveis (FIPE, Wikidata, Wikipédia, PBE Veicular do INMETRO) para montadoras, fabricantes de pneu e versões de veículo, cada um documentando sua fonte, URL, data de coleta e nível de confiança. Cobertura Nacional (métricas ao vivo) e novos indicadores no dashboard. 195 versões técnicas reais criadas para 10 montadoras (Fiat, Volkswagen, Chevrolet, Toyota, Honda, Hyundai, Jeep, Renault, Nissan, BYD).",
+    status: "concluido",
+    data: "2026-07-14",
+  },
+  {
+    id: "ambiente-online",
+    titulo: "Ambiente Online & Observabilidade",
+    descricao:
+      "Branch develop, deploy automático no Vercel a cada commit, integração com Supabase Storage, e página pública /status com saúde do banco, Supabase, contadores reais e cobertura nacional em tempo real. Deploy no Vercel e credenciais do Supabase Storage/Auth dependem de ação do usuário (login/link de conta) — ver detalhes no relatório da missão.",
+    status: "em-andamento",
+    data: "2026-07-14",
+  },
 ];
 
 export function calcularProgresso(epics: Epic[]): number {
