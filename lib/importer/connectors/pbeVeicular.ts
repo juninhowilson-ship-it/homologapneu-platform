@@ -66,35 +66,22 @@ function mapTransmissao(codigo: string): { label: string; marchas: string } | nu
 }
 
 /**
- * Montadoras processadas nesta missão (ordem definida pelo usuário). Um
- * conector real registrado no painel de importação sempre pode ser
- * ampliado depois — bastando incluir mais nomes aqui — mas o escopo
- * inicial fica restrito a essas 10 para manter o tempo de execução (uma
- * consulta à Wikipédia por modelo distinto) previsível.
+ * Quando `marcas` não é informado, processa TODAS as marcas presentes na
+ * tabela PBE que já existem como Manufacturer real no banco (~42 marcas
+ * na edição 2026) — não há mais uma lista fixa de montadoras-alvo.
  */
-export const MONTADORAS_ALVO = [
-  "Fiat",
-  "Volkswagen",
-  "Chevrolet",
-  "Toyota",
-  "Honda",
-  "Hyundai",
-  "Jeep",
-  "Renault",
-  "Nissan",
-  "BYD",
-];
-
 export async function fetchPbeVeicularRows(
-  marcas: string[] = MONTADORAS_ALVO
+  marcas?: string[]
 ): Promise<ConnectorFetchResult> {
   const montadoras = await listMontadoras();
   const nomesReais = montadoras.map((m) => m.name);
 
   const todasAsLinhas = await fetchPbeRows(nomesReais);
-  const linhasAlvo = todasAsLinhas.filter((linha) =>
-    marcas.some((marca) => marca.toLowerCase() === linha.marca.toLowerCase())
-  );
+  const linhasAlvo = marcas
+    ? todasAsLinhas.filter((linha) =>
+        marcas.some((marca) => marca.toLowerCase() === linha.marca.toLowerCase())
+      )
+    : todasAsLinhas;
 
   const infoboxCache = new Map<string, Awaited<ReturnType<typeof buscarInfoboxModelo>>>();
   const rows: Record<string, string>[] = [];
@@ -174,7 +161,7 @@ export const pbeVeicularConnector: ImportConnector = {
   kind: "BASE_GOVERNAMENTAL",
   entity: "VEICULOS",
   description:
-    "Cria/enriquece versões de veículo com motor, transmissão e combustível reais da tabela PBE Veicular do INMETRO (PDF oficial do governo, sem CSV/API disponível), cruzados com carroceria/tração/entre-eixos/peso do infobox da Wikipédia por modelo. Versões cuja carroceria não é confirmada pela Wikipédia são descartadas em vez de receberem uma categoria adivinhada. Restrito às montadoras já processadas nesta iniciativa (ver MONTADORAS_ALVO); requer o binário `pdftotext` (poppler/xpdf) no ambiente.",
+    "Cria/enriquece versões de veículo com motor, potência, torque, transmissão, portas e combustível reais da tabela PBE Veicular do INMETRO (PDF oficial do governo, sem CSV/API disponível), cruzados com carroceria/tração/entre-eixos/peso do infobox da Wikipédia por modelo. Versões cuja carroceria não é confirmada pela Wikipédia são descartadas em vez de receberem uma categoria adivinhada. Processa todas as marcas da tabela PBE que já existem como Manufacturer real (~42 marcas); requer o binário `pdftotext` (poppler/xpdf) no ambiente.",
 
   isConfigured(): boolean {
     return isPdftotextAvailable();
