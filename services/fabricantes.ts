@@ -43,6 +43,7 @@ function toDTO(record: FabricanteRecord): Fabricante {
     isActive: record.isActive,
     validationStatus: record.validationStatus,
     source: record.source,
+    confidence: record.confidence,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     tiresCount: record._count.tires,
@@ -59,6 +60,7 @@ function normalizeInput(input: FabricanteFormValues) {
     isActive: input.isActive,
     validationStatus: input.validationStatus ?? "NECESSITA_VALIDACAO",
     source: input.source ? input.source : null,
+    confidence: input.confidence ?? null,
   };
 }
 
@@ -218,6 +220,7 @@ export async function importFabricantes(
         isActive: parseBooleanPtBr(record.status, true),
         validationStatus: "NECESSITA_VALIDACAO",
         source: contexto ? `Importação: ${contexto.fileName}` : "",
+        confidence: record.confianca ? Number(record.confianca) : null,
       });
 
       if (!parsed.success) {
@@ -241,6 +244,7 @@ export async function importFabricantes(
           website: parsed.data.website || current.website || "",
           notes: parsed.data.notes || current.notes || "",
           logoUrl: parsed.data.logoUrl || current.logoUrl || "",
+          confidence: parsed.data.confidence ?? current.confidence,
         };
 
         const changes = diffRecords(
@@ -249,12 +253,14 @@ export async function importFabricantes(
             website: current.website,
             notes: current.notes,
             isActive: current.isActive,
+            confidence: current.confidence,
           },
           {
             country: merged.country,
             website: merged.website || null,
             notes: merged.notes || null,
             isActive: merged.isActive,
+            confidence: merged.confidence ?? null,
           }
         );
 

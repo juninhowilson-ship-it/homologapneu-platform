@@ -10,6 +10,7 @@ export type Fabricante = {
   isActive: boolean;
   validationStatus: ValidationStatus;
   source: string | null;
+  confidence: number | null;
   createdAt: string;
   updatedAt: string;
   tiresCount: number;

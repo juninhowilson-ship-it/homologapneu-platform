@@ -25,6 +25,7 @@ export const fabricanteFormSchema = z.object({
   isActive: z.boolean(),
   validationStatus: z.enum(VALIDATION_STATUSES),
   source: z.string().trim().max(300).optional().or(z.literal("")),
+  confidence: z.number().int().min(0).max(100).nullable().optional(),
 });
 
 export type FabricanteFormValues = z.infer<typeof fabricanteFormSchema>;

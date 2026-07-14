@@ -14,6 +14,7 @@ export type Montadora = {
   marketEndDate: string | null;
   validationStatus: ValidationStatus;
   source: string | null;
+  confidence: number | null;
   createdAt: string;
   updatedAt: string;
   modelsCount: number;

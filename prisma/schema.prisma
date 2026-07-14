@@ -80,6 +80,9 @@ model Manufacturer {
   marketEndDate     DateTime?
   validationStatus  ValidationStatus @default(NECESSITA_VALIDACAO)
   source            String?
+  /// Nivel de confianca (0-100) da fonte que originou/atualizou este
+  /// registro pela ultima vez. Null quando nao informado pela fonte.
+  confidence        Int?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
@@ -277,6 +280,9 @@ model TireManufacturer {
   isActive         Boolean          @default(true)
   validationStatus ValidationStatus @default(NECESSITA_VALIDACAO)
   source           String?
+  /// Nivel de confianca (0-100) da fonte que originou/atualizou este
+  /// registro pela ultima vez. Null quando nao informado pela fonte.
+  confidence       Int?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 

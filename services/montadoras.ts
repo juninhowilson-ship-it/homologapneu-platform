@@ -50,6 +50,7 @@ function toDTO(record: MontadoraRecord): Montadora {
       : null,
     validationStatus: record.validationStatus,
     source: record.source,
+    confidence: record.confidence,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     modelsCount: record._count.models,
@@ -80,6 +81,7 @@ async function normalizeInput(input: MontadoraFormValues) {
     marketEndDate: parseDateOrNull(input.marketEndDate),
     validationStatus: input.validationStatus ?? "NECESSITA_VALIDACAO",
     source: input.source ? input.source : null,
+    confidence: input.confidence ?? null,
   };
 }
 
@@ -183,6 +185,7 @@ export async function importMontadoras(
         marketEndDate: record.fimComercializacao,
         validationStatus: "NECESSITA_VALIDACAO",
         source: contexto ? `Importação: ${contexto.fileName}` : "",
+        confidence: record.confianca ? Number(record.confianca) : null,
       });
 
       if (!parsed.success) {
@@ -217,6 +220,7 @@ export async function importMontadoras(
           marketEndDate:
             parsed.data.marketEndDate ||
             (current.marketEndDate ? current.marketEndDate.slice(0, 10) : ""),
+          confidence: parsed.data.confidence ?? current.confidence,
         };
 
         const changes = diffRecords(
@@ -229,6 +233,7 @@ export async function importMontadoras(
             isActive: current.isActive,
             marketStartDate: current.marketStartDate,
             marketEndDate: current.marketEndDate,
+            confidence: current.confidence,
           },
           {
             legalName: merged.legalName || null,
@@ -239,6 +244,7 @@ export async function importMontadoras(
             isActive: merged.isActive,
             marketStartDate: parseDateOrNull(merged.marketStartDate)?.toISOString() ?? null,
             marketEndDate: parseDateOrNull(merged.marketEndDate)?.toISOString() ?? null,
+            confidence: merged.confidence ?? null,
           }
         );
 
