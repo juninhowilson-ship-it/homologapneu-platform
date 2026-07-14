@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { obterCoberturaNacional } from "@/services/cobertura";
 import type {
   DashboardData,
   RankingItem,
@@ -26,32 +27,68 @@ async function calcularUltimaAtualizacao(): Promise<string | null> {
   return new Date(Math.max(...datas.map((data) => data.getTime()))).toISOString();
 }
 
+async function calcularImagensTotais(): Promise<number> {
+  const [
+    manufacturersComLogo,
+    tireManufacturersComLogo,
+    versoesComImagem,
+    pneusComImagem,
+  ] = await Promise.all([
+    prisma.manufacturer.count({ where: { logoUrl: { not: null } } }),
+    prisma.tireManufacturer.count({ where: { logoUrl: { not: null } } }),
+    prisma.vehicleImage.count(),
+    prisma.tire.count({
+      where: { OR: [{ imageUrl: { not: null } }, { images: { some: {} } }] },
+    }),
+  ]);
+  return manufacturersComLogo + tireManufacturersComLogo + versoesComImagem + pneusComImagem;
+}
+
+async function calcularRegistrosImportados(): Promise<number> {
+  const resultado = await prisma.importBatch.aggregate({
+    _sum: { importedCount: true },
+  });
+  return resultado._sum.importedCount ?? 0;
+}
+
 async function calcularKpis() {
   const [
     fabricantes,
     marcas,
+    modelos,
     veiculos,
     pneus,
     homologacoes,
     medidas,
+    imagens,
+    registrosImportados,
+    cobertura,
     ultimaAtualizacao,
   ] = await Promise.all([
     prisma.tireManufacturer.count(),
     prisma.manufacturer.count(),
+    prisma.vehicleModel.count(),
     prisma.vehicleVersion.count(),
     prisma.tire.count(),
     prisma.homologation.count(),
     prisma.tire.findMany({ select: { size: true }, distinct: ["size"] }),
+    calcularImagensTotais(),
+    calcularRegistrosImportados(),
+    obterCoberturaNacional(),
     calcularUltimaAtualizacao(),
   ]);
 
   return {
     fabricantes,
     marcas,
+    modelos,
     veiculos,
     pneus,
     homologacoes,
     medidas: medidas.length,
+    imagens,
+    registrosImportados,
+    coberturaBrasil: cobertura.coberturaBrasil.percentual,
     ultimaAtualizacao,
   };
 }

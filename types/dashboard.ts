@@ -13,10 +13,14 @@ export type UltimoAcesso = {
 export type DashboardKpis = {
   fabricantes: number;
   marcas: number;
+  modelos: number;
   veiculos: number;
   pneus: number;
   homologacoes: number;
   medidas: number;
+  imagens: number;
+  registrosImportados: number;
+  coberturaBrasil: number;
   ultimaAtualizacao: string | null;
 };
 

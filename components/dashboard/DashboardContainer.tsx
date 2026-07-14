@@ -5,6 +5,7 @@ import Skeleton from "@/components/ui/Skeleton";
 import KpiCard from "./KpiCard";
 import GlobalSearch from "./GlobalSearch";
 import QuickLinks from "./QuickLinks";
+import CoberturaNacionalTable from "./CoberturaNacionalTable";
 import { useDashboard } from "@/hooks/useDashboard";
 
 const MarketIntelligencePanel = dynamic(
@@ -54,7 +55,7 @@ export default function DashboardContainer() {
 
         {isLoading || !data ? (
           <div className="grid grid-cols-2 gap-6 md:grid-cols-3 xl:grid-cols-6">
-            {Array.from({ length: 6 }).map((_, index) => (
+            {Array.from({ length: 12 }).map((_, index) => (
               <Skeleton key={index} className="h-28 w-full" />
             ))}
           </div>
@@ -62,13 +63,26 @@ export default function DashboardContainer() {
           <div className="grid grid-cols-2 gap-6 md:grid-cols-3 xl:grid-cols-6">
             <KpiCard label="Fabricantes" value={data.kpis.fabricantes} />
             <KpiCard label="Marcas" value={data.kpis.marcas} />
-            <KpiCard label="Veículos" value={data.kpis.veiculos} />
+            <KpiCard label="Modelos" value={data.kpis.modelos} />
+            <KpiCard label="Versões" value={data.kpis.veiculos} />
             <KpiCard label="Pneus" value={data.kpis.pneus} />
             <KpiCard label="Homologações" value={data.kpis.homologacoes} />
             <KpiCard label="Medidas" value={data.kpis.medidas} />
+            <KpiCard label="Imagens" value={data.kpis.imagens} />
+            <KpiCard
+              label="Registros importados"
+              value={data.kpis.registrosImportados}
+            />
+            <KpiCard
+              label="Cobertura do Brasil"
+              value={`${data.kpis.coberturaBrasil}%`}
+              hint="% dos modelos do catálogo oficial FIPE já com versão técnica documentada"
+            />
           </div>
         )}
       </div>
+
+      <CoberturaNacionalTable />
 
       {isLoading || !data ? (
         <PanelSkeleton />
