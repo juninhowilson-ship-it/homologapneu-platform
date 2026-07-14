@@ -31,7 +31,7 @@ export async function POST(_request: NextRequest, { params }: RouteParams) {
     const user = await getCurrentUser();
     const { rows, sourceVersion, collectedAt, sourceUrl } =
       await connector.fetchRows();
-    const importer = importerFor(connector.entity);
+    const importer = connector.importer ?? importerFor(connector.entity);
     const resultado = await importer(rows, {
       fileName: `api:${connector.id}`,
       fileType: "API",

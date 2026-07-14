@@ -72,3 +72,7 @@ export async function deleteTireManufacturer(id: number) {
 export async function deleteHomologationById(id: number) {
   await prisma.homologation.delete({ where: { id } });
 }
+
+export async function deleteVehicleModelById(id: number) {
+  await prisma.vehicleModel.delete({ where: { id } });
+}

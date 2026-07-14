@@ -12,6 +12,7 @@ import {
   deleteManufacturer,
   deleteTireManufacturer,
   deleteHomologationById,
+  deleteVehicleModelById,
 } from "@/repositories/importBatches";
 import { NotFoundError, ConflictError } from "@/lib/errors";
 import type { ChangeSet } from "@/lib/importer/diff";
@@ -23,6 +24,7 @@ type ImportEntity = Prisma.ImportBatchUncheckedCreateInput["entity"];
 export type AuditableEntity =
   | "Manufacturer"
   | "TireManufacturer"
+  | "VehicleModel"
   | "VehicleVersion"
   | "Tire"
   | "Homologation";
@@ -199,6 +201,7 @@ export async function obterLote(id: number) {
 
 const DELETE_BY_ENTITY: Record<string, (id: number) => Promise<void>> = {
   VehicleVersion: deleteVehicleVersion,
+  VehicleModel: deleteVehicleModelById,
   Tire: deleteTire,
   Manufacturer: deleteManufacturer,
   TireManufacturer: deleteTireManufacturer,

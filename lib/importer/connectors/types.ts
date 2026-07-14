@@ -1,4 +1,11 @@
 import type { ImportEntity } from "@prisma/client";
+import type { ImportContexto } from "@/lib/importer/context";
+import type { ImportacaoResultado } from "@/types/importacao";
+
+export type ConnectorImporter = (
+  rows: Record<string, string>[],
+  contexto: ImportContexto
+) => Promise<ImportacaoResultado>;
 
 export type ConnectorFetchResult = {
   headers: string[];
@@ -39,4 +46,10 @@ export interface ImportConnector {
    * false — a sincronização deve falhar com uma mensagem clara. */
   isConfigured(): boolean;
   fetchRows(): Promise<ConnectorFetchResult>;
+  /** Override opcional do importador usado para as linhas retornadas.
+   * Quando ausente, a rota de sync despacha pelo `entity` (dispatch.ts).
+   * Use quando mais de um conector compartilha a mesma `entity` mas
+   * grava em uma tabela/fluxo diferente (ex.: modelos de veículo vs.
+   * versões completas, ambos sob a entidade VEICULOS). */
+  importer?: ConnectorImporter;
 }

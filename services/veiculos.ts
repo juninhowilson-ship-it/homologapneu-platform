@@ -8,6 +8,8 @@ import {
   createVeiculo as createVeiculoRepo,
   updateVeiculo as updateVeiculoRepo,
   deleteVeiculo as deleteVeiculoRepo,
+  findVehicleModelByName,
+  findOrCreateVehicleModel,
   type VeiculoRecord,
 } from "@/repositories/veiculos";
 import { NotFoundError, ConflictError, ValidationError } from "@/lib/errors";
@@ -540,6 +542,130 @@ export async function importVeiculos(
     sucesso,
     criados,
     atualizados,
+    duplicados,
+    falhas,
+    detalhes,
+  };
+}
+
+/**
+ * Importa apenas Modelos (VehicleModel), sem criar VehicleVersion. Usado
+ * por fontes que só confirmam quais modelos existem por marca (ex.: FIPE),
+ * sem fornecer motor/categoria/carroceria — criar uma versão completa a
+ * partir disso exigiria inventar dados. Modelo não tem campos além do
+ * nome, então não há conceito de "atualizado": ou já existe (duplicado)
+ * ou é criado.
+ */
+export async function importModelosVeiculo(
+  rows: Record<string, string>[],
+  contexto?: ImportContexto
+): Promise<ImportacaoResultado> {
+  const inicio = Date.now();
+
+  const lote = contexto
+    ? await iniciarLote({
+        fileName: contexto.fileName,
+        fileType: contexto.fileType ?? inferFileType(contexto.fileName),
+        entity: "VEICULOS",
+        userId: contexto.userId,
+        sourceVersion: contexto.sourceVersion,
+        collectedAt: contexto.collectedAt,
+        sourceUrl: contexto.sourceUrl,
+        importHash: computeImportHash(rows),
+      })
+    : null;
+
+  const manufacturers = await listManufacturersRepo();
+  const manufacturerIdByName = new Map(
+    manufacturers.map((m) => [m.name.toLowerCase(), m.id])
+  );
+
+  let criados = 0;
+  let duplicados = 0;
+  const detalhes: ImportacaoLinhaResultado[] = [];
+
+  for (const [index, record] of rows.entries()) {
+    const linha = index + 2;
+    const label = `${record.marca ?? ""} ${record.modelo ?? ""}`.trim();
+
+    try {
+      const manufacturerId = manufacturerIdByName.get(
+        (record.marca ?? "").trim().toLowerCase()
+      );
+      const modelo = (record.modelo ?? "").trim();
+
+      if (!manufacturerId) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: `Marca "${record.marca ?? ""}" não encontrada. Importe as montadoras antes dos modelos.`,
+          rotulo: label,
+        });
+        continue;
+      }
+
+      if (!modelo) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: "Nome do modelo vazio",
+          rotulo: label,
+        });
+        continue;
+      }
+
+      const existing = await findVehicleModelByName(manufacturerId, modelo);
+      if (existing) {
+        duplicados++;
+        detalhes.push({ linha, status: "duplicado", sucesso: true, rotulo: label });
+        continue;
+      }
+
+      const modelId = await findOrCreateVehicleModel(manufacturerId, modelo);
+      if (lote) {
+        await registrarCriacao("VehicleModel", modelId, lote.id, contexto?.userId ?? null);
+      }
+      criados++;
+      detalhes.push({ linha, status: "criado", sucesso: true, rotulo: label });
+    } catch (error) {
+      detalhes.push({
+        linha,
+        status: "erro",
+        sucesso: false,
+        erro: error instanceof Error ? error.message : "Erro desconhecido",
+        rotulo: label,
+      });
+    }
+  }
+
+  const falhas = detalhes.filter((d) => d.status === "erro").length;
+  const sucesso = criados;
+
+  if (lote) {
+    await finalizarLote(lote.id, {
+      totalRows: rows.length,
+      importedCount: criados,
+      updatedCount: 0,
+      duplicateCount: duplicados,
+      errorCount: falhas,
+      durationMs: Date.now() - inicio,
+      erros: detalhes
+        .filter((d) => d.status === "erro")
+        .map((d) => ({
+          rowNumber: d.linha,
+          message: d.erro ?? "Erro desconhecido",
+          rawData: d.rotulo ? JSON.stringify({ rotulo: d.rotulo }) : null,
+        })),
+    });
+  }
+
+  return {
+    total: rows.length,
+    sucesso,
+    criados,
+    atualizados: 0,
     duplicados,
     falhas,
     detalhes,

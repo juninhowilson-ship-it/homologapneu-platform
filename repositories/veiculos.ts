@@ -103,14 +103,21 @@ export async function findVeiculoByBusinessKey(
   });
 }
 
+export async function findVehicleModelByName(
+  manufacturerId: number,
+  name: string
+): Promise<{ id: number } | null> {
+  return prisma.vehicleModel.findFirst({
+    where: { manufacturerId, name },
+    select: { id: true },
+  });
+}
+
 export async function findOrCreateVehicleModel(
   manufacturerId: number,
   name: string
 ): Promise<number> {
-  const existing = await prisma.vehicleModel.findFirst({
-    where: { manufacturerId, name },
-    select: { id: true },
-  });
+  const existing = await findVehicleModelByName(manufacturerId, name);
   if (existing) return existing.id;
 
   const created = await prisma.vehicleModel.create({

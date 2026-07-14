@@ -1,41 +1,12 @@
 import "server-only";
+import {
+  FIPE_MARCAS_URL,
+  fetchFipeJson,
+  fetchFipeReferenciaAtual,
+  normalizeMarcaNome,
+  type FipeMarca,
+} from "./fipeClient";
 import type { ConnectorFetchResult, ImportConnector } from "./types";
-
-const BASE_URL = "https://parallelum.com.br/fipe/api/v1";
-const MARCAS_URL = `${BASE_URL}/carros/marcas`;
-const REFERENCIAS_URL = `${BASE_URL}/referencias`;
-
-type FipeMarca = { codigo: string; nome: string };
-type FipeReferencia = { Codigo: number; Mes: string };
-
-/**
- * A FIPE usa prefixos de grupo economico em alguns nomes de marca (ex.:
- * "GM - Chevrolet", "VW - VolksWagen") que nao correspondem ao nome
- * comercial usado no restante do sistema. Mapeamento explicito e restrito
- * aos casos verificados manualmente contra a base atual — nunca um regex
- * generico que poderia normalizar incorretamente uma marca legitima.
- */
-const ALIAS_MAP: Record<string, string> = {
-  "gm - chevrolet": "Chevrolet",
-  "vw - volkswagen": "Volkswagen",
-};
-
-function normalizeMarcaNome(nome: string): string {
-  const alias = ALIAS_MAP[nome.trim().toLowerCase()];
-  return alias ?? nome.trim();
-}
-
-async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, {
-    headers: { Accept: "application/json" },
-  });
-  if (!response.ok) {
-    throw new Error(
-      `Falha ao consultar a API pública da FIPE (${url}): HTTP ${response.status}`
-    );
-  }
-  return response.json() as Promise<T>;
-}
 
 /**
  * Conector para a tabela FIPE (Fundação Instituto de Pesquisas Econômicas),
@@ -59,15 +30,10 @@ export const fipeMontadorasConnector: ImportConnector = {
   },
 
   async fetchRows(): Promise<ConnectorFetchResult> {
-    const [marcas, referencias] = await Promise.all([
-      fetchJson<FipeMarca[]>(MARCAS_URL),
-      fetchJson<FipeReferencia[]>(REFERENCIAS_URL),
+    const [marcas, sourceVersion] = await Promise.all([
+      fetchFipeJson<FipeMarca[]>(FIPE_MARCAS_URL),
+      fetchFipeReferenciaAtual(),
     ]);
-
-    const referenciaAtual = referencias[0];
-    const sourceVersion = referenciaAtual
-      ? `${referenciaAtual.Codigo} - ${referenciaAtual.Mes}`
-      : undefined;
 
     const rows = marcas.map((marca) => ({
       nome: normalizeMarcaNome(marca.nome),
@@ -83,7 +49,7 @@ export const fipeMontadorasConnector: ImportConnector = {
       rows,
       sourceVersion,
       collectedAt: new Date(),
-      sourceUrl: MARCAS_URL,
+      sourceUrl: FIPE_MARCAS_URL,
     };
   },
 };
