@@ -12,15 +12,19 @@ type TireBrandFinding = {
 
 /**
  * Um conector independente por marca de pneu vendida no Brasil, conforme
- * pedido. Nenhum foi habilitado nesta rodada: todos os sites verificados
- * são catálogos dinâmicos (renderizados via JavaScript) sem uma API
- * pública documentada, e vários bloqueiam explicitamente coleta
- * automatizada em robots.txt. Fabricar um scraper de HTML contra um
- * catálogo protegido por robots.txt/ToS, sem uma API real por trás,
- * arrisca violar os termos de uso dos sites e não teria como extrair
- * dados técnicos (índice de carga/velocidade, medidas) que só existem
- * dentro de widgets JS — por isso cada entrada documenta o achado
- * específico em vez de simular uma coleta.
+ * pedido (27 marcas verificadas). Nenhum foi habilitado nesta rodada:
+ * todos os sites verificados são catálogos dinâmicos (renderizados via
+ * JavaScript) sem uma API pública documentada e acessível, e vários
+ * bloqueiam explicitamente coleta automatizada em robots.txt. Fabricar um
+ * scraper de HTML contra um catálogo protegido por robots.txt/ToS, sem
+ * uma API real por trás, arrisca violar os termos de uso dos sites e não
+ * teria como extrair dados técnicos (índice de carga/velocidade,
+ * medidas) que só existem dentro de widgets JS — por isso cada entrada
+ * documenta o achado específico em vez de simular uma coleta. Achado
+ * mais promissor até agora: General Tire (Continental) expõe no HTML o
+ * endpoint real da API de catálogo e uma chave pública de serviço, mas o
+ * path exato do recurso não foi determinado sem inspeção de rede via
+ * navegador.
  *
  * Para habilitar uma marca: defina a variável de ambiente
  * `TIRE_CATALOG_<ID>_API_URL` apontando para uma API real (oficial ou
@@ -78,7 +82,7 @@ const BRAND_FINDINGS: TireBrandFinding[] = [
     label: "Hankook",
     domain: "hankooktire.com",
     finding:
-      "Domínio/rota de robots.txt não resolvida a partir deste ambiente. Requer confirmação da URL correta.",
+      "robots.txt permissivo (Allow: /), com sitemaps regionais (global/en, us/en, kr/ko, de/de), mas nenhum sitemap específico do Brasil listado — sem catálogo técnico estruturado localizável a partir daqui.",
   },
   {
     id: "kumho",
@@ -153,9 +157,9 @@ const BRAND_FINDINGS: TireBrandFinding[] = [
   {
     id: "prinx",
     label: "Prinx",
-    domain: "prinxtire.com",
+    domain: "prinxchengshan.com",
     finding:
-      "robots.txt inexistente (404) na rota testada. Requer nova verificação com a URL oficial confirmada.",
+      "Domínio correto do fabricante (Prinx Chengshan) resolvido — robots.txt totalmente permissivo com sitemap.xml. Porém o sitemap é de um CMS corporativo genérico antigo (index.php?id=NNNN, sem padrão de URL por produto) — não há catálogo técnico estruturado identificável sem inspecionar manualmente cada página.",
   },
   {
     id: "triangle",
@@ -163,6 +167,59 @@ const BRAND_FINDINGS: TireBrandFinding[] = [
     domain: "triangle-group.com",
     finding:
       "robots.txt restringe a maioria dos bots (exceto Googlebot) a apenas a página inicial (Allow: /$, Disallow: /) — coleta de páginas de produto explicitamente não permitida para agentes genéricos.",
+  },
+  {
+    id: "general-tire",
+    label: "General Tire",
+    domain: "generaltire.com.br",
+    finding:
+      "Marca da Continental. robots.txt permissivo. Achado real e específico: o HTML da home embute o endpoint da API de catálogo (data-service-url=\"https://api.productsearch.continental-tires.com/v1/generaltire\") e uma chave pública de serviço (data-service-key). A base da API responde (não é 404), mas todo path testado (/products, /search, /tyres etc.) retorna 403 \"Missing Authentication Token\" — erro padrão de rota inexistente no AWS API Gateway. O path exato do recurso não pôde ser determinado sem inspecionar as chamadas XHR reais do navegador (o widget de busca é carregado por um bundle JS separado, não referenciado estaticamente no HTML). Mais avançado que os demais — falta só confirmar o path.",
+  },
+  {
+    id: "ceat",
+    label: "CEAT",
+    domain: "ceat.com",
+    finding:
+      "robots.txt permissivo com sitemap.xml, mas o sitemap encontrado é só de documentos de relação com investidores (PDFs financeiros), não um catálogo de produtos. Site institucional global (Índia), sem confirmação de operação/catálogo específico para o Brasil.",
+  },
+  {
+    id: "westlake",
+    label: "Westlake",
+    domain: "westlaketyre.com",
+    finding: "robots.txt inexistente (404) na rota testada. Requer nova verificação com a URL oficial confirmada.",
+  },
+  {
+    id: "fate",
+    label: "Fate",
+    domain: "fate.com.ar",
+    finding: "Domínio testado retorna 404 na raiz. Requer confirmação da URL oficial.",
+  },
+  {
+    id: "barum",
+    label: "Barum",
+    domain: "barum-continental.com",
+    finding: "Domínio não respondeu a partir deste ambiente. Requer confirmação da URL oficial.",
+  },
+  {
+    id: "lanvigator",
+    label: "Lanvigator",
+    domain: "lanvigator.com",
+    finding:
+      "robots.txt permissivo (Allow: /, com sitemap.xml), mas a página inicial não expõe nenhum catálogo estruturado nem referência a API — site institucional simples.",
+  },
+  {
+    id: "roadcruza",
+    label: "Roadcruza",
+    domain: "roadcruza.com",
+    finding:
+      "robots.txt permissivo, mas o site retorna uma página quase vazia (114 bytes) — não há catálogo publicado neste domínio no momento.",
+  },
+  {
+    id: "roadstone",
+    label: "Roadstone",
+    domain: "roadstone.com.br",
+    finding:
+      "Domínio testado (roadstone.com.br) retorna \"Page Not Found\" — não é o domínio oficial correto. Roadstone é marca do grupo Nexen; requer confirmação da URL oficial brasileira.",
   },
 ];
 
