@@ -4,7 +4,7 @@ import { fipeMontadorasConnector } from "./fipeMontadoras";
 import { wikidataMontadorasConnector } from "./wikidataMontadoras";
 import { wikidataFabricantesPneusConnector } from "./wikidataFabricantesPneus";
 import { catalogoMontadoraOficialConnector } from "./catalogoMontadoraOficial";
-import { catalogoFabricantePneuOficialConnector } from "./catalogoFabricantePneuOficial";
+import { TIRE_BRAND_CONNECTORS } from "./tireCatalogStubs";
 import { baseHomologacoesOficialConnector } from "./baseHomologacoesOficial";
 
 /**
@@ -14,10 +14,13 @@ import { baseHomologacoesOficialConnector } from "./baseHomologacoesOficial";
  * - wikidata-montadoras / wikidata-fabricantes-pneus: funcionais (SPARQL
  *   público do Wikidata) — enriquecimento (país, site, logo, grupo) dos
  *   registros já cadastrados, por correspondência exata de nome.
- * - catalogo-montadora-oficial / catalogo-fabricante-pneu-oficial /
- *   base-homologacoes-oficial: estrutura pronta, aguardando a definição de
- *   uma fonte oficial específica (endpoint + credenciais) — ver o
- *   comentário em cada arquivo para o motivo detalhado.
+ * - catalogo-montadora-oficial / base-homologacoes-oficial: estrutura
+ *   pronta, aguardando a definição de uma fonte oficial específica — ver
+ *   o comentário em cada arquivo para o motivo detalhado.
+ * - catalogo-pneu-<marca> (19 conectores, um por fabricante de pneu
+ *   vendido no Brasil): estrutura pronta por marca, cada um documentando
+ *   o achado especifico (robots.txt, ausencia de API publica, etc.) — ver
+ *   tireCatalogStubs.ts.
  *
  * Para adicionar um novo conector: implemente `ImportConnector` (types.ts)
  * em um novo arquivo neste diretório e adicione a instância à lista abaixo.
@@ -30,7 +33,7 @@ export const CONNECTORS: ImportConnector[] = [
   wikidataMontadorasConnector,
   wikidataFabricantesPneusConnector,
   catalogoMontadoraOficialConnector,
-  catalogoFabricantePneuOficialConnector,
+  ...TIRE_BRAND_CONNECTORS,
   baseHomologacoesOficialConnector,
 ];
 
