@@ -21,6 +21,7 @@ const ALWAYS_ADMIN_API_PREFIXES = [
   "/api/manufacturers",
   "/api/tire-manufacturers",
   "/api/importer",
+  "/api/storage",
   "/api/auditoria",
   "/api/status-dev",
   "/api/import-batches",
