@@ -2,6 +2,7 @@ import "server-only";
 import type { ImportConnector } from "./types";
 import { fipeMontadorasConnector } from "./fipeMontadoras";
 import { fipeModelosConnector } from "./fipeModelos";
+import { pbeVeicularConnector } from "./pbeVeicular";
 import { wikidataMontadorasConnector } from "./wikidataMontadoras";
 import { wikidataFabricantesPneusConnector } from "./wikidataFabricantesPneus";
 import { wikipediaMontadorasConnector } from "./wikipediaMontadoras";
@@ -33,6 +34,7 @@ import { baseHomologacoesOficialConnector } from "./baseHomologacoesOficial";
 export const CONNECTORS: ImportConnector[] = [
   fipeMontadorasConnector,
   fipeModelosConnector,
+  pbeVeicularConnector,
   wikidataMontadorasConnector,
   wikidataFabricantesPneusConnector,
   wikipediaMontadorasConnector,
