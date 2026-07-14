@@ -1,7 +1,7 @@
 import "server-only";
 import { listMontadoras } from "@/repositories/montadoras";
 import { fetchPbeRows, isPdftotextAvailable, PBE_PDF_URL, PBE_TABLE_YEAR } from "./pbeClient";
-import { buscarInfoboxModelo } from "./wikipediaVeiculoInfobox";
+import { buscarInfoboxModelo, extrairPotenciaTorque } from "./wikipediaVeiculoInfobox";
 import type { ConnectorFetchResult, ImportConnector } from "./types";
 
 /**
@@ -112,6 +112,7 @@ export async function fetchPbeVeicularRows(
     if (!combustivel) continue;
 
     const transmissao = mapTransmissao(linha.transmissao);
+    const { power, torque } = extrairPotenciaTorque(infobox.motorVariantes, linha.motor);
 
     rows.push({
       marca: linha.marca,
@@ -120,16 +121,19 @@ export async function fetchPbeVeicularRows(
       anoInicial: String(PBE_TABLE_YEAR),
       anoFinal: String(PBE_TABLE_YEAR),
       motorizacao: linha.motor,
+      potencia: power ?? "",
+      torque: torque ?? "",
       combustivel,
       categoria: infobox.carroceria ?? "",
       segmento: infobox.segmento ?? "",
       tracao: infobox.tracao ?? "",
       transmissao: transmissao?.label ?? "",
       marchas: transmissao?.marchas ?? "",
+      portas: infobox.doors ? String(infobox.doors) : "",
       entreEixos: infobox.wheelbase ? String(infobox.wheelbase) : "",
       peso: infobox.weight ? String(infobox.weight) : "",
       pais: "Brasil",
-      observacoes: `Fonte: INMETRO PBE Veicular ${PBE_TABLE_YEAR} (motor/transmissão/combustível) + Wikipédia (carroceria/tração/dimensões, ${infobox.sourceUrl}).`,
+      observacoes: `Fonte: INMETRO PBE Veicular ${PBE_TABLE_YEAR} (motor/transmissão/combustível) + Wikipédia (carroceria/tração/dimensões/potência/torque, ${infobox.sourceUrl}).`,
       status: "true",
     });
   }
@@ -142,12 +146,15 @@ export async function fetchPbeVeicularRows(
       "anoInicial",
       "anoFinal",
       "motorizacao",
+      "potencia",
+      "torque",
       "combustivel",
       "categoria",
       "segmento",
       "tracao",
       "transmissao",
       "marchas",
+      "portas",
       "entreEixos",
       "peso",
       "pais",

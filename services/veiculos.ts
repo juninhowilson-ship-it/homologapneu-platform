@@ -150,7 +150,6 @@ async function assertNoDuplicate(
     input.version,
     input.engine,
     input.fuel,
-    input.power ? input.power : null,
     excludeId
   );
   if (existing) {
@@ -434,8 +433,7 @@ export async function importVeiculos(
         parsed.data.model,
         parsed.data.version,
         parsed.data.engine,
-        parsed.data.fuel,
-        parsed.data.power ? parsed.data.power : null
+        parsed.data.fuel
       );
 
       if (existing) {

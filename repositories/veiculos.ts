@@ -83,20 +83,26 @@ export async function findVeiculoById(
   return prisma.vehicleVersion.findUnique({ where: { id }, ...withRelations });
 }
 
+/**
+ * Identidade de uma versão: marca + modelo + nome da versão + motor + tipo
+ * de combustível. Potência/torque NÃO fazem parte da chave — são
+ * atributos refináveis do mesmo motor (podem chegar depois, de uma fonte
+ * de enriquecimento diferente da que criou o registro originalmente), não
+ * um discriminador de identidade.
+ */
 export async function findVeiculoByBusinessKey(
   manufacturerId: number,
   model: string,
   version: string,
   engine: string,
   fuel: Prisma.EngineUncheckedCreateInput["fuel"],
-  power: string | null,
   excludeId?: number
 ): Promise<{ id: number } | null> {
   return prisma.vehicleVersion.findFirst({
     where: {
       vehicleModel: { manufacturerId, name: model },
       name: version,
-      engine: { name: engine, fuel, power },
+      engine: { name: engine, fuel },
       ...(excludeId ? { id: { not: excludeId } } : {}),
     },
     select: { id: true },

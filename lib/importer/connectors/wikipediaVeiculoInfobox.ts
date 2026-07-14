@@ -21,6 +21,12 @@ export type InfoboxVeiculo = {
   tracao: string | null;
   wheelbase: number | null;
   weight: number | null;
+  doors: number | null;
+  /** Texto bruto de cada variante de motor listada no infobox — usado por
+   * `extrairPotenciaTorque` para casar com o código de motor de cada
+   * versão individual (uma busca de infobox é compartilhada por todas as
+   * versões do mesmo modelo, mas cada uma pode ter um motor diferente). */
+  motorVariantes: string[];
   sourceUrl: string;
 };
 
@@ -72,7 +78,11 @@ function parseCampos(bloco: string): Record<string, string> {
       campoAtual = match[1].trim().toLowerCase();
       campos[campoAtual] = match[2];
     } else if (campoAtual) {
-      campos[campoAtual] += ` ${linha.trim()}`;
+      // Preserva quebra de linha (em vez de virar espaço) para que listas
+      // com marcador "* " em linhas separadas — usadas por algumas
+      // infoboxes para vários motores, em vez de "<br/>" — continuem
+      // detectáveis como variantes distintas por splitVariantes().
+      campos[campoAtual] += `\n${linha.trim()}`;
     }
   }
   return campos;
@@ -103,6 +113,66 @@ function extrairPrimeiroNumero(texto: string, min: number, max: number): number 
     if (Number.isFinite(valor) && valor >= min && valor <= max) return Math.round(valor);
   }
   return null;
+}
+
+function splitVariantes(raw: string): string[] {
+  return raw
+    .split(/<br\s*\/?>|\n\s*\*+\s*/i)
+    .map((s) => limparMarcacaoWiki(s))
+    .filter(Boolean);
+}
+
+function extrairPortas(carroceriaRaw: string): number | null {
+  const match = limparMarcacaoWiki(carroceriaRaw).match(/(\d)\s*portas?/i);
+  if (!match) return null;
+  const valor = Number(match[1]);
+  return valor >= 2 && valor <= 6 ? valor : null;
+}
+
+/**
+ * Extrai todos os valores de potência (cv) ou torque (kgf-m / Nm) de um
+ * texto. Só deve ser chamada sobre o texto de UMA variante de motor já
+ * identificada de forma inequívoca (ver `casarVariante`), nunca sobre o
+ * campo inteiro com vários motores misturados.
+ */
+function extrairValores(texto: string, unidadeRegex: RegExp): string | null {
+  const limpo = limparMarcacaoWiki(texto);
+  const match = limpo.match(unidadeRegex);
+  if (!match) return null;
+  return `${match[1]} ${match[2]}`.trim();
+}
+
+function extrairDeslocamento(texto: string): number | null {
+  const match = texto.match(/(\d+)[.,](\d+)\s*(?:l\b|litros?)?/i);
+  if (!match) return null;
+  return Number(`${match[1]}.${match[2]}`);
+}
+
+function extrairValvulas(texto: string): number | null {
+  const match = texto.match(/(\d+)\s*v\b/i);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * Localiza, entre as variantes de motor do infobox, a única cujo
+ * deslocamento e número de válvulas batem com o código do motor
+ * informado pela fonte de versões (ex.: PBE Veicular: "1.0-6V"). Só
+ * retorna uma variante quando o casamento é inequívoco (exatamente uma
+ * bate) — caso contrário retorna null, e nenhuma potência/torque é
+ * atribuída, em vez de arriscar atribuir o valor errado.
+ */
+function casarVariante(variantes: string[], motorCodigoFonte: string): string | null {
+  const deslocamentoAlvo = extrairDeslocamento(motorCodigoFonte);
+  const valvulasAlvo = extrairValvulas(motorCodigoFonte);
+  if (deslocamentoAlvo === null || valvulasAlvo === null) return null;
+
+  const candidatas = variantes.filter((variante) => {
+    const deslocamento = extrairDeslocamento(variante);
+    const valvulas = extrairValvulas(variante);
+    return deslocamento === deslocamentoAlvo && valvulas === valvulasAlvo;
+  });
+
+  return candidatas.length === 1 ? candidatas[0] : null;
 }
 
 function classificarCarroceria(raw: string): string | null {
@@ -139,6 +209,10 @@ const CLASSE_APELIDOS = ["classe"];
 const LAYOUT_APELIDOS = ["layout", "tração"];
 const ENTRE_EIXOS_APELIDOS = ["entre eixos", "distância entre os eixos", "entre-eixos"];
 const PESO_APELIDOS = ["peso", "peso em ordem de marcha"];
+const MOTOR_APELIDOS = ["motor", "motorização"];
+const NUMERO = "\\d+(?:[.,]\\d+)?";
+const POTENCIA_REGEX = new RegExp(`((?:${NUMERO}\\/)*${NUMERO})\\s*(cv)\\b`, "i");
+const TORQUE_REGEX = new RegExp(`((?:${NUMERO}\\/)*${NUMERO})\\s*(kgf-?m|nm)\\b`, "i");
 
 /**
  * Busca o infobox real do modelo na Wikipédia PT, no título previsível
@@ -182,12 +256,42 @@ export async function buscarInfoboxModelo(
   const pesoRaw = primeiroCampo(campos, PESO_APELIDOS);
   const weight = pesoRaw ? extrairPrimeiroNumero(pesoRaw, 500, 4000) : null;
 
+  const doors = carroceriaRaw ? extrairPortas(carroceriaRaw) : null;
+
+  const motorRaw = primeiroCampo(campos, MOTOR_APELIDOS);
+  const motorVariantes = motorRaw ? splitVariantes(motorRaw) : [];
+
   return {
     carroceria,
     segmento,
     tracao,
     wheelbase,
     weight,
+    doors,
+    motorVariantes,
     sourceUrl: `https://pt.wikipedia.org/wiki/${titulo}`,
+  };
+}
+
+/**
+ * Extrai potência/torque para UMA versão específica, casando o código de
+ * motor da fonte de versões (ex.: PBE Veicular: "1.0-6V") com a variante
+ * de motor correspondente no infobox já obtido via `buscarInfoboxModelo`.
+ * Sem casamento inequívoco (por deslocamento + válvulas), retorna null em
+ * ambos — nunca atribui o valor de outra motorização por adivinhação.
+ */
+export function extrairPotenciaTorque(
+  motorVariantes: string[],
+  motorCodigoFonte: string
+): { power: string | null; torque: string | null } {
+  const variante =
+    motorVariantes.length > 0
+      ? casarVariante(motorVariantes, motorCodigoFonte)
+      : null;
+  if (!variante) return { power: null, torque: null };
+
+  return {
+    power: extrairValores(variante, POTENCIA_REGEX),
+    torque: extrairValores(variante, TORQUE_REGEX),
   };
 }
