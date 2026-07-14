@@ -1,8 +1,10 @@
 import "server-only";
 import type { ImportConnector } from "./types";
 import { fipeMontadorasConnector } from "./fipeMontadoras";
+import { fipeModelosConnector } from "./fipeModelos";
 import { wikidataMontadorasConnector } from "./wikidataMontadoras";
 import { wikidataFabricantesPneusConnector } from "./wikidataFabricantesPneus";
+import { wikipediaMontadorasConnector } from "./wikipediaMontadoras";
 import { catalogoMontadoraOficialConnector } from "./catalogoMontadoraOficial";
 import { TIRE_BRAND_CONNECTORS } from "./tireCatalogStubs";
 import { baseHomologacoesOficialConnector } from "./baseHomologacoesOficial";
@@ -30,8 +32,10 @@ import { baseHomologacoesOficialConnector } from "./baseHomologacoesOficial";
  */
 export const CONNECTORS: ImportConnector[] = [
   fipeMontadorasConnector,
+  fipeModelosConnector,
   wikidataMontadorasConnector,
   wikidataFabricantesPneusConnector,
+  wikipediaMontadorasConnector,
   catalogoMontadoraOficialConnector,
   ...TIRE_BRAND_CONNECTORS,
   baseHomologacoesOficialConnector,
