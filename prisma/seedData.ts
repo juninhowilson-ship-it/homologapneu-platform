@@ -2,7 +2,7 @@ export const USERS = [
   {
     name: "Administrador",
     email: "admin@homologapneu.com.br",
-    password: "Admin@123",
+    password: "Homologa@2026",
     role: "ADMIN" as const,
   },
   {

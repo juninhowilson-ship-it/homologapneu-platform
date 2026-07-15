@@ -22,11 +22,14 @@ const REAL_TIRE_KEYS = new Set(
 );
 
 async function main() {
+  // Cria o usuário caso o banco esteja vazio (upsert por e-mail); se já
+  // existir, apenas atualiza a senha (hash bcrypt) para a senha temporária
+  // vigente — nome/role não são sobrescritos numa conta já existente.
   for (const user of USERS) {
     const passwordHash = await bcrypt.hash(user.password, 10);
     await prisma.user.upsert({
       where: { email: user.email },
-      update: {},
+      update: { passwordHash },
       create: {
         name: user.name,
         email: user.email,
