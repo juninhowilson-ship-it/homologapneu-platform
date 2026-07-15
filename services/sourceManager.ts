@@ -259,6 +259,40 @@ export async function processarProximoDaFila(): Promise<ProcessamentoResultado |
   }
 }
 
+const CURADORIA_CONNECTOR_ID = "curadoria-manual";
+
+/**
+ * Integra o Sistema de Curadoria Inteligente (services/curadoria.ts) ao
+ * Source Manager: cada aprovação de uma HomologationCandidate conta como
+ * um registro importado nesta fonte "virtual" (não tem fetchRows/
+ * fetchEvidencias próprios — é alimentada pela revisão humana, não por um
+ * conector automático), para aparecer no mesmo painel "Fontes de Dados".
+ */
+export async function registrarFonteCuradoria(virouHomologacaoValidada: boolean): Promise<void> {
+  const fonte = await prisma.dataSource.upsert({
+    where: { connectorId: CURADORIA_CONNECTOR_ID },
+    create: {
+      connectorId: CURADORIA_CONNECTOR_ID,
+      mechanism: "CURATION",
+      name: "Curadoria Manual (upload de documentos)",
+      category: "Curadoria",
+      type: "Upload",
+      status: "ATIVA",
+      reliability: 0,
+    },
+    update: {},
+  });
+
+  await prisma.dataSource.update({
+    where: { id: fonte.id },
+    data: {
+      lastSyncAt: new Date(),
+      importedRecordsCount: { increment: 1 },
+      ...(virouHomologacaoValidada ? { confirmedHomologationsCount: { increment: 1 } } : {}),
+    },
+  });
+}
+
 export async function obterResumoPainel() {
   const fontes = await listarFontes();
   const pendencias = await prisma.importQueueItem.count({ where: { status: "PENDENTE" } });
