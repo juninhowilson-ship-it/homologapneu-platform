@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import LotesImportacaoPanel from "@/components/administracao/LotesImportacaoPanel";
@@ -109,6 +110,15 @@ export default async function AdministracaoPage() {
       <div>
         <h2 className="mb-4 text-lg font-bold">Histórico de importações</h2>
         <LotesImportacaoPanel />
+      </div>
+
+      <div>
+        <Link
+          href="/administracao/fontes"
+          className="inline-block rounded-lg bg-brand px-4 py-2 font-semibold text-brand-foreground transition hover:opacity-90"
+        >
+          Ver Fontes de Dados →
+        </Link>
       </div>
     </main>
   );
