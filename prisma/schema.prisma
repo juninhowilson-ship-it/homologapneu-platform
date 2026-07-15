@@ -531,10 +531,15 @@ enum EvidenceSourceType {
   CATALOGO_OE
 }
 
+/// Ordem de forca crescente ate HOMOLOGACAO_VALIDADA; DIVERGENCIA e um
+/// estado a parte (sobrepoe a pontuacao) quando duas aplicacoes distintas
+/// e cada uma razoavelmente confirmada disputam o mesmo veiculo+versao+ano.
 enum ApplicationStatus {
-  EVIDENCIA
+  EVIDENCIA_ISOLADA
   APLICACAO_COMERCIAL
+  ALTA_CONFIANCA
   HOMOLOGACAO_VALIDADA
+  DIVERGENCIA
 }
 
 /// Agrupa todas as evidencias que descrevem a MESMA aplicacao (mesmo pneu
@@ -557,7 +562,7 @@ model TireVehicleApplication {
   /// sentinela acima).
   yearStart                Int      @default(0)
   yearEnd                  Int      @default(0)
-  status                   ApplicationStatus @default(EVIDENCIA)
+  status                   ApplicationStatus @default(EVIDENCIA_ISOLADA)
   /// Confianca agregada (nao e a confianca de uma fonte isolada): cresce
   /// quando fontes independentes confirmam a mesma aplicacao.
   confidence               Int      @default(0)

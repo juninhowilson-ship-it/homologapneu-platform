@@ -4,26 +4,63 @@ import { prisma } from "@/lib/prisma";
 import type { EvidenceSourceType, ApplicationStatus } from "@prisma/client";
 
 /**
- * Coleta por evidências: cada fonte real (marketplace, fabricante,
- * montadora, manual, catálogo OE) contribui uma linha imutável em
- * HomologationEvidence — nunca é uma homologação por si só. Evidências da
+ * Motor de Validação de Aplicações: uma aplicação pneu↔veículo nunca é
+ * tratada como homologação só por aparecer em uma fonte. Cada coleta vira
+ * uma HomologationEvidence imutável (nunca editada/apagada); evidências da
  * MESMA aplicação (mesmo pneu + mesmo veículo/versão/anos, por chave
- * normalizada) se agrupam em um TireVehicleApplication, cujo status e
- * confiança agregada são recalculados a cada nova evidência, seguindo
- * exatamente as regras de promoção definidas para esta iniciativa:
+ * normalizada) se agrupam em um TireVehicleApplication, cuja pontuação e
+ * status são SEMPRE recalculados a partir do conjunto de evidências:
  *
- * - Confirmada por FABRICANTE_PNEU + MONTADORA -> Homologação Validada.
- * - Só existe MARKETPLACE -> Aplicação Comercial.
- * - Qualquer outro caso -> Evidência (não promovida ainda).
+ * Pontos por tipo de fonte confirmando (uma vez por fonte DISTINTA — uma
+ * mesma fonte reconfirmando não infla a pontuação, só corroboração
+ * independente conta):
+ *   MARKETPLACE = 20 · MANUAL = 30 · FABRICANTE_PNEU = 40 · MONTADORA = 40
+ *   · CATALOGO_OE = 40
+ *
+ * Faixas de pontuação total:
+ *   >= 80            -> Homologação Validada
+ *   40 a 79          -> Alta Confiança
+ *   20 a 39          -> Aplicação Comercial
+ *   < 20             -> Evidência Isolada
+ *
+ * Confirmação simultânea por FABRICANTE_PNEU + MONTADORA força Homologação
+ * Validada (na prática já é o que a pontuação dá: 40+40=80).
+ *
+ * Divergência: quando o MESMO veículo+versão+ano tem duas ou mais
+ * aplicações de pneu DISTINTAS que cada uma, de forma independente, já
+ * junta confiança relevante (>=40 pontos), isso é uma contradição real
+ * entre fontes — todas ficam marcadas como Divergência em vez de o
+ * sistema escolher uma sozinha. Nenhuma evidência é apagada nesse caso.
  */
 
-export const SOURCE_TYPE_CONFIDENCE: Record<EvidenceSourceType, number> = {
-  MARKETPLACE: 40,
-  CATALOGO_OE: 75,
-  MANUAL: 80,
-  FABRICANTE_PNEU: 70,
-  MONTADORA: 90,
+export const SOURCE_TYPE_POINTS: Record<EvidenceSourceType, number> = {
+  MARKETPLACE: 20,
+  MANUAL: 30,
+  FABRICANTE_PNEU: 40,
+  MONTADORA: 40,
+  CATALOGO_OE: 40,
 };
+
+/**
+ * Rótulos para exibição. Só HOMOLOGACAO_VALIDADA deve ser apresentada como
+ * homologação oficial — todo o resto é "aplicação compatível" (ainda em
+ * consolidação), conforme exigido pela missão.
+ */
+export const STATUS_LABEL: Record<ApplicationStatus, string> = {
+  EVIDENCIA_ISOLADA: "Evidência Isolada",
+  APLICACAO_COMERCIAL: "Aplicação Comercial",
+  ALTA_CONFIANCA: "Alta Confiança",
+  HOMOLOGACAO_VALIDADA: "Homologação Validada",
+  DIVERGENCIA: "Divergência",
+};
+
+export function isHomologacaoOficial(status: ApplicationStatus): boolean {
+  return status === "HOMOLOGACAO_VALIDADA";
+}
+
+const LIMIAR_ALTA_CONFIANCA = 40;
+const LIMIAR_HOMOLOGACAO = 80;
+const LIMIAR_APLICACAO_COMERCIAL = 20;
 
 export type EvidenciaInput = {
   tireManufacturerName: string;
@@ -73,34 +110,81 @@ function computeEvidenceHash(input: EvidenciaInput): string {
 }
 
 /**
- * Recalcula status/confiança agregados de uma aplicação a partir de TODAS
- * as evidências já registradas para ela. Nunca editado diretamente fora
- * desta função — é sempre uma função pura do conjunto de evidências.
+ * Soma os pontos de cada FONTE DISTINTA (por nome) presente nas
+ * evidências — uma mesma fonte reconfirmando a mesma aplicação não infla
+ * a pontuação; só a corroboração de fontes independentes conta.
  */
-function calcularPromocao(
-  tiposPresentes: Set<EvidenceSourceType>
-): { status: ApplicationStatus; confidence: number } {
-  const confiancaBase = Math.max(
-    ...Array.from(tiposPresentes).map((tipo) => SOURCE_TYPE_CONFIDENCE[tipo])
-  );
-  const bonusPorCorroboracao = (tiposPresentes.size - 1) * 10;
-  const confidence = Math.min(100, confiancaBase + bonusPorCorroboracao);
+function calcularPontuacao(
+  evidencias: { sourceName: string; sourceType: EvidenceSourceType }[]
+): number {
+  const pontosPorFonte = new Map<string, number>();
+  for (const e of evidencias) {
+    const pontos = SOURCE_TYPE_POINTS[e.sourceType];
+    pontosPorFonte.set(e.sourceName, Math.max(pontosPorFonte.get(e.sourceName) ?? 0, pontos));
+  }
+  const total = Array.from(pontosPorFonte.values()).reduce((soma, p) => soma + p, 0);
+  return Math.min(100, total);
+}
 
+function statusPorPontuacao(
+  pontuacao: number,
+  tiposPresentes: Set<EvidenceSourceType>
+): ApplicationStatus {
   if (tiposPresentes.has("FABRICANTE_PNEU") && tiposPresentes.has("MONTADORA")) {
-    return { status: "HOMOLOGACAO_VALIDADA", confidence };
+    return "HOMOLOGACAO_VALIDADA";
   }
-  if (tiposPresentes.size === 1 && tiposPresentes.has("MARKETPLACE")) {
-    return { status: "APLICACAO_COMERCIAL", confidence };
+  if (pontuacao >= LIMIAR_HOMOLOGACAO) return "HOMOLOGACAO_VALIDADA";
+  if (pontuacao >= LIMIAR_ALTA_CONFIANCA) return "ALTA_CONFIANCA";
+  if (pontuacao >= LIMIAR_APLICACAO_COMERCIAL) return "APLICACAO_COMERCIAL";
+  return "EVIDENCIA_ISOLADA";
+}
+
+/**
+ * Verifica se o veículo+versão+ano desta aplicação tem outra aplicação de
+ * pneu DISTINTA que também já reúne confiança relevante — nesse caso, é
+ * uma divergência real entre fontes, e todas as aplicações envolvidas são
+ * marcadas como DIVERGENCIA em vez de o sistema escolher uma sozinha.
+ * Retorna o status final desta aplicação após a checagem.
+ */
+async function verificarDivergencia(applicationId: number): Promise<ApplicationStatus> {
+  const atual = await prisma.tireVehicleApplication.findUniqueOrThrow({
+    where: { id: applicationId },
+  });
+
+  const mesmoVeiculo = await prisma.tireVehicleApplication.findMany({
+    where: {
+      vehicleManufacturerName: atual.vehicleManufacturerName,
+      vehicleModel: atual.vehicleModel,
+      vehicleVersion: atual.vehicleVersion,
+      yearStart: atual.yearStart,
+      yearEnd: atual.yearEnd,
+    },
+  });
+
+  const fortes = mesmoVeiculo.filter((a) => a.confidence >= LIMIAR_ALTA_CONFIANCA);
+  const pneusDistintos = new Set(
+    fortes.map((a) => `${a.tireManufacturerName}|${a.tireModel}|${a.tireSize}`)
+  );
+
+  if (pneusDistintos.size < 2) {
+    return atual.status;
   }
-  return { status: "EVIDENCIA", confidence };
+
+  await prisma.tireVehicleApplication.updateMany({
+    where: { id: { in: fortes.map((a) => a.id) } },
+    data: { status: "DIVERGENCIA" },
+  });
+
+  return "DIVERGENCIA";
 }
 
 /**
  * Registra uma evidência coletada. Sempre encontra-ou-cria a aplicação
  * (por chave exata normalizada), insere a evidência (a menos que seja uma
  * recoleta idêntica — mesmo hash — da mesma fonte, para não acumular
- * linhas redundantes sem perder nenhuma evidência real), e recalcula a
- * promoção da aplicação.
+ * linhas redundantes sem perder nenhuma evidência real), recalcula a
+ * pontuação/status da aplicação, e checa divergência com aplicações
+ * concorrentes do mesmo veículo.
  */
 export async function registrarEvidencia(
   input: EvidenciaInput
@@ -144,7 +228,7 @@ export async function registrarEvidencia(
         sourceType: input.sourceType,
         collectedAt: input.collectedAt,
         contentHash,
-        sourceConfidence: SOURCE_TYPE_CONFIDENCE[input.sourceType],
+        sourceConfidence: SOURCE_TYPE_POINTS[input.sourceType],
       },
       select: { id: true },
     });
@@ -153,17 +237,20 @@ export async function registrarEvidencia(
 
   const evidencias = await prisma.homologationEvidence.findMany({
     where: { applicationId: application.id },
-    select: { sourceType: true },
+    select: { sourceType: true, sourceName: true },
   });
   const tiposPresentes = new Set(evidencias.map((e) => e.sourceType));
-  const { status, confidence } = calcularPromocao(tiposPresentes);
+  const confidence = calcularPontuacao(evidencias);
+  const status = statusPorPontuacao(confidence, tiposPresentes);
 
   await prisma.tireVehicleApplication.update({
     where: { id: application.id },
     data: { status, confidence, evidenceCount: evidencias.length },
   });
 
-  return { applicationId: application.id, evidenceId, duplicada, status, confidence };
+  const statusFinal = await verificarDivergencia(application.id);
+
+  return { applicationId: application.id, evidenceId, duplicada, status: statusFinal, confidence };
 }
 
 export type RegistroLoteResultado = {
@@ -171,7 +258,9 @@ export type RegistroLoteResultado = {
   evidenciasNovas: number;
   duplicadas: number;
   aplicacoesValidadas: number;
+  aplicacoesAltaConfianca: number;
   aplicacoesComerciais: number;
+  divergencias: number;
   falhas: number;
 };
 
@@ -181,7 +270,9 @@ export async function registrarLoteEvidencias(
   let evidenciasNovas = 0;
   let duplicadas = 0;
   let aplicacoesValidadas = 0;
+  let aplicacoesAltaConfianca = 0;
   let aplicacoesComerciais = 0;
+  let divergencias = 0;
   let falhas = 0;
 
   for (const item of itens) {
@@ -190,7 +281,9 @@ export async function registrarLoteEvidencias(
       if (resultado.duplicada) duplicadas++;
       else evidenciasNovas++;
       if (resultado.status === "HOMOLOGACAO_VALIDADA") aplicacoesValidadas++;
+      if (resultado.status === "ALTA_CONFIANCA") aplicacoesAltaConfianca++;
       if (resultado.status === "APLICACAO_COMERCIAL") aplicacoesComerciais++;
+      if (resultado.status === "DIVERGENCIA") divergencias++;
     } catch {
       falhas++;
     }
@@ -201,7 +294,9 @@ export async function registrarLoteEvidencias(
     evidenciasNovas,
     duplicadas,
     aplicacoesValidadas,
+    aplicacoesAltaConfianca,
     aplicacoesComerciais,
+    divergencias,
     falhas,
   };
 }
