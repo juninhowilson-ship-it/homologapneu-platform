@@ -11,34 +11,31 @@ export { SOURCE_TYPE_POINTS, isHomologacaoOficial };
  * tratada como homologação só por aparecer em uma fonte. Cada coleta vira
  * uma HomologationEvidence imutável (nunca editada/apagada); evidências da
  * MESMA aplicação (mesmo pneu + mesmo veículo/versão/anos, por chave
- * normalizada) se agrupam em um TireVehicleApplication, cuja pontuação e
- * status são SEMPRE recalculados a partir do conjunto de evidências:
+ * normalizada) se agrupam em um TireVehicleApplication, cujo status é
+ * SEMPRE recalculado a partir do NÚMERO DE FONTES DISTINTAS que
+ * confirmam a mesma aplicação (regra oficial da missão):
  *
- * Pontos por tipo de fonte confirmando (uma vez por fonte DISTINTA — uma
- * mesma fonte reconfirmando não infla a pontuação, só corroboração
- * independente conta):
- *   MARKETPLACE = 20 · MANUAL = 30 · FABRICANTE_PNEU = 40 · MONTADORA = 40
- *   · CATALOGO_OE = 40
+ *   1 fonte (só marketplace)     -> Aplicação Comercial
+ *   1 fonte (qualquer outro tipo) -> Evidência Isolada
+ *   2 fontes distintas            -> Alta Confiança
+ *   3+ fontes distintas           -> Homologação Validada
  *
- * Faixas de pontuação total:
- *   >= 80            -> Homologação Validada
- *   40 a 79          -> Alta Confiança
- *   20 a 39          -> Aplicação Comercial
- *   < 20             -> Evidência Isolada
- *
- * Confirmação simultânea por FABRICANTE_PNEU + MONTADORA força Homologação
- * Validada (na prática já é o que a pontuação dá: 40+40=80).
+ * `confidence` continua sendo a soma dos pontos por fonte distinta (ver
+ * SOURCE_TYPE_POINTS em lib/constants/evidence.ts: Marketplace=20,
+ * Distribuidor Oficial=30, Fabricante do Pneu=40, Montadora=40,
+ * Manual=50, Catálogo OEM=60) — é uma métrica auxiliar de força da
+ * evidência, mas quem decide o STATUS é a contagem de fontes, não mais a
+ * pontuação.
  *
  * Divergência: quando o MESMO veículo+versão+ano tem duas ou mais
  * aplicações de pneu DISTINTAS que cada uma, de forma independente, já
- * junta confiança relevante (>=40 pontos), isso é uma contradição real
- * entre fontes — todas ficam marcadas como Divergência em vez de o
- * sistema escolher uma sozinha. Nenhuma evidência é apagada nesse caso.
+ * tem 2+ fontes confirmando, isso é uma contradição real entre fontes —
+ * todas ficam marcadas como Divergência em vez de o sistema escolher uma
+ * sozinha. Nenhuma evidência é apagada nesse caso.
  */
 
-const LIMIAR_ALTA_CONFIANCA = 40;
-const LIMIAR_HOMOLOGACAO = 80;
-const LIMIAR_APLICACAO_COMERCIAL = 20;
+const FONTES_ALTA_CONFIANCA = 2;
+const FONTES_HOMOLOGACAO = 3;
 
 export type EvidenciaInput = {
   tireManufacturerName: string;
@@ -104,25 +101,31 @@ function calcularPontuacao(
   return Math.min(100, total);
 }
 
-function statusPorPontuacao(
-  pontuacao: number,
+/**
+ * Status pela contagem de FONTES DISTINTAS (regra oficial): 1 fonte só de
+ * marketplace vira Aplicação Comercial, 1 fonte de qualquer outro tipo
+ * sozinha é Evidência Isolada, 2 fontes distintas viram Alta Confiança, 3
+ * ou mais viram Homologação Validada.
+ */
+function statusPorFontes(
+  quantidadeFontesDistintas: number,
   tiposPresentes: Set<EvidenceSourceType>
 ): ApplicationStatus {
-  if (tiposPresentes.has("FABRICANTE_PNEU") && tiposPresentes.has("MONTADORA")) {
-    return "HOMOLOGACAO_VALIDADA";
+  if (quantidadeFontesDistintas >= FONTES_HOMOLOGACAO) return "HOMOLOGACAO_VALIDADA";
+  if (quantidadeFontesDistintas >= FONTES_ALTA_CONFIANCA) return "ALTA_CONFIANCA";
+  if (quantidadeFontesDistintas === 1 && tiposPresentes.has("MARKETPLACE")) {
+    return "APLICACAO_COMERCIAL";
   }
-  if (pontuacao >= LIMIAR_HOMOLOGACAO) return "HOMOLOGACAO_VALIDADA";
-  if (pontuacao >= LIMIAR_ALTA_CONFIANCA) return "ALTA_CONFIANCA";
-  if (pontuacao >= LIMIAR_APLICACAO_COMERCIAL) return "APLICACAO_COMERCIAL";
   return "EVIDENCIA_ISOLADA";
 }
 
 /**
  * Verifica se o veículo+versão+ano desta aplicação tem outra aplicação de
- * pneu DISTINTA que também já reúne confiança relevante — nesse caso, é
- * uma divergência real entre fontes, e todas as aplicações envolvidas são
- * marcadas como DIVERGENCIA em vez de o sistema escolher uma sozinha.
- * Retorna o status final desta aplicação após a checagem.
+ * pneu DISTINTA que também já tem 2+ fontes confirmando (Alta Confiança
+ * ou Homologação Validada) — nesse caso, é uma divergência real entre
+ * fontes, e todas as aplicações envolvidas são marcadas como DIVERGENCIA
+ * em vez de o sistema escolher uma sozinha. Retorna o status final desta
+ * aplicação após a checagem.
  */
 async function verificarDivergencia(applicationId: number): Promise<ApplicationStatus> {
   const atual = await prisma.tireVehicleApplication.findUniqueOrThrow({
@@ -139,7 +142,9 @@ async function verificarDivergencia(applicationId: number): Promise<ApplicationS
     },
   });
 
-  const fortes = mesmoVeiculo.filter((a) => a.confidence >= LIMIAR_ALTA_CONFIANCA);
+  const fortes = mesmoVeiculo.filter(
+    (a) => a.status === "ALTA_CONFIANCA" || a.status === "HOMOLOGACAO_VALIDADA"
+  );
   const pneusDistintos = new Set(
     fortes.map((a) => `${a.tireManufacturerName}|${a.tireModel}|${a.tireSize}`)
   );
@@ -218,8 +223,9 @@ export async function registrarEvidencia(
     select: { sourceType: true, sourceName: true },
   });
   const tiposPresentes = new Set(evidencias.map((e) => e.sourceType));
+  const fontesDistintas = new Set(evidencias.map((e) => e.sourceName));
   const confidence = calcularPontuacao(evidencias);
-  const status = statusPorPontuacao(confidence, tiposPresentes);
+  const status = statusPorFontes(fontesDistintas.size, tiposPresentes);
 
   await prisma.tireVehicleApplication.update({
     where: { id: application.id },

@@ -4,18 +4,20 @@ import type { ApplicationStatus, EvidenceSourceType } from "@prisma/client";
  * distinta) — ver services/homologationEvidence.ts para a lógica completa. */
 export const SOURCE_TYPE_POINTS: Record<EvidenceSourceType, number> = {
   MARKETPLACE: 20,
-  MANUAL: 30,
+  DISTRIBUIDOR_OFICIAL: 30,
   FABRICANTE_PNEU: 40,
   MONTADORA: 40,
-  CATALOGO_OE: 40,
+  MANUAL: 50,
+  CATALOGO_OE: 60,
 };
 
 export const SOURCE_TYPE_LABEL: Record<EvidenceSourceType, string> = {
   MARKETPLACE: "Marketplace",
-  MANUAL: "Manual do Proprietário",
+  DISTRIBUIDOR_OFICIAL: "Distribuidor Oficial",
   FABRICANTE_PNEU: "Fabricante do Pneu",
   MONTADORA: "Montadora",
-  CATALOGO_OE: "Catálogo OE",
+  MANUAL: "Manual do Proprietário",
+  CATALOGO_OE: "Catálogo OEM",
 };
 
 /** Só HOMOLOGACAO_VALIDADA deve ser apresentada como homologação oficial —

@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "EvidenceSourceType" ADD VALUE 'DISTRIBUIDOR_OFICIAL';

@@ -525,6 +525,7 @@ model HomologationDocument {
 
 enum EvidenceSourceType {
   MARKETPLACE
+  DISTRIBUIDOR_OFICIAL
   FABRICANTE_PNEU
   MONTADORA
   MANUAL
