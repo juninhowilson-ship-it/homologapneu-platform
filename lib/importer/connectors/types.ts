@@ -41,6 +41,9 @@ export interface ImportConnector {
   kind: ConnectorKind;
   entity: ImportEntity;
   description: string;
+  /** URL base da fonte, para exibição no painel "Fontes de Dados" —
+   * independente de fetchRows() ter rodado ou não. */
+  sourceUrl?: string;
   /** true quando as credenciais/endpoint necessários estão presentes
    * (normalmente variáveis de ambiente). Nunca deve fabricar dados quando
    * false — a sincronização deve falhar com uma mensagem clara. */

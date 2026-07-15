@@ -44,6 +44,7 @@ export const wikipediaMontadorasConnector: ImportConnector = {
   id: "wikipedia-montadoras",
   label: "Wikipédia — Montadoras (enriquecimento)",
   kind: "API_PUBLICA",
+  sourceUrl: "https://pt.wikipedia.org/api/rest_v1/page/summary/",
   entity: "MONTADORAS",
   description:
     "Enriquece as montadoras já cadastradas com um resumo descritivo real da Wikipédia em português, localizado via o sitelink confirmado no Wikidata (mesma correspondência exata usada pelo conector wikidata-montadoras). Não requer credenciais.",

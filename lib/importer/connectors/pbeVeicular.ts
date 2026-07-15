@@ -157,6 +157,7 @@ export async function fetchPbeVeicularRows(
 
 export const pbeVeicularConnector: ImportConnector = {
   id: "pbe-veicular",
+  sourceUrl: PBE_PDF_URL,
   label: "INMETRO PBE Veicular + Wikipédia (versões técnicas)",
   kind: "BASE_GOVERNAMENTAL",
   entity: "VEICULOS",

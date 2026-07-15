@@ -47,6 +47,7 @@ export const wikidataMontadorasConnector: ImportConnector = {
   id: "wikidata-montadoras",
   label: "Wikidata — Montadoras (enriquecimento)",
   kind: "API_PUBLICA",
+  sourceUrl: "https://query.wikidata.org/sparql",
   entity: "MONTADORAS",
   description:
     "Enriquece as montadoras já cadastradas com país de origem, site oficial, logotipo e grupo automotivo, via consulta SPARQL pública ao Wikidata. Não requer credenciais.",

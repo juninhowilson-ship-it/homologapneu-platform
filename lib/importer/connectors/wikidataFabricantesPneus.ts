@@ -46,6 +46,7 @@ export const wikidataFabricantesPneusConnector: ImportConnector = {
   id: "wikidata-fabricantes-pneus",
   label: "Wikidata — Fabricantes de Pneus (enriquecimento)",
   kind: "API_PUBLICA",
+  sourceUrl: "https://query.wikidata.org/sparql",
   entity: "FABRICANTES_PNEUS",
   description:
     "Enriquece os fabricantes de pneus já cadastrados com país de origem, site oficial e logotipo, via consulta SPARQL pública ao Wikidata (empresas que produzem pneus). Não requer credenciais.",

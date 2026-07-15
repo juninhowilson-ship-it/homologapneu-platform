@@ -19,6 +19,7 @@ import type { ConnectorFetchResult, ImportConnector } from "./types";
  */
 export const fipeMontadorasConnector: ImportConnector = {
   id: "fipe-montadoras",
+  sourceUrl: FIPE_MARCAS_URL,
   label: "FIPE — Montadoras (carros)",
   kind: "API_PUBLICA",
   entity: "MONTADORAS",

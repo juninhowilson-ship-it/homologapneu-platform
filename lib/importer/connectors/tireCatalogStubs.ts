@@ -235,6 +235,7 @@ function createTireBrandConnector(brand: TireBrandFinding): ImportConnector {
     id: `catalogo-pneu-${brand.id}`,
     label: `Catálogo Oficial — ${brand.label} (a configurar)`,
     kind,
+    sourceUrl: `https://${brand.domain.split(" / ")[0]}`,
     entity: "PNEUS",
     description: `${brand.domain}: ${brand.finding} Defina ${envVar} quando uma API real e autorizada for identificada.`,
 

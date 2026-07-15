@@ -756,3 +756,62 @@ model AuditLog {
   @@index([createdAt])
   @@map("audit_logs")
 }
+
+/// Catalogo formal de TODA fonte de dados conhecida (ativa ou bloqueada),
+/// derivado automaticamente dos conectores reais ja implementados
+/// (lib/importer/connectors/registry.ts + evidenceSources.ts) por
+/// sincronizarCatalogoFontes() em services/sourceManager.ts — nunca
+/// editado manualmente. category/type/status/mechanism sao String (nao
+/// enum do Postgres) de proposito: adicionar uma fonte com uma categoria
+/// nova nunca deve exigir uma migracao de schema.
+model DataSource {
+  id                           Int       @id @default(autoincrement())
+  /// Identificador estavel do conector (ImportConnector.id ou
+  /// EvidenceConnector.id) — ponte entre este catalogo e o codigo real.
+  connectorId                  String    @unique
+  /// "IMPORT" (ImportConnector, registry.ts) ou "EVIDENCE"
+  /// (EvidenceConnector, evidenceSources.ts).
+  mechanism                    String
+  name                         String
+  category                     String
+  manufacturerName             String?
+  type                         String
+  baseUrl                      String?
+  status                       String    @default("PENDENTE")
+  /// Confiabilidade declarada (0-100) — dos tipos de fonte ja mapeados em
+  /// SOURCE_TYPE_POINTS (lib/constants/evidence.ts) quando aplicavel.
+  reliability                  Int       @default(0)
+  lastSyncAt                   DateTime?
+  updateFrequency              String?
+  importedRecordsCount         Int       @default(0)
+  confirmedHomologationsCount  Int       @default(0)
+  lastError                    String?
+  createdAt                    DateTime  @default(now())
+  updatedAt                    DateTime  @updatedAt
+
+  queueItems ImportQueueItem[]
+
+  @@index([status])
+  @@index([category])
+  @@map("data_sources")
+}
+
+/// Fila de processamento: cada item representa UMA execucao (passada ou
+/// pendente) de uma fonte. Historico completo preservado (nunca apagado).
+model ImportQueueItem {
+  id          Int       @id @default(autoincrement())
+  sourceId    Int
+  status      String    @default("PENDENTE")
+  createdAt   DateTime  @default(now())
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  /// Resumo do resultado (JSON serializado) quando concluido com sucesso.
+  result      String?
+  error       String?
+
+  source DataSource @relation(fields: [sourceId], references: [id])
+
+  @@index([sourceId])
+  @@index([status])
+  @@map("import_queue_items")
+}

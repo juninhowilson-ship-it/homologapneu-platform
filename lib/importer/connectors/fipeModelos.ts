@@ -33,6 +33,7 @@ function sleep(ms: number): Promise<void> {
  */
 export const fipeModelosConnector: ImportConnector = {
   id: "fipe-modelos-veiculo",
+  sourceUrl: FIPE_MARCAS_URL,
   label: "FIPE — Modelos de Veículo",
   kind: "API_PUBLICA",
   entity: "VEICULOS",
