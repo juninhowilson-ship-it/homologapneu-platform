@@ -6,6 +6,12 @@ const nextConfig: NextConfig = {
   env: {
     BUILD_TIME: new Date().toISOString(),
   },
+  // O proxy.ts (todo request passa por ele) bufferiza o corpo da requisição
+  // até este limite (padrão: 10MB) — manuais oficiais em PDF (Curadoria
+  // Inteligente, /api/curadoria/upload) chegam a ~100MB.
+  experimental: {
+    proxyClientMaxBodySize: "150mb",
+  },
 };
 
 export default nextConfig;
