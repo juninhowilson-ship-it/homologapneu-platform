@@ -71,7 +71,7 @@ export async function parseImportFile(
     case "xml":
       return parseXmlFile(buffer);
     case "pdf":
-      return parsePdfFile();
+      return parsePdfFile(buffer);
     case "csv":
     default:
       return parseCsvFile(buffer);

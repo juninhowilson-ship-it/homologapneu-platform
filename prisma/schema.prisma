@@ -86,8 +86,8 @@ model Manufacturer {
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
-  automotiveGroup   AutomotiveGroup? @relation(fields: [automotiveGroupId], references: [id])
-  models            VehicleModel[]
+  automotiveGroup AutomotiveGroup? @relation(fields: [automotiveGroupId], references: [id])
+  models          VehicleModel[]
 
   @@index([automotiveGroupId])
   @@map("manufacturers")
@@ -113,9 +113,9 @@ model VehicleModel {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  manufacturer   Manufacturer        @relation(fields: [manufacturerId], references: [id])
-  generations    VehicleGeneration[]
-  versions       VehicleVersion[]
+  manufacturer Manufacturer        @relation(fields: [manufacturerId], references: [id])
+  generations  VehicleGeneration[]
+  versions     VehicleVersion[]
 
   @@unique([manufacturerId, name])
   @@index([manufacturerId])
@@ -132,8 +132,8 @@ model VehicleGeneration {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  vehicleModel   VehicleModel     @relation(fields: [vehicleModelId], references: [id])
-  versions       VehicleVersion[]
+  vehicleModel VehicleModel     @relation(fields: [vehicleModelId], references: [id])
+  versions     VehicleVersion[]
 
   @@unique([vehicleModelId, name])
   @@index([vehicleModelId])
@@ -152,7 +152,7 @@ model Engine {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  versions  VehicleVersion[]
+  versions VehicleVersion[]
 
   @@unique([name, fuel, power])
   @@map("engines")
@@ -167,7 +167,7 @@ model Platform {
   description String?
   createdAt   DateTime @default(now())
 
-  versions    VehicleVersion[]
+  versions VehicleVersion[]
 
   @@map("platforms")
 }
@@ -179,7 +179,7 @@ model Transmission {
   description String?
   createdAt   DateTime         @default(now())
 
-  versions    VehicleVersion[]
+  versions VehicleVersion[]
 
   @@unique([type, gears, description])
   @@map("transmissions")
@@ -228,14 +228,14 @@ model VehicleVersion {
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 
-  vehicleModel     VehicleModel       @relation(fields: [vehicleModelId], references: [id])
-  generation       VehicleGeneration? @relation(fields: [generationId], references: [id])
-  engine           Engine             @relation(fields: [engineId], references: [id])
-  transmission     Transmission?      @relation(fields: [transmissionId], references: [id])
-  platform         Platform?          @relation(fields: [platformId], references: [id])
-  images           VehicleImage[]
-  documents        VehicleDocument[]
-  homologations    Homologation[]
+  vehicleModel  VehicleModel       @relation(fields: [vehicleModelId], references: [id])
+  generation    VehicleGeneration? @relation(fields: [generationId], references: [id])
+  engine        Engine             @relation(fields: [engineId], references: [id])
+  transmission  Transmission?      @relation(fields: [transmissionId], references: [id])
+  platform      Platform?          @relation(fields: [platformId], references: [id])
+  images        VehicleImage[]
+  documents     VehicleDocument[]
+  homologations Homologation[]
 
   @@unique([vehicleModelId, name, engineId])
   @@index([vehicleModelId])
@@ -257,7 +257,7 @@ model VehicleDocument {
   type             String?
   createdAt        DateTime @default(now())
 
-  vehicleVersion   VehicleVersion @relation(fields: [vehicleVersionId], references: [id], onDelete: Cascade)
+  vehicleVersion VehicleVersion @relation(fields: [vehicleVersionId], references: [id], onDelete: Cascade)
 
   @@index([vehicleVersionId])
   @@map("vehicle_documents")
@@ -270,7 +270,7 @@ model VehicleImage {
   url              String
   createdAt        DateTime         @default(now())
 
-  vehicleVersion   VehicleVersion   @relation(fields: [vehicleVersionId], references: [id], onDelete: Cascade)
+  vehicleVersion VehicleVersion @relation(fields: [vehicleVersionId], references: [id], onDelete: Cascade)
 
   @@unique([vehicleVersionId, type])
   @@map("vehicle_images")
@@ -292,8 +292,8 @@ model TireManufacturer {
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
-  families         TireFamily[]
-  tires            Tire[]
+  families TireFamily[]
+  tires    Tire[]
 
   @@map("tire_manufacturers")
 }
@@ -304,8 +304,8 @@ model TireFamily {
   name               String
   createdAt          DateTime @default(now())
 
-  tireManufacturer   TireManufacturer @relation(fields: [tireManufacturerId], references: [id])
-  tires              Tire[]
+  tireManufacturer TireManufacturer @relation(fields: [tireManufacturerId], references: [id])
+  tires            Tire[]
 
   @@unique([tireManufacturerId, name])
   @@index([tireManufacturerId])
@@ -374,13 +374,13 @@ model Tire {
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
-  tireManufacturer   TireManufacturer   @relation(fields: [tireManufacturerId], references: [id])
-  tireFamily         TireFamily?        @relation(fields: [tireFamilyId], references: [id])
-  loadIndexRef       LoadIndex?         @relation(fields: [loadIndexId], references: [id])
-  speedIndexRef      SpeedIndex?        @relation(fields: [speedIndexId], references: [id])
-  homologationTires  HomologationTire[]
-  technologies       TireTechnology[]
-  images             TireImage[]
+  tireManufacturer  TireManufacturer   @relation(fields: [tireManufacturerId], references: [id])
+  tireFamily        TireFamily?        @relation(fields: [tireFamilyId], references: [id])
+  loadIndexRef      LoadIndex?         @relation(fields: [loadIndexId], references: [id])
+  speedIndexRef     SpeedIndex?        @relation(fields: [speedIndexId], references: [id])
+  homologationTires HomologationTire[]
+  technologies      TireTechnology[]
+  images            TireImage[]
 
   @@unique([tireManufacturerId, model, size])
   @@index([tireManufacturerId])
@@ -397,25 +397,25 @@ model Tire {
 // registrado (find-or-create) na primeira vez que aparece em um pneu
 // criado manualmente ou importado, junto com a origem que o trouxe.
 model LoadIndex {
-  id         Int      @id @default(autoincrement())
-  code       String   @unique
-  maxLoadKg  Int?
-  source     String?
-  createdAt  DateTime @default(now())
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  maxLoadKg Int?
+  source    String?
+  createdAt DateTime @default(now())
 
-  tires      Tire[]
+  tires Tire[]
 
   @@map("load_indexes")
 }
 
 model SpeedIndex {
-  id           Int      @id @default(autoincrement())
-  code         String   @unique
-  maxSpeedKmh  Int?
-  source       String?
-  createdAt    DateTime @default(now())
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  maxSpeedKmh Int?
+  source      String?
+  createdAt   DateTime @default(now())
 
-  tires        Tire[]
+  tires Tire[]
 
   @@map("speed_indexes")
 }
@@ -431,7 +431,7 @@ model TireImage {
   isCover   Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  tire      Tire     @relation(fields: [tireId], references: [id], onDelete: Cascade)
+  tire Tire @relation(fields: [tireId], references: [id], onDelete: Cascade)
 
   @@index([tireId])
   @@map("tire_images")
@@ -443,7 +443,7 @@ model Technology {
   description String?
   createdAt   DateTime @default(now())
 
-  tires       TireTechnology[]
+  tires TireTechnology[]
 
   @@map("technologies")
 }
@@ -517,7 +517,7 @@ model HomologationDocument {
   type           String?
   createdAt      DateTime @default(now())
 
-  homologation   Homologation @relation(fields: [homologationId], references: [id], onDelete: Cascade)
+  homologation Homologation @relation(fields: [homologationId], references: [id], onDelete: Cascade)
 
   @@index([homologationId])
   @@map("homologation_documents")
@@ -549,29 +549,29 @@ enum ApplicationStatus {
 /// editados diretamente — conforme a regra de promocao definida pelo
 /// usuario (ver services/homologationEvidence.ts).
 model TireVehicleApplication {
-  id                       Int      @id @default(autoincrement())
-  tireManufacturerName     String
-  tireModel                String
-  tireSize                 String
-  vehicleManufacturerName  String
-  vehicleModel             String
+  id                      Int               @id @default(autoincrement())
+  tireManufacturerName    String
+  tireModel               String
+  tireSize                String
+  vehicleManufacturerName String
+  vehicleModel            String
   /// String vazia quando a versao nao e informada pela fonte — campos
   /// nulaveis nao funcionam de forma confiavel dentro de uma chave unica
   /// composta (NULL != NULL no Postgres), entao usamos "" como sentinela.
-  vehicleVersion           String   @default("")
+  vehicleVersion          String            @default("")
   /// 0 quando o ano nao e informado pela fonte (mesmo motivo do
   /// sentinela acima).
-  yearStart                Int      @default(0)
-  yearEnd                  Int      @default(0)
-  status                   ApplicationStatus @default(EVIDENCIA_ISOLADA)
+  yearStart               Int               @default(0)
+  yearEnd                 Int               @default(0)
+  status                  ApplicationStatus @default(EVIDENCIA_ISOLADA)
   /// Confianca agregada (nao e a confianca de uma fonte isolada): cresce
   /// quando fontes independentes confirmam a mesma aplicacao.
-  confidence               Int      @default(0)
-  evidenceCount            Int      @default(0)
-  firstSeenAt              DateTime @default(now())
-  lastConfirmedAt          DateTime @updatedAt
+  confidence              Int               @default(0)
+  evidenceCount           Int               @default(0)
+  firstSeenAt             DateTime          @default(now())
+  lastConfirmedAt         DateTime          @updatedAt
 
-  evidences                HomologationEvidence[]
+  evidences HomologationEvidence[]
 
   @@unique([tireManufacturerName, tireModel, tireSize, vehicleManufacturerName, vehicleModel, vehicleVersion, yearStart, yearEnd], name: "chaveAplicacao")
   @@index([status])
@@ -585,33 +585,33 @@ model TireVehicleApplication {
 /// manuais, catalogos OE). Nao representa uma homologacao por si so; o
 /// status de homologacao vive em TireVehicleApplication.
 model HomologationEvidence {
-  id                       Int      @id @default(autoincrement())
-  applicationId            Int
-  tireManufacturerName     String
-  tireModel                String
-  tireSize                 String
-  vehicleManufacturerName  String
-  vehicleModel             String
+  id                      Int                @id @default(autoincrement())
+  applicationId           Int
+  tireManufacturerName    String
+  tireModel               String
+  tireSize                String
+  vehicleManufacturerName String
+  vehicleModel            String
   /// "" quando a fonte nao informa a versao (mesmo sentinela usado em
   /// TireVehicleApplication, para bater com a mesma chave normalizada).
-  vehicleVersion           String   @default("")
+  vehicleVersion          String             @default("")
   /// 0 quando a fonte nao informa o ano.
-  yearStart                Int      @default(0)
-  yearEnd                  Int      @default(0)
-  sourceUrl                String
-  sourceName               String
-  sourceType               EvidenceSourceType
-  collectedAt              DateTime
+  yearStart               Int                @default(0)
+  yearEnd                 Int                @default(0)
+  sourceUrl               String
+  sourceName              String
+  sourceType              EvidenceSourceType
+  collectedAt             DateTime
   /// Hash SHA-256 do conteudo bruto coletado (mesmo espirito de
   /// ImportBatch.importHash), para deteccao de recoleta identica.
-  contentHash              String
+  contentHash             String
   /// Confianca fixa atribuida ao TIPO da fonte no momento da coleta (ex.:
   /// marketplace=40, fabricante=70, montadora=90) — distinta da confianca
   /// agregada em TireVehicleApplication.
-  sourceConfidence         Int
-  createdAt                DateTime @default(now())
+  sourceConfidence        Int
+  createdAt               DateTime           @default(now())
 
-  application              TireVehicleApplication @relation(fields: [applicationId], references: [id])
+  application TireVehicleApplication @relation(fields: [applicationId], references: [id])
 
   @@index([applicationId])
   @@index([sourceType])
@@ -633,10 +633,111 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  importBatches ImportBatch[]
-  auditLogs     AuditLog[]
+  importBatches      ImportBatch[]
+  auditLogs          AuditLog[]
+  documentUploads    DocumentUpload[]
+  reviewedCandidates HomologationCandidate[]
 
   @@map("users")
+}
+
+enum DocumentFileType {
+  PDF
+  XLSX
+  CSV
+}
+
+enum DocumentUploadStatus {
+  PENDENTE
+  PROCESSADO
+  ERRO
+}
+
+/// Sistema de Curadoria Inteligente: upload de documento (PDF/Excel/CSV)
+/// enviado por um usuário. O arquivo original fica guardado (fileContent)
+/// para auditoria completa — nunca é publicado automaticamente; só serve
+/// de base para gerar HomologationCandidate, que exige aprovação humana.
+model DocumentUpload {
+  id                 Int                  @id @default(autoincrement())
+  fileName           String
+  fileType           DocumentFileType
+  /// Hash SHA-256 do arquivo original, para auditoria/deduplicação.
+  fileHash           String
+  fileSize           Int
+  fileContent        Bytes
+  /// Texto/linhas extraídos (via parseImportFile) antes da extração de
+  /// candidatos — guardado para auditoria mesmo se a extração falhar.
+  extractedText      String?
+  /// Tipo de fonte que o usuário declara que este documento representa
+  /// (marketplace/fabricante/montadora/manual/catálogo OE/distribuidor) —
+  /// usado ao aprovar um candidato, para alimentar o Motor de Validação
+  /// existente com o EvidenceSourceType correto.
+  declaredSourceType EvidenceSourceType
+  declaredSourceName String
+  status             DocumentUploadStatus @default(PENDENTE)
+  errorMessage       String?
+  uploadedById       Int?
+  uploadedAt         DateTime             @default(now())
+
+  uploadedBy User?                   @relation(fields: [uploadedById], references: [id])
+  candidates HomologationCandidate[]
+
+  @@index([status])
+  @@index([fileHash])
+  @@map("document_uploads")
+}
+
+enum CandidateStatus {
+  PENDENTE_REVISAO
+  APROVADA
+  REJEITADA
+  SOLICITAR_REVISAO
+}
+
+/// Homologação Candidata: extraída automaticamente de um DocumentUpload
+/// por reconhecimento de padrões (nunca por invenção — só reconhece
+/// marca/modelo já cadastrados no banco e padrões reais de medida/ano no
+/// texto). NUNCA é publicada sozinha: só vira uma HomologationEvidence
+/// real (via registrarEvidencia, o Motor de Validação já existente)
+/// depois de um humano aprovar explicitamente.
+model HomologationCandidate {
+  id                      Int             @id @default(autoincrement())
+  documentUploadId        Int
+  tireManufacturerName    String?
+  tireModel               String?
+  tireSize                String?
+  loadIndex               String?
+  speedIndex              String?
+  runFlat                 Boolean?
+  xl                      Boolean?
+  vehicleManufacturerName String?
+  vehicleModel            String?
+  vehicleVersion          String?
+  yearStart               Int?
+  yearEnd                 Int?
+  /// 0-100: quantos campos essenciais (pneu+veículo) foram reconhecidos
+  /// com um match exato contra dados já cadastrados — nunca inferido.
+  extractionConfidence    Int             @default(0)
+  /// Trecho de texto de origem, para auditoria (o revisor confere contra
+  /// a fonte original antes de aprovar).
+  rawSnippet              String?
+  status                  CandidateStatus @default(PENDENTE_REVISAO)
+  reviewedById            Int?
+  reviewedAt              DateTime?
+  reviewNotes             String?
+  /// Preenchido só quando aprovada — id da HomologationEvidence real
+  /// criada pelo Motor de Validação existente (sem relação formal do
+  /// Prisma para não alterar o modelo HomologationEvidence já existente).
+  evidenceId              Int?
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt
+
+  documentUpload DocumentUpload @relation(fields: [documentUploadId], references: [id])
+  reviewedBy     User?          @relation(fields: [reviewedById], references: [id])
+
+  @@index([status])
+  @@index([documentUploadId])
+  @@map("homologation_candidates")
 }
 
 model SearchLog {
@@ -707,9 +808,9 @@ model ImportBatch {
   durationMs     Int?
   rolledBackAt   DateTime?
 
-  user           User?         @relation(fields: [userId], references: [id])
-  errors         ImportError[]
-  auditLogs      AuditLog[]
+  user      User?         @relation(fields: [userId], references: [id])
+  errors    ImportError[]
+  auditLogs AuditLog[]
 
   @@index([status])
   @@index([entity])
@@ -717,14 +818,14 @@ model ImportBatch {
 }
 
 model ImportError {
-  id            Int         @id @default(autoincrement())
+  id            Int      @id @default(autoincrement())
   importBatchId Int
   rowNumber     Int?
   message       String
   rawData       String?
-  createdAt     DateTime    @default(now())
+  createdAt     DateTime @default(now())
 
-  importBatch   ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
+  importBatch ImportBatch @relation(fields: [importBatchId], references: [id], onDelete: Cascade)
 
   @@index([importBatchId])
   @@map("import_errors")
@@ -740,17 +841,17 @@ enum AuditAction {
 }
 
 model AuditLog {
-  id            Int          @id @default(autoincrement())
+  id            Int         @id @default(autoincrement())
   entity        String
   entityId      Int
   action        AuditAction
   userId        Int?
   importBatchId Int?
   changes       String?
-  createdAt     DateTime     @default(now())
+  createdAt     DateTime    @default(now())
 
-  user          User?        @relation(fields: [userId], references: [id])
-  importBatch   ImportBatch? @relation(fields: [importBatchId], references: [id])
+  user        User?        @relation(fields: [userId], references: [id])
+  importBatch ImportBatch? @relation(fields: [importBatchId], references: [id])
 
   @@index([entity, entityId])
   @@index([importBatchId])
@@ -766,29 +867,29 @@ model AuditLog {
 /// enum do Postgres) de proposito: adicionar uma fonte com uma categoria
 /// nova nunca deve exigir uma migracao de schema.
 model DataSource {
-  id                           Int       @id @default(autoincrement())
+  id                          Int       @id @default(autoincrement())
   /// Identificador estavel do conector (ImportConnector.id ou
   /// EvidenceConnector.id) — ponte entre este catalogo e o codigo real.
-  connectorId                  String    @unique
+  connectorId                 String    @unique
   /// "IMPORT" (ImportConnector, registry.ts) ou "EVIDENCE"
   /// (EvidenceConnector, evidenceSources.ts).
-  mechanism                    String
-  name                         String
-  category                     String
-  manufacturerName             String?
-  type                         String
-  baseUrl                      String?
-  status                       String    @default("PENDENTE")
+  mechanism                   String
+  name                        String
+  category                    String
+  manufacturerName            String?
+  type                        String
+  baseUrl                     String?
+  status                      String    @default("PENDENTE")
   /// Confiabilidade declarada (0-100) — dos tipos de fonte ja mapeados em
   /// SOURCE_TYPE_POINTS (lib/constants/evidence.ts) quando aplicavel.
-  reliability                  Int       @default(0)
-  lastSyncAt                   DateTime?
-  updateFrequency              String?
-  importedRecordsCount         Int       @default(0)
-  confirmedHomologationsCount  Int       @default(0)
-  lastError                    String?
-  createdAt                    DateTime  @default(now())
-  updatedAt                    DateTime  @updatedAt
+  reliability                 Int       @default(0)
+  lastSyncAt                  DateTime?
+  updateFrequency             String?
+  importedRecordsCount        Int       @default(0)
+  confirmedHomologationsCount Int       @default(0)
+  lastError                   String?
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
 
   queueItems ImportQueueItem[]
 
@@ -800,15 +901,15 @@ model DataSource {
 /// Fila de processamento: cada item representa UMA execucao (passada ou
 /// pendente) de uma fonte. Historico completo preservado (nunca apagado).
 model ImportQueueItem {
-  id          Int       @id @default(autoincrement())
-  sourceId    Int
-  status      String    @default("PENDENTE")
-  createdAt   DateTime  @default(now())
-  startedAt   DateTime?
-  finishedAt  DateTime?
+  id         Int       @id @default(autoincrement())
+  sourceId   Int
+  status     String    @default("PENDENTE")
+  createdAt  DateTime  @default(now())
+  startedAt  DateTime?
+  finishedAt DateTime?
   /// Resumo do resultado (JSON serializado) quando concluido com sucesso.
-  result      String?
-  error       String?
+  result     String?
+  error      String?
 
   source DataSource @relation(fields: [sourceId], references: [id])
 
