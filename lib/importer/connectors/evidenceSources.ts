@@ -72,6 +72,14 @@ const FINDINGS: Finding[] = [
     finding:
       "Proteção anti-bot (Akamai) bloqueia inclusive a leitura do robots.txt (HTTP 403 \"Access Denied\" mesmo nessa rota) — não é possível sequer verificar a política declarada do site a partir deste ambiente, então nenhuma coleta é tentada.",
   },
+  {
+    id: "fiat-manual-proprietario",
+    label: "Fiat — Manual do Proprietário (servicos.fiat.com.br)",
+    domain: "servicos.fiat.com.br",
+    sourceType: "MANUAL",
+    finding:
+      "Fonte mais avançada encontrada até agora: sem robots.txt publicado, e o PDF oficial do manual do proprietário É baixável de verdade com um User-Agent de navegador comum (ex.: handbook-2018-argo.pdf, 10,6MB, HTTP 200) — sem essa UA, o servidor retorna 403. Dois bloqueios reais impedem um conector automatizado hoje: (1) manuais.html não lista os PDFs em HTML estático nem em sitemap.xml — a seleção de modelo/ano resolve o código numérico do produto (ex. \"358\" para o Argo) via uma chamada JS não identificada a partir do HTML estático, então não há como enumerar todos os modelos/anos automaticamente; (2) o PDF baixado usa uma fonte com codificação não padrão — pdftotext extrai texto ilegível (mojibake), exigiria OCR para extrair as especificações técnicas de pneus reais que o manual certamente contém.",
+  },
 ];
 
 function stubConnector(f: Finding): EvidenceConnector {
