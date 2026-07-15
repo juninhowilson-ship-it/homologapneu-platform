@@ -12,7 +12,7 @@ type TireBrandFinding = {
 
 /**
  * Um conector independente por marca de pneu vendida no Brasil, conforme
- * pedido (27 marcas verificadas). Nenhum foi habilitado nesta rodada:
+ * pedido (42 marcas verificadas). Nenhum foi habilitado nesta rodada:
  * todos os sites verificados são catálogos dinâmicos (renderizados via
  * JavaScript) sem uma API pública documentada e acessível, e vários
  * bloqueiam explicitamente coleta automatizada em robots.txt. Fabricar um
@@ -220,6 +220,102 @@ const BRAND_FINDINGS: TireBrandFinding[] = [
     domain: "roadstone.com.br",
     finding:
       "Domínio testado (roadstone.com.br) retorna \"Page Not Found\" — não é o domínio oficial correto. Roadstone é marca do grupo Nexen; requer confirmação da URL oficial brasileira.",
+  },
+  {
+    id: "toyo",
+    label: "Toyo",
+    domain: "toyotires.com.br",
+    finding: "Domínio não respondeu (timeout) a partir deste ambiente. Requer confirmação da URL oficial.",
+  },
+  {
+    id: "cooper",
+    label: "Cooper",
+    domain: "coopertire.com.br",
+    finding: "Domínio não respondeu (timeout) a partir deste ambiente. Requer confirmação da URL oficial.",
+  },
+  {
+    id: "falken",
+    label: "Falken",
+    domain: "falkentire.com.br",
+    finding: "Domínio não respondeu (timeout) a partir deste ambiente. Requer confirmação da URL oficial.",
+  },
+  {
+    id: "maxxis",
+    label: "Maxxis",
+    domain: "maxxis.com.br",
+    finding:
+      "Domínio resolve (redireciona www->apex), mas não publica robots.txt (a rota retorna uma página \"This Page Does Not Exist\" própria do site) — site institucional (Angular) sem indício de catálogo técnico estruturado.",
+  },
+  {
+    id: "apollo",
+    label: "Apollo",
+    domain: "apollotyres.com",
+    finding:
+      "robots.txt permissivo (só bloqueia /language-masters/*) e o sitemapindex.xml lista um sitemap pt-br real — mas essa URL (apollotyres.com/pt-br/sitemap.xml) retorna 404 na prática. Site global (AEM/Adobe), sem catálogo técnico brasileiro acessível confirmado.",
+  },
+  {
+    id: "jktyre",
+    label: "JK Tyre",
+    domain: "jktyre.com",
+    finding:
+      "Site (Next.js) responde, mas a rota /robots.txt é capturada pelo tratamento de erro do próprio Next (\"__next_error__\") — sem robots.txt publicado nem indício de catálogo técnico acessível sem navegador real.",
+  },
+  {
+    id: "leao",
+    label: "Leão",
+    domain: "leaotire.com",
+    finding: "Domínio não respondeu (timeout) a partir deste ambiente. Requer confirmação da URL oficial (marca histórica brasileira, hoje sob o grupo Goodyear/outro).",
+  },
+  {
+    id: "duraturn",
+    label: "Duraturn",
+    domain: "duraturn.com",
+    finding:
+      "robots.txt totalmente permissivo, mas o sitemap.xml só lista uma única URL de landing page — sem catálogo de produtos publicado neste domínio.",
+  },
+  {
+    id: "double-coin",
+    label: "Double Coin",
+    domain: "doublecoin.com",
+    finding: "Domínio responde com 404 (openresty) na raiz — sem site funcional identificável neste momento.",
+  },
+  {
+    id: "goodride",
+    label: "Goodride",
+    domain: "goodridechina.com",
+    finding: "Domínio não respondeu (timeout) a partir deste ambiente. Requer confirmação da URL oficial.",
+  },
+  {
+    id: "mazzini",
+    label: "Mazzini",
+    domain: "mazzinitires.com",
+    finding:
+      "robots.txt totalmente permissivo, mas o sitemap.xml só lista uma única URL de landing page — sem catálogo de produtos publicado neste domínio (mesmo padrão da Duraturn — ambas ligadas ao grupo Prinx Chengshan).",
+  },
+  {
+    id: "aptany",
+    label: "Aptany",
+    domain: "aptanytire.com",
+    finding: "Domínio não respondeu (timeout) a partir deste ambiente. Requer confirmação da URL oficial.",
+  },
+  {
+    id: "compasal",
+    label: "Compasal",
+    domain: "compasaltire.com",
+    finding: "Domínio não respondeu (timeout) a partir deste ambiente. Requer confirmação da URL oficial.",
+  },
+  {
+    id: "sunny",
+    label: "Sunny",
+    domain: "sunnytire.com",
+    finding: "Domínio não respondeu (timeout) a partir deste ambiente. Requer confirmação da URL oficial.",
+  },
+  {
+    id: "aderenza",
+    label: "Aderenza",
+    domain: "aderenza.com.br",
+    finding:
+      "Domínio resolve, mas o redirecionamento do próprio servidor está malformado (concatena o destino sem barra: \"aderenza.com.brrobots.txt\"), impedindo a leitura do robots.txt real — falha do lado do site, não uma restrição declarada.",
   },
 ];
 
