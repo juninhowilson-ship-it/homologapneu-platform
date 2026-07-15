@@ -21,6 +21,11 @@ const menus = [
     adminOnly: false,
   },
   {
+    nome: "Medidas",
+    rota: "/medidas",
+    adminOnly: false,
+  },
+  {
     nome: "Veículos",
     rota: "/veiculos",
     adminOnly: true,

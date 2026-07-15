@@ -2,6 +2,9 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import type { EvidenceSourceType, ApplicationStatus } from "@prisma/client";
+import { SOURCE_TYPE_POINTS, isHomologacaoOficial } from "@/lib/constants/evidence";
+
+export { SOURCE_TYPE_POINTS, isHomologacaoOficial };
 
 /**
  * Motor de Validação de Aplicações: uma aplicação pneu↔veículo nunca é
@@ -32,31 +35,6 @@ import type { EvidenceSourceType, ApplicationStatus } from "@prisma/client";
  * entre fontes — todas ficam marcadas como Divergência em vez de o
  * sistema escolher uma sozinha. Nenhuma evidência é apagada nesse caso.
  */
-
-export const SOURCE_TYPE_POINTS: Record<EvidenceSourceType, number> = {
-  MARKETPLACE: 20,
-  MANUAL: 30,
-  FABRICANTE_PNEU: 40,
-  MONTADORA: 40,
-  CATALOGO_OE: 40,
-};
-
-/**
- * Rótulos para exibição. Só HOMOLOGACAO_VALIDADA deve ser apresentada como
- * homologação oficial — todo o resto é "aplicação compatível" (ainda em
- * consolidação), conforme exigido pela missão.
- */
-export const STATUS_LABEL: Record<ApplicationStatus, string> = {
-  EVIDENCIA_ISOLADA: "Evidência Isolada",
-  APLICACAO_COMERCIAL: "Aplicação Comercial",
-  ALTA_CONFIANCA: "Alta Confiança",
-  HOMOLOGACAO_VALIDADA: "Homologação Validada",
-  DIVERGENCIA: "Divergência",
-};
-
-export function isHomologacaoOficial(status: ApplicationStatus): boolean {
-  return status === "HOMOLOGACAO_VALIDADA";
-}
 
 const LIMIAR_ALTA_CONFIANCA = 40;
 const LIMIAR_HOMOLOGACAO = 80;
