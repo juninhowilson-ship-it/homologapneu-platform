@@ -33,6 +33,17 @@ function toTitleCase(texto: string): string {
     .join(" ");
 }
 
+/**
+ * Remove anotações de ano-modelo entre parênteses (ex.: "(mod. 26)",
+ * "(MY27)") só para a BUSCA do artigo na Wikipédia — o infobox de um
+ * modelo real não muda conforme o lote de ano-modelo do PBE, então essas
+ * variantes devem casar com o mesmo artigo. O nome armazenado em
+ * `modelo` continua o original (não afeta o dado gravado).
+ */
+function limparAnotacaoModelo(modelo: string): string {
+  return modelo.replace(/\s*\([^)]*\)\s*$/, "").trim();
+}
+
 function mapCombustivel(tipoPropulsao: string, combustivelCode: string): string | null {
   const tipo = tipoPropulsao.toLowerCase();
   if (tipo === "elétrico") return "Elétrico";
@@ -88,9 +99,10 @@ export async function fetchPbeVeicularRows(
 
   for (const linha of linhasAlvo) {
     const modeloTitulo = toTitleCase(linha.modelo);
-    const chave = `${linha.marca}|${modeloTitulo}`;
+    const modeloBusca = toTitleCase(limparAnotacaoModelo(linha.modelo));
+    const chave = `${linha.marca}|${modeloBusca}`;
     if (!infoboxCache.has(chave)) {
-      infoboxCache.set(chave, await buscarInfoboxModelo(linha.marca, modeloTitulo));
+      infoboxCache.set(chave, await buscarInfoboxModelo(linha.marca, modeloBusca));
     }
     const infobox = infoboxCache.get(chave) ?? null;
     if (!infobox) continue;
