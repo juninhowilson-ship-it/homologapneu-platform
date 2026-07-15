@@ -112,12 +112,18 @@ export default async function AdministracaoPage() {
         <LotesImportacaoPanel />
       </div>
 
-      <div>
+      <div className="flex flex-wrap gap-3">
         <Link
           href="/administracao/fontes"
           className="inline-block rounded-lg bg-brand px-4 py-2 font-semibold text-brand-foreground transition hover:opacity-90"
         >
           Ver Fontes de Dados →
+        </Link>
+        <Link
+          href="/administracao/curadoria"
+          className="inline-block rounded-lg bg-brand px-4 py-2 font-semibold text-brand-foreground transition hover:opacity-90"
+        >
+          Curadoria Inteligente →
         </Link>
       </div>
     </main>

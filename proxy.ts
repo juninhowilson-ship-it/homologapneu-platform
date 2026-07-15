@@ -27,6 +27,7 @@ const ALWAYS_ADMIN_API_PREFIXES = [
   "/api/importer",
   "/api/storage",
   "/api/fontes",
+  "/api/curadoria",
   "/api/auditoria",
   "/api/status-dev",
   "/api/import-batches",
