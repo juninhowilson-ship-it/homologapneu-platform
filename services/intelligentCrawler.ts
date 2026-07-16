@@ -21,6 +21,14 @@ import type { CrawlerRunTrigger, CrawlerSource, EvidenceSourceType } from "@pris
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36 HomologaPneu-IntelligentCrawler/1.0";
 
+/** Timeout por requisição — sem isto, uma única fonte que trava a
+ * conexão (sem responder, sem erro) consome sozinha todo o orçamento de
+ * tempo da execução (visto na prática: um fetch sem timeout ao RAM
+ * ficou pendurado e a execução real passou de 6min mesmo com o teto de
+ * TEMPO_MAXIMO_MS, porque a checagem de tempo só roda ENTRE fontes). */
+const ROBOTS_TIMEOUT_MS = 15_000;
+const DOWNLOAD_TIMEOUT_MS = 120_000;
+
 /** Limite prático de tamanho de arquivo processado por execução —
  * ambiente com pouca memória disponível já demonstrou falhas reais ao
  * processar um PDF de ~93MB (ver notes da fonte legado-toyota-corolla).
@@ -81,7 +89,10 @@ async function robotsPermite(url: string): Promise<boolean> {
   try {
     const alvo = new URL(url);
     const robotsUrl = `${alvo.protocol}//${alvo.host}/robots.txt`;
-    const res = await fetch(robotsUrl, { headers: { "User-Agent": USER_AGENT } });
+    const res = await fetch(robotsUrl, {
+      headers: { "User-Agent": USER_AGENT },
+      signal: AbortSignal.timeout(ROBOTS_TIMEOUT_MS),
+    });
     if (!res.ok) return true;
     const texto = await res.text();
 
@@ -128,9 +139,12 @@ async function processarDocumento(
 ): Promise<ResultadoDocumento> {
   let response: Response;
   try {
-    response = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
+    response = await fetch(url, {
+      headers: { "User-Agent": USER_AGENT },
+      signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+    });
   } catch (error) {
-    return { status: "erro", motivo: error instanceof Error ? error.message : "Falha de rede" };
+    return { status: "erro", motivo: error instanceof Error ? error.message : "Falha de rede/timeout" };
   }
   if (!response.ok) {
     return { status: "erro", motivo: `HTTP ${response.status}` };
@@ -238,7 +252,10 @@ export async function executarCrawler(
       }
 
       if (fonte.kind === "HUB") {
-        const res = await fetch(fonte.url, { headers: { "User-Agent": USER_AGENT } });
+        const res = await fetch(fonte.url, {
+          headers: { "User-Agent": USER_AGENT },
+          signal: AbortSignal.timeout(ROBOTS_TIMEOUT_MS),
+        });
         if (!res.ok) {
           await marcarVisita(fonte.id, {
             status: "ERRO",
