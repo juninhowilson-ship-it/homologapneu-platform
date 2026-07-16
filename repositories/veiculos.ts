@@ -133,6 +133,32 @@ export async function findOrCreateVehicleModel(
   return created.id;
 }
 
+/**
+ * Geração do veículo, identificada pelo nome (mesmo find-or-create de
+ * findOrCreateVehicleModel). Quando a fonte só informa o ano (não um
+ * nome de geração real, ex.: "Mk7", "3ª geração"), o nome é o próprio
+ * ano/faixa de anos — transcrição literal do dado real, nunca um nome
+ * de geração inventado.
+ */
+export async function findOrCreateVehicleGeneration(
+  vehicleModelId: number,
+  name: string,
+  yearStart: number,
+  yearEnd: number | null
+): Promise<number> {
+  const existing = await prisma.vehicleGeneration.findFirst({
+    where: { vehicleModelId, name },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  const created = await prisma.vehicleGeneration.create({
+    data: { vehicleModelId, name, yearStart, yearEnd },
+    select: { id: true },
+  });
+  return created.id;
+}
+
 export async function findOrCreateEngine(
   name: string,
   fuel: Prisma.EngineUncheckedCreateInput["fuel"],

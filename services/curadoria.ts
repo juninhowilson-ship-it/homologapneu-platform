@@ -5,6 +5,7 @@ import { parseImportFile, inferFileType } from "@/lib/importer/parseFile";
 import { extrairCandidatos } from "@/lib/curadoria/extrairCandidatos";
 import { registrarEvidencia } from "@/services/homologationEvidence";
 import { registrarFonteCuradoria } from "@/services/sourceManager";
+import { publishApprovedHomologation, type PublishResumo } from "@/services/publishApprovedHomologation";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import type { EvidenceSourceType, CandidateStatus, DocumentFileType } from "@prisma/client";
 
@@ -158,6 +159,7 @@ async function obterCandidatoOuFalhar(id: number) {
           id: true,
           fileName: true,
           fileType: true,
+          fileHash: true,
           declaredSourceType: true,
           declaredSourceName: true,
           sourceUrl: true,
@@ -260,7 +262,17 @@ export async function aprovarCandidato(id: number, userId: number | null, notes:
 
   await registrarFonteCuradoria(resultado.status === "HOMOLOGACAO_VALIDADA");
 
-  return { candidato: atualizado, resultado };
+  // Toda evidência aprovada tenta atualizar automaticamente a Base
+  // Mestre estruturada (Homologation/VehicleVersion/Tire/Wheel/
+  // VehiclePressureSpec/HomologationDocument) — nunca falha a aprovação
+  // em si; quando os dados reais não bastam para publicar sem inventar,
+  // volta "skipped" com o motivo (ver services/publishApprovedHomologation.ts).
+  const publicacao: PublishResumo = await publishApprovedHomologation(
+    { ...atualizado, documentUpload: candidato.documentUpload },
+    userId
+  );
+
+  return { candidato: atualizado, resultado, publicacao };
 }
 
 export async function rejeitarCandidato(id: number, userId: number | null, notes: string | null) {

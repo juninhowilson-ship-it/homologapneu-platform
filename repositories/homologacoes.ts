@@ -211,6 +211,36 @@ export async function findHomologationWheel(homologationId: number, wheelId: num
   });
 }
 
+/// Mesmo par find/add de addWheelToHomologacao, para pneus — usado pela
+/// publicação automática (services/publishApprovedHomologation.ts) para
+/// vincular um pneu a uma homologação já existente sem tocar nos pneus
+/// já vinculados (aditivo, nunca substitui a lista inteira como
+/// updateHomologacao faz para o formulário manual).
+export async function addTireToHomologacao(
+  homologationId: number,
+  tireId: number,
+  role: "ORIGINAL" | "OPCIONAL"
+) {
+  return prisma.homologationTire.create({
+    data: { homologationId, tireId, role },
+    include: { tire: true },
+  });
+}
+
+export async function findHomologationTire(homologationId: number, tireId: number) {
+  return prisma.homologationTire.findUnique({
+    where: { homologationId_tireId: { homologationId, tireId } },
+  });
+}
+
+/** Uma homologação por versão de veículo, nesta granularidade da
+ * publicação automática (agrupa todos os pneus/rodas/pressões
+ * confirmados dessa versão) — evita criar uma homologação nova a cada
+ * candidato aprovado para o mesmo veículo. */
+export async function findHomologacaoByVehicleVersion(vehicleVersionId: number) {
+  return prisma.homologation.findFirst({ where: { vehicleVersionId } });
+}
+
 export type PressureSpecInput = {
   emptyFront?: string | null;
   emptyRear?: string | null;
