@@ -1,6 +1,6 @@
 import DashboardContainer from "@/components/dashboard/DashboardContainer";
 
-export default function HomePage() {
+export default function DashboardPage() {
   return (
     <main className="p-10">
       <h1 className="text-4xl font-bold">Dashboard Executivo</h1>

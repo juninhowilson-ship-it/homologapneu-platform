@@ -4,6 +4,64 @@ import type { PesquisaFiltros } from "@/lib/validations/pesquisa";
 import type { ResultadoPesquisa } from "@/types/homologation";
 import type { Prisma } from "@prisma/client";
 
+const RESULTADO_INCLUDE = {
+  vehicleVersion: {
+    include: {
+      vehicleModel: { include: { manufacturer: true } },
+      engine: true,
+      images: true,
+    },
+  },
+  tires: { include: { tire: { include: { tireManufacturer: true } } } },
+  pressureSpecs: { orderBy: { createdAt: "asc" as const }, take: 1 },
+  documents: { orderBy: { createdAt: "asc" as const }, take: 1 },
+} satisfies Prisma.HomologationDefaultArgs["include"];
+
+type HomologacaoComRelacoes = Prisma.HomologationGetPayload<{
+  include: typeof RESULTADO_INCLUDE;
+}>;
+
+function mapParaResultados(
+  homologacoes: HomologacaoComRelacoes[]
+): ResultadoPesquisa[] {
+  return homologacoes.flatMap((homologacao) => {
+    const pressao = homologacao.pressureSpecs[0] ?? null;
+    const documento = homologacao.documents[0] ?? null;
+    const imagem =
+      homologacao.vehicleVersion.images.find((img) => img.type === "PRINCIPAL") ??
+      homologacao.vehicleVersion.images[0] ??
+      null;
+
+    return homologacao.tires.map((tireEntry) => ({
+      homologacaoId: homologacao.id,
+      homologacaoCodigo: homologacao.code,
+      homologacaoAno: homologacao.year,
+      homologacaoAtualizadoEm: homologacao.updatedAt.toISOString(),
+      homologacaoConfiabilidade: homologacao.validationStatus,
+      homologacaoDocumentoNome: documento?.name ?? null,
+      homologacaoDocumentoUrl: documento?.url ?? null,
+      veiculoId: homologacao.vehicleVersion.id,
+      veiculoImagemUrl: imagem?.url ?? null,
+      veiculoFabricante: homologacao.vehicleVersion.vehicleModel.manufacturer.name,
+      veiculoModelo: homologacao.vehicleVersion.vehicleModel.name,
+      veiculoVersao: homologacao.vehicleVersion.name,
+      veiculoAnoInicial: homologacao.vehicleVersion.yearStart,
+      veiculoAnoFinal: homologacao.vehicleVersion.yearEnd,
+      veiculoMotorizacao: homologacao.vehicleVersion.engine.name,
+      pneuTipo: tireEntry.role,
+      pneuFabricante: tireEntry.tire.tireManufacturer.name,
+      pneuModelo: tireEntry.tire.model,
+      pneuMedida: tireEntry.tire.size,
+      pneuIndiceCarga: tireEntry.tire.loadIndex,
+      pneuIndiceVelocidade: tireEntry.tire.speedIndex,
+      pneuRunFlat: tireEntry.tire.runFlat,
+      pneuXl: tireEntry.tire.xl,
+      pressaoDianteira: pressao?.emptyFront ?? null,
+      pressaoTraseira: pressao?.emptyRear ?? null,
+    }));
+  });
+}
+
 export async function buscarHomologacoes(
   filtros: PesquisaFiltros
 ): Promise<ResultadoPesquisa[]> {
@@ -67,15 +125,7 @@ export async function buscarHomologacoes(
 
   const homologacoes = await prisma.homologation.findMany({
     where,
-    include: {
-      vehicleVersion: {
-        include: {
-          vehicleModel: { include: { manufacturer: true } },
-          engine: true,
-        },
-      },
-      tires: { include: { tire: { include: { tireManufacturer: true } } } },
-    },
+    include: RESULTADO_INCLUDE,
     orderBy: [
       { vehicleVersion: { vehicleModel: { manufacturer: { name: "asc" } } } },
       { vehicleVersion: { vehicleModel: { name: "asc" } } },
@@ -84,26 +134,61 @@ export async function buscarHomologacoes(
 
   await registrarBusca(filtros, homologacoes.length);
 
-  return homologacoes.flatMap((homologacao) =>
-    homologacao.tires.map((tireEntry) => ({
-      homologacaoId: homologacao.id,
-      homologacaoCodigo: homologacao.code,
-      homologacaoAno: homologacao.year,
-      veiculoFabricante: homologacao.vehicleVersion.vehicleModel.manufacturer.name,
-      veiculoModelo: homologacao.vehicleVersion.vehicleModel.name,
-      veiculoAnoInicial: homologacao.vehicleVersion.yearStart,
-      veiculoAnoFinal: homologacao.vehicleVersion.yearEnd,
-      veiculoMotorizacao: homologacao.vehicleVersion.engine.name,
-      pneuTipo: tireEntry.role,
-      pneuFabricante: tireEntry.tire.tireManufacturer.name,
-      pneuModelo: tireEntry.tire.model,
-      pneuMedida: tireEntry.tire.size,
-      pneuIndiceCarga: tireEntry.tire.loadIndex,
-      pneuIndiceVelocidade: tireEntry.tire.speedIndex,
-      pneuRunFlat: tireEntry.tire.runFlat,
-      pneuXl: tireEntry.tire.xl,
-    }))
-  );
+  return mapParaResultados(homologacoes);
+}
+
+/**
+ * Busca livre (campo único da Home/Pesquisa pública): combina texto contra
+ * fabricante, modelo, versão, motorização, medida do pneu e código de
+ * homologação — sem exigir que o usuário saiba em qual campo o termo cai.
+ */
+export async function buscarLivre(texto: string): Promise<ResultadoPesquisa[]> {
+  const termo = texto.trim();
+  if (!termo) return [];
+
+  const where: Prisma.HomologationWhereInput = {
+    OR: [
+      { code: { contains: termo, mode: "insensitive" } },
+      { vehicleVersion: { name: { contains: termo, mode: "insensitive" } } },
+      {
+        vehicleVersion: {
+          vehicleModel: { name: { contains: termo, mode: "insensitive" } },
+        },
+      },
+      {
+        vehicleVersion: {
+          vehicleModel: {
+            manufacturer: { name: { contains: termo, mode: "insensitive" } },
+          },
+        },
+      },
+      { vehicleVersion: { engine: { name: { contains: termo, mode: "insensitive" } } } },
+      { tires: { some: { tire: { size: { contains: termo, mode: "insensitive" } } } } },
+      {
+        tires: {
+          some: {
+            tire: {
+              tireManufacturer: { name: { contains: termo, mode: "insensitive" } },
+            },
+          },
+        },
+      },
+    ],
+  };
+
+  const homologacoes = await prisma.homologation.findMany({
+    where,
+    include: RESULTADO_INCLUDE,
+    orderBy: [
+      { vehicleVersion: { vehicleModel: { manufacturer: { name: "asc" } } } },
+      { vehicleVersion: { vehicleModel: { name: "asc" } } },
+    ],
+    take: 100,
+  });
+
+  await registrarBusca({}, homologacoes.length, termo);
+
+  return mapParaResultados(homologacoes);
 }
 
 const ROTULOS_FILTRO: Record<string, string> = {
@@ -122,18 +207,26 @@ const ROTULOS_FILTRO: Record<string, string> = {
   segmento: "Segmento",
 };
 
-async function registrarBusca(filtros: PesquisaFiltros, resultCount: number) {
+async function registrarBusca(
+  filtros: PesquisaFiltros,
+  resultCount: number,
+  textoLivre?: string
+) {
   const partes = Object.entries(filtros)
     .filter(([, valor]) => Boolean(valor))
     .map(([chave, valor]) => `${ROTULOS_FILTRO[chave] ?? chave}: ${valor}`);
 
-  const resumo = partes.length > 0 ? partes.join(" · ") : "Pesquisa sem filtros";
+  const resumo = textoLivre
+    ? `Busca livre: ${textoLivre}`
+    : partes.length > 0
+      ? partes.join(" · ")
+      : "Pesquisa sem filtros";
 
   await prisma.searchLog.create({
     data: {
       resumo,
-      veiculoBusca: filtros.modelo ?? filtros.fabricante ?? null,
-      pneuBusca: filtros.medida ?? filtros.fabricantePneu ?? null,
+      veiculoBusca: textoLivre ?? filtros.modelo ?? filtros.fabricante ?? null,
+      pneuBusca: textoLivre ?? filtros.medida ?? filtros.fabricantePneu ?? null,
       resultCount,
     },
   });

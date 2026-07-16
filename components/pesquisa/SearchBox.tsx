@@ -31,14 +31,8 @@ export default function SearchBox({
   buscando,
 }: Props) {
   return (
-    <form onSubmit={onSubmit} className="bg-surface rounded-xl shadow-lg p-8">
-      <h2 className="text-2xl font-bold">Pesquisa Inteligente</h2>
-
-      <p className="text-muted-foreground mt-2">
-        Localize homologações rapidamente combinando os filtros abaixo.
-      </p>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+    <form onSubmit={onSubmit} className="bg-surface rounded-xl p-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <SelectCampo
           label="Fabricante"
           options={opcoes?.fabricantes ?? []}

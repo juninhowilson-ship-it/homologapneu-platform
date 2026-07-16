@@ -176,3 +176,52 @@ export async function executarAuditoria(): Promise<AuditFinding[]> {
 
   return [...medidas, ...homologacoes, ...versoes, ...necessitandoValidacao];
 }
+
+export type LogAuditoria = {
+  id: number;
+  entity: string;
+  entityId: number;
+  action: string;
+  userName: string | null;
+  importBatchId: number | null;
+  changes: string | null;
+  createdAt: string;
+};
+
+/**
+ * Leitura paginada, somente-consulta, da trilha de auditoria (AuditLog) já
+ * gravada pelos serviços existentes (registrarCriacao/registrarAtualizacao/
+ * registrarAlteracaoManual). Não escreve nada no banco.
+ */
+export async function listarAuditLogs(params: {
+  page: number;
+  pageSize: number;
+  entity?: string;
+}): Promise<{ data: LogAuditoria[]; total: number }> {
+  const where = params.entity ? { entity: params.entity } : {};
+
+  const [logs, total] = await Promise.all([
+    prisma.auditLog.findMany({
+      where,
+      include: { user: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+      skip: (params.page - 1) * params.pageSize,
+      take: params.pageSize,
+    }),
+    prisma.auditLog.count({ where }),
+  ]);
+
+  return {
+    data: logs.map((log) => ({
+      id: log.id,
+      entity: log.entity,
+      entityId: log.entityId,
+      action: log.action,
+      userName: log.user?.name ?? null,
+      importBatchId: log.importBatchId,
+      changes: log.changes,
+      createdAt: log.createdAt.toISOString(),
+    })),
+    total,
+  };
+}

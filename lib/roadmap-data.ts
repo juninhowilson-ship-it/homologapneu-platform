@@ -162,6 +162,14 @@ export const EPICS: Epic[] = [
     status: "em-andamento",
     data: "2026-07-14",
   },
+  {
+    id: "interface-v2",
+    titulo: "Interface v2 — Home Pública & Painel Administrativo",
+    descricao:
+      "Nova Home pública (hero, pesquisa central, estatísticas reais, Como Funciona, Fontes Oficiais, últimas homologações), pesquisa inteligente com busca livre + filtros avançados, ficha pública do veículo (versões, medidas, histórico, documentos) e painel administrativo reorganizado (Dashboard, Homologações, Fabricantes, Documentos, Crawler, Curadoria, Usuários, Logs) com novo visual premium.",
+    status: "concluido",
+    data: "2026-07-15",
+  },
 ];
 
 export function calcularProgresso(epics: Epic[]): number {

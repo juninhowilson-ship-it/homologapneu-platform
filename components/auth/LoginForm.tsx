@@ -41,7 +41,7 @@ export default function LoginForm() {
         return;
       }
 
-      const destino = searchParams.get("next") ?? "/";
+      const destino = searchParams.get("next") ?? "/dashboard";
       router.push(destino);
       router.refresh();
     } finally {

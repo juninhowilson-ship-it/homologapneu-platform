@@ -16,8 +16,9 @@ import packageJson from "@/package.json";
 export const dynamic = "force-dynamic";
 
 const TELAS = [
-  { title: "Painel", route: "/" },
-  { title: "Pesquisa Inteligente", route: "/pesquisa" },
+  { title: "Home (pública)", route: "/" },
+  { title: "Pesquisa (pública)", route: "/pesquisa" },
+  { title: "Dashboard", route: "/dashboard" },
   { title: "Veículos", route: "/veiculos" },
   { title: "Pneus", route: "/pneus" },
   { title: "Homologações", route: "/homologacoes" },

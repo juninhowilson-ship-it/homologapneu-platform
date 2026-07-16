@@ -1,3 +1,5 @@
+import type { ValidationStatus } from "@/lib/constants/validacao";
+
 export type Homologation = {
   id: number;
   code: string;
@@ -9,8 +11,15 @@ export type ResultadoPesquisa = {
   homologacaoId: number;
   homologacaoCodigo: string;
   homologacaoAno: number;
+  homologacaoAtualizadoEm: string;
+  homologacaoConfiabilidade: ValidationStatus;
+  homologacaoDocumentoNome: string | null;
+  homologacaoDocumentoUrl: string | null;
+  veiculoId: number;
+  veiculoImagemUrl: string | null;
   veiculoFabricante: string;
   veiculoModelo: string;
+  veiculoVersao: string;
   veiculoAnoInicial: number;
   veiculoAnoFinal: number;
   veiculoMotorizacao: string;
@@ -22,6 +31,8 @@ export type ResultadoPesquisa = {
   pneuIndiceVelocidade: string;
   pneuRunFlat: boolean;
   pneuXl: boolean;
+  pressaoDianteira: string | null;
+  pressaoTraseira: string | null;
 };
 
 export type OpcoesFiltroPesquisa = {

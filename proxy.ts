@@ -3,11 +3,19 @@ import { decrypt } from "@/lib/auth/jwt";
 
 // /api/crawler/cron é chamado pelo Vercel Cron (sem cookie de sessão) —
 // autenticado por CRON_SECRET dentro do próprio handler, não por login.
-const PUBLIC_API_PREFIXES = ["/api/auth/login", "/api/status", "/api/crawler/cron"];
+// /api/pesquisa alimenta a Home e a Pesquisa públicas (consulta ao Banco
+// Oficial, somente leitura) — ver app/(public).
+const PUBLIC_API_PREFIXES = [
+  "/api/auth/login",
+  "/api/status",
+  "/api/crawler/cron",
+  "/api/pesquisa",
+];
 
-// Página pública de observabilidade (sem necessidade de login) — ver
-// app/status/page.tsx.
-const PUBLIC_PAGE_PATHS = ["/status"];
+// Páginas públicas de consulta (Banco Oficial): Home, Pesquisa e a ficha do
+// veículo não exigem login — apenas o painel administrativo por trás delas
+// continua protegido. Ver app/(public).
+const PUBLIC_PAGE_PATHS = ["/", "/status", "/pesquisa", "/veiculo"];
 
 const ADMIN_ONLY_PAGE_PREFIXES = [
   "/fabricantes",
@@ -94,7 +102,7 @@ export default async function proxy(request: NextRequest) {
     if (pathname === "/login") {
       const session = await decrypt(request.cookies.get("session")?.value);
       if (session) {
-        return NextResponse.redirect(new URL("/", request.url));
+        return NextResponse.redirect(new URL("/dashboard", request.url));
       }
     }
     return NextResponse.next();
@@ -118,7 +126,7 @@ export default async function proxy(request: NextRequest) {
         { status: 403 }
       );
     }
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return NextResponse.next();
