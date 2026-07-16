@@ -674,6 +674,26 @@ model DocumentUpload {
   /// existente com o EvidenceSourceType correto.
   declaredSourceType EvidenceSourceType
   declaredSourceName String
+  /// URL de onde o documento foi baixado, quando veio de um download
+  /// automático (pipeline de expansão da Base Mestre) em vez de um
+  /// upload manual pelo painel. Null para uploads manuais sem URL de
+  /// origem informada.
+  sourceUrl          String?
+  /// Montadora/fabricante-alvo declarado no momento da busca/download
+  /// (ex.: "Toyota") — estruturado à parte de declaredSourceName para
+  /// permitir contagem/filtro por montadora sem parsear texto livre.
+  manufacturerName   String?
+  /// Data de publicação/revisão do próprio documento, quando a fonte
+  /// informa (ex.: rodapé do manual, metadado do PDF). Null quando a
+  /// fonte não declara — nunca inferida.
+  publishedAt        DateTime?
+  /// Confiabilidade (0-100) herdada do tipo de fonte no momento da
+  /// captura (mesma escala de SOURCE_TYPE_POINTS em lib/constants/evidence.ts).
+  reliability        Int                  @default(0)
+  /// true quando o parser detectou um PDF escaneado (sem texto
+  /// extraível) e o ambiente atual não tem OCR disponível — o documento
+  /// fica registrado e vinculado, mas sem candidatos, até que OCR rode.
+  ocrPending         Boolean              @default(false)
   status             DocumentUploadStatus @default(PENDENTE)
   errorMessage       String?
   uploadedById       Int?
@@ -715,6 +735,22 @@ model HomologationCandidate {
   vehicleVersion          String?
   yearStart               Int?
   yearEnd                 Int?
+  /// Motor declarado no mesmo trecho da medida do pneu (ex.: "1.0 12V"),
+  /// texto livre — só preenchido quando o próprio documento traz essa
+  /// associação junto da especificação de pneu/roda.
+  engine                  String?
+  /// Especificação da roda (ex.: "6.5J x 16"), quando o documento
+  /// declarar aro/roda separadamente da medida do pneu.
+  wheelSize               String?
+  /// Pressão recomendada do eixo dianteiro, texto livre (ex.: "2.1 bar",
+  /// "30 psi") — mantém a unidade original da fonte, nunca convertida.
+  frontTirePressure       String?
+  /// Pressão recomendada do eixo traseiro, mesmas regras de
+  /// frontTirePressure.
+  rearTirePressure        String?
+  /// Observações textuais literais do documento (ex.: ressalvas de
+  /// carga/lotação) — nunca resumidas ou reescritas.
+  observations            String?
   /// 0-100: quantos campos essenciais (pneu+veículo) foram reconhecidos
   /// com um match exato contra dados já cadastrados — nunca inferido.
   extractionConfidence    Int             @default(0)
@@ -738,6 +774,197 @@ model HomologationCandidate {
   @@index([status])
   @@index([documentUploadId])
   @@map("homologation_candidates")
+}
+
+enum CrawlerDocumentCategory {
+  MANUAL_PROPRIETARIO
+  BOLETIM_TECNICO
+  CATALOGO_PNEUS
+  TABELA_HOMOLOGACAO
+  PRESSAO_PNEUS
+  RODA_ARO
+  CATALOGO_TECNICO
+  OUTRO
+}
+
+/// "HUB" = página índice que lista vários PDFs (ex.: legado.toyota.com.br/manuais),
+/// exige um passo de extração de links antes do download. "DIRECT" = URL
+/// que já aponta para um PDF/documento específico.
+enum CrawlerSourceKind {
+  HUB
+  DIRECT
+}
+
+enum CrawlerSourceStatus {
+  ATIVA
+  BLOQUEADA
+  PENDENTE
+  ERRO
+}
+
+/// Catálogo permanente de fontes do HomologaPneu Intelligent Crawler — uma
+/// linha por URL conhecida (página índice ou PDF direto) de um fabricante.
+/// Distinto de DataSource (services/sourceManager.ts), que representa
+/// MECANISMOS de importação (um conector por linha); aqui a granularidade é
+/// por URL individual, populado por pesquisa real (nunca inventado) e
+/// nunca duplicado (url é @unique).
+model CrawlerSource {
+  id               Int                     @id @default(autoincrement())
+  manufacturerName String
+  category         CrawlerDocumentCategory
+  kind             CrawlerSourceKind
+  url              String                  @unique
+  /// null até a primeira visita verificar o robots.txt real do domínio.
+  robotsAllowed    Boolean?
+  status           CrawlerSourceStatus     @default(PENDENTE)
+  lastVisitedAt    DateTime?
+  /// Atualizado só quando o conteúdo (contentHash) muda em relação à
+  /// visita anterior — distinto de lastVisitedAt, que muda a cada checagem.
+  lastUpdatedAt    DateTime?
+  /// Hash SHA-256 do conteúdo (HTML da página índice, ou bytes do PDF
+  /// direto) na última visita — usado para detectar mudança real sem
+  /// rebaixar nenhum documento já processado.
+  contentHash      String?
+  /// Achado real verificado (robots.txt, motivo de bloqueio, estrutura da
+  /// página) — mesmo espírito do campo `finding` em evidenceSources.ts.
+  notes            String?
+  documentsFound   Int                     @default(0)
+  /// ETag HTTP da última resposta (quando o servidor envia) — permite
+  /// requisição condicional (If-None-Match) numa fonte DIRECT antes de
+  /// baixar o corpo de novo.
+  etag             String?
+  /// Cabeçalho HTTP Last-Modified da última resposta, quando enviado
+  /// pelo servidor (texto bruto, sem parsear) — distinto de
+  /// `lastUpdatedAt`, que é calculado localmente a partir do contentHash.
+  httpLastModified String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  @@index([manufacturerName])
+  @@index([status])
+  @@map("crawler_sources")
+}
+
+enum CrawlerRunTrigger {
+  MANUAL
+  SCHEDULED
+}
+
+enum CrawlerRunStatus {
+  EXECUTANDO
+  CONCLUIDO
+  FALHOU
+}
+
+/// Histórico de execuções do crawler — nunca apagado, alimenta o
+/// dashboard administrativo (documentos processados, falhas, tempo médio).
+model CrawlerRun {
+  id                  Int               @id @default(autoincrement())
+  trigger             CrawlerRunTrigger
+  status              CrawlerRunStatus  @default(EXECUTANDO)
+  startedAt           DateTime          @default(now())
+  finishedAt          DateTime?
+  sourcesChecked      Int               @default(0)
+  documentsFound      Int               @default(0)
+  documentsDownloaded Int               @default(0)
+  /// Documentos já conhecidos (mesmo hash) ou fontes bloqueadas — não
+  /// contam como novo download nem como falha.
+  documentsSkipped    Int               @default(0)
+  candidatesCreated   Int               @default(0)
+  errorCount          Int               @default(0)
+  errorMessage        String?
+
+  @@index([status])
+  @@map("crawler_runs")
+}
+
+/// Linha única (id fixo = 1) com a preferência de frequência do scheduler.
+/// O cron do Vercel (vercel.json) chama a rota diariamente no máximo; a
+/// própria rota decide se executa de fato com base nesta configuração e em
+/// CrawlerRun.startedAt do último run agendado concluído.
+model CrawlerConfig {
+  id            Int      @id
+  frequency     String   @default("MANUAL")
+  /// true = a execução em andamento deve parar assim que checar este
+  /// flag entre uma fonte/documento e o próximo (cancelamento
+  /// cooperativo — não existe um processo separado para matar). A rota
+  /// que inicia uma execução nova sempre limpa este flag primeiro.
+  stopRequested Boolean  @default(false)
+  updatedAt     DateTime @updatedAt
+
+  @@map("crawler_config")
+}
+
+enum CrawlerJobQueue {
+  DOWNLOAD
+  OCR
+  PARSING
+  CURADORIA
+}
+
+enum CrawlerJobStatus {
+  PENDENTE
+  EXECUTANDO
+  CONCLUIDO
+  ERRO
+  AGUARDANDO_RETRY
+}
+
+/// Fila unificada de jobs do Intelligent Crawler — uma linha por unidade
+/// de trabalho, filtrável por `queue` (DOWNLOAD/OCR/PARSING/CURADORIA).
+/// Uma tabela só (em vez de 4 tabelas quase idênticas) porque o
+/// mecanismo de retry/timeout/prioridade/log é o mesmo para as 4 —
+/// mesmo espírito de ImportQueueItem (services/sourceManager.ts), que já
+/// implementa "fila como dado + processarProximoDaFila()" para conectores;
+/// aqui o formato do job é mais rico (tipo, prioridade, tentativas).
+model CrawlerJob {
+  id            Int              @id @default(autoincrement())
+  queue         CrawlerJobQueue
+  status        CrawlerJobStatus @default(PENDENTE)
+  /// Maior = processado primeiro dentro da mesma fila.
+  priority      Int              @default(0)
+  /// Payload livre (JSON serializado) — formato depende de `queue` (ex.:
+  /// DOWNLOAD carrega {url, sourceId}; CURADORIA carrega {documentUploadId}).
+  payload       String
+  attempts      Int              @default(0)
+  maxAttempts   Int              @default(3)
+  /// Calculado com backoff exponencial a cada falha — processarProximoJob
+  /// só pega jobs com nextAttemptAt <= agora.
+  nextAttemptAt DateTime         @default(now())
+  timeoutMs     Int              @default(120000)
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  /// Log de execução acumulado (uma linha por tentativa) — auditoria
+  /// simples; não há uma tabela de log separada para não sobre-projetar
+  /// um sistema deste porte.
+  log           String?
+  error         String?
+  createdAt     DateTime         @default(now())
+
+  @@index([queue, status, priority])
+  @@index([nextAttemptAt])
+  @@map("crawler_jobs")
+}
+
+/// Alerta gerado quando um documento já conhecido (mesma sourceUrl) volta
+/// com um SHA-256 diferente — ou seja, a fonte oficial publicou uma nova
+/// versão. Histórico permanente (nunca apagado); comparar oldHash/newHash
+/// com os DocumentUpload correspondentes dá o "antes/depois" completo.
+model CrawlerAlert {
+  id                       Int      @id @default(autoincrement())
+  sourceUrl                String
+  manufacturerName         String?
+  previousDocumentUploadId Int?
+  newDocumentUploadId      Int
+  previousHash             String?
+  newHash                  String
+  message                  String
+  acknowledged             Boolean  @default(false)
+  createdAt                DateTime @default(now())
+
+  @@index([acknowledged])
+  @@index([sourceUrl])
+  @@map("crawler_alerts")
 }
 
 model SearchLog {

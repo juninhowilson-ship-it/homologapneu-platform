@@ -125,6 +125,12 @@ export default async function AdministracaoPage() {
         >
           Curadoria Inteligente →
         </Link>
+        <Link
+          href="/administracao/crawler"
+          className="inline-block rounded-lg bg-brand px-4 py-2 font-semibold text-brand-foreground transition hover:opacity-90"
+        >
+          Intelligent Crawler →
+        </Link>
       </div>
     </main>
   );

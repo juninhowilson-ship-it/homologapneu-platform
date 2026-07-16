@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { decrypt } from "@/lib/auth/jwt";
 
-const PUBLIC_API_PREFIXES = ["/api/auth/login", "/api/status"];
+// /api/crawler/cron é chamado pelo Vercel Cron (sem cookie de sessão) —
+// autenticado por CRON_SECRET dentro do próprio handler, não por login.
+const PUBLIC_API_PREFIXES = ["/api/auth/login", "/api/status", "/api/crawler/cron"];
 
 // Página pública de observabilidade (sem necessidade de login) — ver
 // app/status/page.tsx.
@@ -28,6 +30,7 @@ const ALWAYS_ADMIN_API_PREFIXES = [
   "/api/storage",
   "/api/fontes",
   "/api/curadoria",
+  "/api/crawler",
   "/api/auditoria",
   "/api/status-dev",
   "/api/import-batches",

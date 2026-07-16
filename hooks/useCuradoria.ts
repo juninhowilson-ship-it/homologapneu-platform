@@ -30,6 +30,10 @@ export type Candidato = {
     fileType: string;
     declaredSourceType: EvidenceSourceType;
     declaredSourceName: string;
+    sourceUrl: string | null;
+    manufacturerName: string | null;
+    reliability: number;
+    ocrPending: boolean;
     uploadedAt: string;
     uploadedBy: { name: string } | null;
   };

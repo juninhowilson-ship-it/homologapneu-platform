@@ -199,9 +199,21 @@ export default function CuradoriaPage() {
             {data.map((c) => (
               <TableRow key={c.id}>
                 <TableTd className="max-w-[140px] truncate text-xs" title={c.documentUpload.fileName}>
-                  {c.documentUpload.fileName}
+                  {c.documentUpload.sourceUrl ? (
+                    <a href={c.documentUpload.sourceUrl} target="_blank" rel="noreferrer" className="hover:underline">
+                      {c.documentUpload.fileName}
+                    </a>
+                  ) : (
+                    c.documentUpload.fileName
+                  )}
                   <br />
                   <span className="text-muted-foreground">{c.documentUpload.declaredSourceName}</span>
+                  {c.documentUpload.ocrPending && (
+                    <>
+                      <br />
+                      <span className="text-amber-600">Pendente de OCR</span>
+                    </>
+                  )}
                 </TableTd>
                 <TableTd>
                   <CampoEditavel candidato={c} campo="tireManufacturerName" onSalvar={salvarCampo} />

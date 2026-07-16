@@ -38,7 +38,22 @@ export type UploadDocumentoInput = {
   declaredSourceType: EvidenceSourceType;
   declaredSourceName: string;
   userId: number | null;
+  /** URL de origem, quando o documento veio de um download automático
+   * (Intelligent Crawler) em vez de um upload manual pelo painel. */
+  sourceUrl?: string | null;
+  manufacturerName?: string | null;
+  /** Data de publicação/revisão do próprio documento, só quando a fonte
+   * realmente a declara — nunca inferida. */
+  publishedAt?: Date | null;
+  /** Confiabilidade (0-100) herdada do tipo de fonte no momento da
+   * captura — ver SOURCE_TYPE_POINTS em lib/constants/evidence.ts. */
+  reliability?: number;
 };
+
+/** Mensagem literal lançada por parsePdfFile (lib/importer/parsers/pdf.ts)
+ * quando o PDF é um documento escaneado sem texto extraível — usada para
+ * distinguir "aguardando OCR" (não é uma falha real) de um erro genuíno. */
+const SCANNED_PDF_MARKER = "documento escaneado";
 
 export async function uploadDocumento(input: UploadDocumentoInput) {
   const fileHash = createHash("sha256").update(Buffer.from(input.buffer)).digest("hex");
@@ -63,6 +78,10 @@ export async function uploadDocumento(input: UploadDocumentoInput) {
       fileContent: Buffer.from(input.buffer),
       declaredSourceType: input.declaredSourceType,
       declaredSourceName: input.declaredSourceName,
+      sourceUrl: input.sourceUrl ?? null,
+      manufacturerName: input.manufacturerName ?? null,
+      publishedAt: input.publishedAt ?? null,
+      reliability: input.reliability ?? 0,
       uploadedById: input.userId,
       status: "PENDENTE",
     },
@@ -91,12 +110,16 @@ export async function uploadDocumento(input: UploadDocumentoInput) {
     return { documentUpload: semConteudo, candidatos, duplicado: false };
   } catch (error) {
     const mensagem = error instanceof Error ? error.message : "Erro desconhecido";
+    const ocrPending = mensagem.includes(SCANNED_PDF_MARKER);
     await prisma.documentUpload.update({
       where: { id: documentUpload.id },
-      data: { status: "ERRO", errorMessage: mensagem },
+      // PDF escaneado sem OCR disponível não é uma falha de processamento
+      // real: o documento e o hash já ficam registrados e vinculados,
+      // só sem candidatos, até que OCR rode neste ambiente.
+      data: { status: ocrPending ? "PENDENTE" : "ERRO", errorMessage: mensagem, ocrPending },
     });
     const semConteudo = omitirConteudoArquivo(documentUpload);
-    return { documentUpload: semConteudo, candidatos: [], duplicado: false, erro: mensagem };
+    return { documentUpload: semConteudo, candidatos: [], duplicado: false, erro: mensagem, ocrPending };
   }
 }
 
@@ -111,6 +134,11 @@ export async function listarCandidatos(status?: CandidateStatus) {
           fileType: true,
           declaredSourceType: true,
           declaredSourceName: true,
+          sourceUrl: true,
+          manufacturerName: true,
+          publishedAt: true,
+          reliability: true,
+          ocrPending: true,
           uploadedAt: true,
           uploadedBy: { select: { name: true } },
         },
@@ -132,6 +160,11 @@ async function obterCandidatoOuFalhar(id: number) {
           fileType: true,
           declaredSourceType: true,
           declaredSourceName: true,
+          sourceUrl: true,
+          manufacturerName: true,
+          publishedAt: true,
+          reliability: true,
+          ocrPending: true,
           uploadedAt: true,
           uploadedById: true,
         },
