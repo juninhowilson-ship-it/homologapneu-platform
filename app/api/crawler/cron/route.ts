@@ -1,6 +1,15 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { deveExecutarAgendado, executarCrawler } from "@/services/intelligentCrawler";
 import { errorResponse } from "@/lib/api-response";
+
+function isValidCronSecret(authHeader: string | null, secret: string): boolean {
+  const provided = Buffer.from(authHeader ?? "");
+  const expected = Buffer.from(`Bearer ${secret}`);
+  // Comparação em tempo constante — evita vazar o segredo por diferença de
+  // tempo de resposta byte-a-byte; comprimentos diferentes já falham direto.
+  return provided.length === expected.length && timingSafeEqual(provided, expected);
+}
 
 /**
  * Endpoint chamado pelo Vercel Cron (vercel.json) — sem sessão de login,
@@ -17,7 +26,7 @@ export async function GET(request: NextRequest) {
   try {
     const secret = process.env.CRON_SECRET;
     const auth = request.headers.get("authorization");
-    if (!secret || auth !== `Bearer ${secret}`) {
+    if (!secret || !isValidCronSecret(auth, secret)) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 

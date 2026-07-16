@@ -54,10 +54,14 @@ async function verificarBanco(): Promise<AppStatus["banco"]> {
     await prisma.$queryRaw`SELECT 1`;
     return { ok: true, latenciaMs: Date.now() - inicio, erro: null };
   } catch (error) {
+    // Página pública (/status) — nunca repassar a mensagem bruta do driver
+    // (pode conter host/porta/credenciais da connection string) para um
+    // cliente não autenticado. Detalhe completo vai só para o log do servidor.
+    console.error("Falha na verificação de saúde do banco (/api/status):", error);
     return {
       ok: false,
       latenciaMs: null,
-      erro: error instanceof Error ? error.message : "Erro desconhecido",
+      erro: "Não foi possível conectar ao banco de dados",
     };
   }
 }

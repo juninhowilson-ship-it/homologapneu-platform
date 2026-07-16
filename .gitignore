@@ -37,6 +37,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Claude Code local session state (permission allowlists may contain
+# credentials typed into ad-hoc test commands during development)
+.claude/settings.local.json
+
 # user uploads (local dev storage)
 /public/uploads/
 
