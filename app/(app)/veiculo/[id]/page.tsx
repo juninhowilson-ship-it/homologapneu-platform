@@ -11,8 +11,8 @@ import {
   VALIDATION_STATUS_LABELS,
   VALIDATION_STATUS_TONE,
 } from "@/lib/constants/validacao";
-import { obterFichaVeiculoPublica } from "@/services/publico";
-import TimelineVeiculo from "@/components/veiculo-publico/TimelineVeiculo";
+import { obterFichaVeiculo } from "@/services/veiculoFicha";
+import TimelineVeiculo from "@/components/veiculo/TimelineVeiculo";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +34,7 @@ export default async function VeiculoPage({
 
   if (!Number.isFinite(veiculoId)) notFound();
 
-  const ficha = await obterFichaVeiculoPublica(veiculoId);
+  const ficha = await obterFichaVeiculo(veiculoId);
   if (!ficha) notFound();
 
   const { veiculo, versoesIrmas, homologacoes, medidas, documentos, timeline } = ficha;

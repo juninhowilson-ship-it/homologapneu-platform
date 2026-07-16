@@ -170,6 +170,14 @@ export const EPICS: Epic[] = [
     status: "concluido",
     data: "2026-07-15",
   },
+  {
+    id: "acesso-restrito",
+    titulo: "Acesso Restrito — Landing Page pública, restante autenticado",
+    descricao:
+      "Reversão da estratégia de acesso público da Interface v2: apenas a Landing Page (\"/\") permanece pública, sem nenhuma consulta ao banco — apresentação institucional, benefícios e botões Entrar/Solicitar acesso/Falar conosco. Pesquisa, resultado da pesquisa e ficha do veículo voltam a exigir login (movidas para dentro do painel autenticado) e a API /api/pesquisa deixa de ser pública.",
+    status: "concluido",
+    data: "2026-07-16",
+  },
 ];
 
 export function calcularProgresso(epics: Epic[]): number {

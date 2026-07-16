@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
+  Search,
   Wrench,
   Ruler,
   Car,
@@ -32,6 +33,7 @@ type MenuItem = {
 
 const menuGeral: MenuItem[] = [
   { nome: "Dashboard", rota: "/dashboard", icone: LayoutDashboard, adminOnly: false },
+  { nome: "Pesquisa", rota: "/pesquisa", icone: Search, adminOnly: false },
   { nome: "Centro Técnico", rota: "/centro-tecnico", icone: Wrench, adminOnly: false },
   { nome: "Medidas", rota: "/medidas", icone: Ruler, adminOnly: false },
 ];

@@ -5,84 +5,6 @@ import { listHomologacoes } from "@/services/homologacoes";
 import type { Veiculo } from "@/types/veiculo";
 import type { Homologacao } from "@/types/homologacao";
 
-export type EstatisticasPublicas = {
-  fabricantes: number;
-  modelos: number;
-  versoes: number;
-  homologacoes: number;
-  documentosOficiais: number;
-  ultimaAtualizacao: string | null;
-};
-
-export async function obterEstatisticasPublicas(): Promise<EstatisticasPublicas> {
-  const [
-    fabricantes,
-    modelos,
-    versoes,
-    homologacoes,
-    documentosHomologacao,
-    documentosVeiculo,
-    ultimaHomologacao,
-    ultimoVeiculo,
-  ] = await Promise.all([
-    prisma.manufacturer.count({ where: { isActive: true } }),
-    prisma.vehicleModel.count(),
-    prisma.vehicleVersion.count(),
-    prisma.homologation.count(),
-    prisma.homologationDocument.count(),
-    prisma.vehicleDocument.count(),
-    prisma.homologation.aggregate({ _max: { updatedAt: true } }),
-    prisma.vehicleVersion.aggregate({ _max: { updatedAt: true } }),
-  ]);
-
-  const datas = [
-    ultimaHomologacao._max.updatedAt,
-    ultimoVeiculo._max.updatedAt,
-  ].filter((data): data is Date => data !== null);
-
-  return {
-    fabricantes,
-    modelos,
-    versoes,
-    homologacoes,
-    documentosOficiais: documentosHomologacao + documentosVeiculo,
-    ultimaAtualizacao:
-      datas.length > 0
-        ? new Date(Math.max(...datas.map((d) => d.getTime()))).toISOString()
-        : null,
-  };
-}
-
-export type MontadoraOficial = {
-  id: number;
-  name: string;
-  logoUrl: string | null;
-  website: string | null;
-};
-
-export async function listarMontadorasOficiais(): Promise<MontadoraOficial[]> {
-  const montadoras = await prisma.manufacturer.findMany({
-    where: { isActive: true },
-    select: { id: true, name: true, logoUrl: true, website: true },
-    orderBy: { name: "asc" },
-  });
-
-  return montadoras;
-}
-
-export async function listarUltimasHomologacoes(
-  limite: number
-): Promise<Homologacao[]> {
-  const { data } = await listHomologacoes({
-    page: 1,
-    pageSize: limite,
-    sortBy: "createdAt",
-    sortDir: "desc",
-  });
-
-  return data;
-}
-
 export type VersaoIrma = {
   id: number;
   name: string;
@@ -108,7 +30,7 @@ export type DocumentoVeiculo = {
   createdAt: string;
 };
 
-export type FichaVeiculoPublica = {
+export type FichaVeiculo = {
   veiculo: Veiculo;
   versoesIrmas: VersaoIrma[];
   homologacoes: Homologacao[];
@@ -117,9 +39,12 @@ export type FichaVeiculoPublica = {
   timeline: EventoTimelineVeiculo[];
 };
 
-export async function obterFichaVeiculoPublica(
-  id: number
-): Promise<FichaVeiculoPublica | null> {
+/**
+ * Ficha consolidada do veículo (versões da mesma família, medidas
+ * homologadas, documentos e linha do tempo de auditoria) usada pela página
+ * interna /veiculo/[id] — requer sessão autenticada (ver proxy.ts).
+ */
+export async function obterFichaVeiculo(id: number): Promise<FichaVeiculo | null> {
   const versaoBase = await prisma.vehicleVersion.findUnique({
     where: { id },
     select: { vehicleModelId: true },

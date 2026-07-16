@@ -3,19 +3,13 @@ import { decrypt } from "@/lib/auth/jwt";
 
 // /api/crawler/cron é chamado pelo Vercel Cron (sem cookie de sessão) —
 // autenticado por CRON_SECRET dentro do próprio handler, não por login.
-// /api/pesquisa alimenta a Home e a Pesquisa públicas (consulta ao Banco
-// Oficial, somente leitura) — ver app/(public).
-const PUBLIC_API_PREFIXES = [
-  "/api/auth/login",
-  "/api/status",
-  "/api/crawler/cron",
-  "/api/pesquisa",
-];
+const PUBLIC_API_PREFIXES = ["/api/auth/login", "/api/status", "/api/crawler/cron"];
 
-// Páginas públicas de consulta (Banco Oficial): Home, Pesquisa e a ficha do
-// veículo não exigem login — apenas o painel administrativo por trás delas
-// continua protegido. Ver app/(public).
-const PUBLIC_PAGE_PATHS = ["/", "/status", "/pesquisa", "/veiculo"];
+// Nenhum dado do banco é exibido sem login (decisão de 2026-07-16): a única
+// página pública é a Landing Page ("/"), puramente institucional (ver
+// app/(public)/page.tsx — sem consultas ao banco). /status é uma página de
+// observabilidade pré-existente e não relacionada aos dados de negócio.
+const PUBLIC_PAGE_PATHS = ["/", "/status"];
 
 const ADMIN_ONLY_PAGE_PREFIXES = [
   "/fabricantes",

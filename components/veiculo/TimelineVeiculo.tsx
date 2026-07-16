@@ -1,4 +1,4 @@
-import type { EventoTimelineVeiculo } from "@/services/publico";
+import type { EventoTimelineVeiculo } from "@/services/veiculoFicha";
 
 const ACAO_LABEL: Record<string, string> = {
   CREATE: "Criado",

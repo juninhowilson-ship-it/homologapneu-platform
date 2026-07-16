@@ -1,10 +1,5 @@
 import Link from "next/link";
-import { Search, ShieldCheck } from "lucide-react";
-
-const NAV = [
-  { nome: "Início", rota: "/" },
-  { nome: "Pesquisar", rota: "/pesquisa" },
-];
+import { LogIn } from "lucide-react";
 
 export default function PublicHeader() {
   return (
@@ -17,39 +12,18 @@ export default function PublicHeader() {
           <div className="leading-tight">
             <p className="font-bold text-foreground">HomologaPneu</p>
             <p className="text-[11px] text-muted-foreground">
-              Banco Oficial de Homologações
+              Plataforma de Homologações
             </p>
           </div>
         </Link>
 
-        <nav className="hidden items-center gap-1 sm:flex">
-          {NAV.map((item) => (
-            <Link
-              key={item.rota}
-              href={item.rota}
-              className="rounded-lg px-4 py-2 text-sm font-medium text-foreground/80 transition hover:bg-surface-muted hover:text-foreground"
-            >
-              {item.nome}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="flex items-center gap-2">
-          <Link
-            href="/pesquisa"
-            className="hidden items-center gap-2 rounded-lg bg-surface-muted px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-border sm:flex"
-          >
-            <Search size={16} />
-            Pesquisar
-          </Link>
-          <Link
-            href="/login"
-            className="flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-bold text-brand-foreground transition hover:bg-brand-hover"
-          >
-            <ShieldCheck size={16} />
-            Painel administrativo
-          </Link>
-        </div>
+        <Link
+          href="/login"
+          className="flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-bold text-brand-foreground transition hover:bg-brand-hover"
+        >
+          <LogIn size={16} />
+          Entrar
+        </Link>
       </div>
     </header>
   );
