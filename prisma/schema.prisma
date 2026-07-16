@@ -486,6 +486,8 @@ model Homologation {
 
   vehicleVersion VehicleVersion         @relation(fields: [vehicleVersionId], references: [id])
   tires          HomologationTire[]
+  wheels         HomologationWheel[]
+  pressureSpecs  VehiclePressureSpec[]
   documents      HomologationDocument[]
 
   @@unique([vehicleVersionId, code])
@@ -509,17 +511,110 @@ model HomologationTire {
   @@map("homologation_tires")
 }
 
-model HomologationDocument {
-  id             Int      @id @default(autoincrement())
+/// Roda/aro homologado — catálogo reutilizável (mesmo espírito de Tire):
+/// uma linha por especificação real de roda, vinculada a uma ou mais
+/// homologações via HomologationWheel.
+model Wheel {
+  id               Int              @id @default(autoincrement())
+  /// Largura da roda, em polegadas (ex.: 6.5).
+  width            Float
+  /// Diâmetro/aro, em polegadas (ex.: 16).
+  diameter         Int
+  /// Offset/ET, em milímetros. Null até ser confirmado por uma fonte real.
+  offset           Int?
+  /// Furação (ex.: "5x114.3").
+  boltPattern      String
+  /// Diâmetro do cubo central, em milímetros. Null até ser confirmado.
+  hubBore          Float?
+  source           String?
+  validationStatus ValidationStatus @default(NECESSITA_VALIDACAO)
+  /// Nivel de confianca (0-100) da fonte que originou/atualizou este
+  /// registro pela ultima vez. Null quando nao informado pela fonte.
+  confidence       Int?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  homologationWheels HomologationWheel[]
+
+  @@unique([width, diameter, offset, boltPattern])
+  @@index([diameter])
+  @@index([boltPattern])
+  @@index([validationStatus])
+  @@map("wheels")
+}
+
+/// Vínculo homologação↔roda — mesmo formato de HomologationTire
+/// (reaproveita o mesmo enum de papel ORIGINAL/OPCIONAL).
+model HomologationWheel {
+  id             Int                  @id @default(autoincrement())
   homologationId Int
-  name           String
-  url            String
-  type           String?
-  createdAt      DateTime @default(now())
+  wheelId        Int
+  role           HomologationTireRole @default(ORIGINAL)
+  createdAt      DateTime             @default(now())
+
+  homologation Homologation @relation(fields: [homologationId], references: [id], onDelete: Cascade)
+  wheel        Wheel        @relation(fields: [wheelId], references: [id])
+
+  @@unique([homologationId, wheelId])
+  @@index([wheelId])
+  @@map("homologation_wheels")
+}
+
+/// Pressões recomendadas de pneus para uma homologação — texto livre por
+/// campo (mantém a unidade original da fonte: bar/psi/kPa), nunca
+/// convertida ou inferida. Múltiplas linhas por homologação são
+/// permitidas (uma por fonte), pelo mesmo motivo de HomologationEvidence
+/// nunca sobrescrever uma coleta anterior.
+model VehiclePressureSpec {
+  id               Int              @id @default(autoincrement())
+  homologationId   Int
+  emptyFront       String?
+  emptyRear        String?
+  partialLoadFront String?
+  partialLoadRear  String?
+  fullLoadFront    String?
+  fullLoadRear     String?
+  source           String?
+  sourceUrl        String?
+  validationStatus ValidationStatus @default(NECESSITA_VALIDACAO)
+  confidence       Int?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
   homologation Homologation @relation(fields: [homologationId], references: [id], onDelete: Cascade)
 
   @@index([homologationId])
+  @@map("vehicle_pressure_specs")
+}
+
+model HomologationDocument {
+  id               Int       @id @default(autoincrement())
+  homologationId   Int
+  name             String
+  url              String
+  type             String?
+  /// Página do documento onde a especificação foi encontrada, quando
+  /// aplicável (ex.: manual do proprietário em PDF). Null quando não
+  /// declarada pela fonte ou não aplicável (ex.: página web única).
+  page             Int?
+  /// Hash SHA-256 do conteúdo do documento, quando disponível (mesmo
+  /// campo/proposito de DocumentUpload.fileHash e
+  /// HomologationEvidence.contentHash) — permite auditoria e detecção de
+  /// nova versão do mesmo documento.
+  sha256           String?
+  /// Fabricante/montadora declarado da fonte deste documento — estruturado
+  /// à parte do relacionamento com Homologation->VehicleVersion para
+  /// permitir filtro direto sem join, mesmo padrão já usado em
+  /// DocumentUpload/CrawlerSource/DataSource.manufacturerName.
+  manufacturerName String?
+  /// Data de publicação do documento pela fonte oficial, quando declarada.
+  publishedAt      DateTime?
+  createdAt        DateTime  @default(now())
+
+  homologation Homologation @relation(fields: [homologationId], references: [id], onDelete: Cascade)
+
+  @@index([homologationId])
+  @@index([sha256])
   @@map("homologation_documents")
 }
 
@@ -995,6 +1090,7 @@ enum ImportEntity {
   VEICULOS
   PNEUS
   HOMOLOGACOES
+  RODAS
 }
 
 enum ImportBatchStatus {

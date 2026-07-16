@@ -12,7 +12,17 @@ import {
   createHomologacao as createHomologacaoRepo,
   updateHomologacao as updateHomologacaoRepo,
   deleteHomologacao as deleteHomologacaoRepo,
+  addWheelToHomologacao,
+  removeWheelFromHomologacao,
+  findHomologationWheel,
+  findWheelById,
+  addPressureSpec,
+  removePressureSpec,
+  addHomologationDocument,
+  removeHomologationDocument,
   type HomologacaoRecord,
+  type PressureSpecInput,
+  type HomologationDocumentInput,
 } from "@/repositories/homologacoes";
 import { NotFoundError, ConflictError, ValidationError } from "@/lib/errors";
 import {
@@ -35,6 +45,9 @@ import type {
   Homologacao,
   HomologacaoListResponse,
   HomologacaoTireItem,
+  HomologacaoWheelItem,
+  HomologacaoPressureSpec,
+  HomologacaoDocumentItem,
 } from "@/types/homologacao";
 import type {
   ImportacaoResultado,
@@ -51,6 +64,44 @@ function toDTO(record: HomologacaoRecord): Homologacao {
     size: entry.tire.size,
     runFlat: entry.tire.runFlat,
     xl: entry.tire.xl,
+    isOE: entry.role === "ORIGINAL",
+  }));
+
+  const wheels: HomologacaoWheelItem[] = record.wheels.map((entry) => ({
+    id: entry.id,
+    wheelId: entry.wheelId,
+    role: entry.role,
+    width: entry.wheel.width,
+    diameter: entry.wheel.diameter,
+    offset: entry.wheel.offset,
+    boltPattern: entry.wheel.boltPattern,
+    hubBore: entry.wheel.hubBore,
+    isOE: entry.role === "ORIGINAL",
+  }));
+
+  const pressureSpecs: HomologacaoPressureSpec[] = record.pressureSpecs.map((spec) => ({
+    id: spec.id,
+    emptyFront: spec.emptyFront,
+    emptyRear: spec.emptyRear,
+    partialLoadFront: spec.partialLoadFront,
+    partialLoadRear: spec.partialLoadRear,
+    fullLoadFront: spec.fullLoadFront,
+    fullLoadRear: spec.fullLoadRear,
+    source: spec.source,
+    sourceUrl: spec.sourceUrl,
+    createdAt: spec.createdAt.toISOString(),
+  }));
+
+  const documents: HomologacaoDocumentItem[] = record.documents.map((doc) => ({
+    id: doc.id,
+    name: doc.name,
+    url: doc.url,
+    type: doc.type,
+    page: doc.page,
+    sha256: doc.sha256,
+    manufacturerName: doc.manufacturerName,
+    publishedAt: doc.publishedAt ? doc.publishedAt.toISOString() : null,
+    createdAt: doc.createdAt.toISOString(),
   }));
 
   return {
@@ -63,6 +114,11 @@ function toDTO(record: HomologacaoRecord): Homologacao {
     manufactureYear: record.manufactureYear,
     version: record.vehicleVersion.name,
     engine: record.vehicleVersion.engine.name,
+    generation: record.vehicleVersion.generation?.name ?? null,
+    transmission: record.vehicleVersion.transmission
+      ? `${record.vehicleVersion.transmission.type}${record.vehicleVersion.transmission.gears ? ` ${record.vehicleVersion.transmission.gears}v` : ""}`
+      : null,
+    drivetrain: record.vehicleVersion.drivetrain,
     notes: record.notes,
     validationStatus: record.validationStatus,
     source: record.source,
@@ -71,6 +127,11 @@ function toDTO(record: HomologacaoRecord): Homologacao {
     tires,
     originalTire: tires.find((tire) => tire.role === "ORIGINAL") ?? null,
     optionalTires: tires.filter((tire) => tire.role === "OPCIONAL"),
+    wheels,
+    originalWheel: wheels.find((wheel) => wheel.role === "ORIGINAL") ?? null,
+    optionalWheels: wheels.filter((wheel) => wheel.role === "OPCIONAL"),
+    pressureSpecs,
+    documents,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
   };
@@ -280,6 +341,130 @@ export async function deleteHomologacao(
     action: "DELETE",
     userId,
   });
+}
+
+/// Rodas/pressões/documentos são sub-recursos "quando existir" — não
+/// fazem parte do formulário obrigatório de criação/edição da
+/// homologação (homologacaoFormSchema), para não alterar esse contrato
+/// já em uso. Cada função aqui confere que a homologação existe e
+/// registra auditoria (AuditLog via registrarAlteracaoManual), igual ao
+/// resto do serviço.
+
+async function assertHomologacaoExists(id: number) {
+  const current = await findHomologacaoById(id);
+  if (!current) throw new NotFoundError("Homologação não encontrada");
+}
+
+export async function adicionarRoda(
+  homologationId: number,
+  wheelId: number,
+  role: "ORIGINAL" | "OPCIONAL",
+  userId: number | null = null
+): Promise<Homologacao> {
+  await assertHomologacaoExists(homologationId);
+  const wheel = await findWheelById(wheelId);
+  if (!wheel) throw new ValidationError("Roda selecionada não existe");
+
+  const existing = await findHomologationWheel(homologationId, wheelId);
+  if (existing) throw new ConflictError("Esta roda já está vinculada a esta homologação");
+
+  await addWheelToHomologacao(homologationId, wheelId, role);
+  await registrarAlteracaoManual({
+    entity: "Homologation",
+    entityId: homologationId,
+    action: "UPDATE",
+    userId,
+    changes: { roda: { before: null, after: `${wheel.width}J x ${wheel.diameter} ${wheel.boltPattern} (${role})` } },
+  });
+  return getHomologacao(homologationId);
+}
+
+export async function removerRoda(
+  homologationId: number,
+  wheelId: number,
+  userId: number | null = null
+): Promise<Homologacao> {
+  await assertHomologacaoExists(homologationId);
+  await removeWheelFromHomologacao(homologationId, wheelId);
+  await registrarAlteracaoManual({
+    entity: "Homologation",
+    entityId: homologationId,
+    action: "UPDATE",
+    userId,
+    changes: { roda: { before: `wheelId ${wheelId}`, after: null } },
+  });
+  return getHomologacao(homologationId);
+}
+
+export async function adicionarPressao(
+  homologationId: number,
+  input: PressureSpecInput,
+  userId: number | null = null
+): Promise<Homologacao> {
+  await assertHomologacaoExists(homologationId);
+  await addPressureSpec(homologationId, input);
+  await registrarAlteracaoManual({
+    entity: "Homologation",
+    entityId: homologationId,
+    action: "UPDATE",
+    userId,
+    changes: { pressao: { before: null, after: JSON.stringify(input) } },
+  });
+  return getHomologacao(homologationId);
+}
+
+export async function removerPressao(
+  homologationId: number,
+  pressureSpecId: number,
+  userId: number | null = null
+): Promise<Homologacao> {
+  await assertHomologacaoExists(homologationId);
+  await removePressureSpec(pressureSpecId);
+  await registrarAlteracaoManual({
+    entity: "Homologation",
+    entityId: homologationId,
+    action: "UPDATE",
+    userId,
+    changes: { pressao: { before: `id ${pressureSpecId}`, after: null } },
+  });
+  return getHomologacao(homologationId);
+}
+
+export async function adicionarDocumento(
+  homologationId: number,
+  input: HomologationDocumentInput,
+  userId: number | null = null
+): Promise<Homologacao> {
+  await assertHomologacaoExists(homologationId);
+  if (!input.name.trim() || !input.url.trim()) {
+    throw new ValidationError("Nome e URL do documento são obrigatórios");
+  }
+  await addHomologationDocument(homologationId, input);
+  await registrarAlteracaoManual({
+    entity: "Homologation",
+    entityId: homologationId,
+    action: "UPDATE",
+    userId,
+    changes: { documento: { before: null, after: input.url } },
+  });
+  return getHomologacao(homologationId);
+}
+
+export async function removerDocumento(
+  homologationId: number,
+  documentId: number,
+  userId: number | null = null
+): Promise<Homologacao> {
+  await assertHomologacaoExists(homologationId);
+  await removeHomologationDocument(documentId);
+  await registrarAlteracaoManual({
+    entity: "Homologation",
+    entityId: homologationId,
+    action: "UPDATE",
+    userId,
+    changes: { documento: { before: `id ${documentId}`, after: null } },
+  });
+  return getHomologacao(homologationId);
 }
 
 function parseOptionalTiresField(

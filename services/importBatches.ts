@@ -27,7 +27,9 @@ export type AuditableEntity =
   | "VehicleModel"
   | "VehicleVersion"
   | "Tire"
-  | "Homologation";
+  | "Homologation"
+  | "Wheel"
+  | "VehiclePressureSpec";
 
 export async function iniciarLote(params: {
   fileName: string;

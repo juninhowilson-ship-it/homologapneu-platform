@@ -53,10 +53,10 @@ function requiresAdmin(pathname: string, method: string): boolean {
     return true;
   }
 
-  // Veiculos/Pneus: list/create + upload/import são admin-only. A busca por um
-  // unico registro (GET /:id) fica aberta a qualquer usuario autenticado, pois
-  // e usada pelo Centro Tecnico.
-  for (const base of ["/api/veiculos", "/api/pneus"]) {
+  // Veiculos/Pneus/Rodas: list/create + upload/import são admin-only. A busca
+  // por um unico registro (GET /:id) fica aberta a qualquer usuario
+  // autenticado, pois e usada pelo Centro Tecnico.
+  for (const base of ["/api/veiculos", "/api/pneus", "/api/rodas"]) {
     if (pathname === base) return true;
     if (pathname.startsWith(`${base}/upload`) || pathname.startsWith(`${base}/import`)) {
       return true;

@@ -5,6 +5,7 @@ import { importFabricantes } from "@/services/fabricantes";
 import { importVeiculos } from "@/services/veiculos";
 import { importPneus } from "@/services/pneus";
 import { importHomologacoes } from "@/services/homologacoes";
+import { importRodas } from "@/services/rodas";
 import type { ImportContexto } from "@/lib/importer/context";
 import type { ImportacaoResultado } from "@/types/importacao";
 
@@ -19,6 +20,7 @@ const IMPORTERS: Record<ImportEntity, Importer> = {
   VEICULOS: importVeiculos,
   PNEUS: importPneus,
   HOMOLOGACOES: importHomologacoes,
+  RODAS: importRodas,
 };
 
 export function importerFor(entity: ImportEntity): Importer {

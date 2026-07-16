@@ -6,12 +6,23 @@ import type { Prisma } from "@prisma/client";
 const withRelations = {
   include: {
     vehicleVersion: {
-      include: { vehicleModel: { include: { manufacturer: true } }, engine: true },
+      include: {
+        vehicleModel: { include: { manufacturer: true } },
+        engine: true,
+        transmission: true,
+        generation: true,
+      },
     },
     tires: {
       include: { tire: { include: { tireManufacturer: true } } },
       orderBy: { role: "asc" },
     },
+    wheels: {
+      include: { wheel: true },
+      orderBy: { role: "asc" },
+    },
+    pressureSpecs: { orderBy: { createdAt: "asc" } },
+    documents: { orderBy: { createdAt: "asc" } },
   },
 } satisfies Prisma.HomologationDefaultArgs;
 
@@ -172,6 +183,73 @@ export async function updateHomologacao(
 
 export async function deleteHomologacao(id: number): Promise<void> {
   await prisma.homologation.delete({ where: { id } });
+}
+
+/// Rodas, pressões e documentos são anexados a uma homologação já
+/// existente (sub-recursos), sem alterar o contrato de criação/edição já
+/// estabelecido (createHomologacao/updateHomologacao, usados pelo
+/// formulário e pela importação de homologações) — cada um "quando
+/// existir", nunca obrigatório.
+export async function addWheelToHomologacao(
+  homologationId: number,
+  wheelId: number,
+  role: "ORIGINAL" | "OPCIONAL"
+) {
+  return prisma.homologationWheel.create({
+    data: { homologationId, wheelId, role },
+    include: { wheel: true },
+  });
+}
+
+export async function removeWheelFromHomologacao(homologationId: number, wheelId: number) {
+  await prisma.homologationWheel.deleteMany({ where: { homologationId, wheelId } });
+}
+
+export async function findHomologationWheel(homologationId: number, wheelId: number) {
+  return prisma.homologationWheel.findUnique({
+    where: { homologationId_wheelId: { homologationId, wheelId } },
+  });
+}
+
+export type PressureSpecInput = {
+  emptyFront?: string | null;
+  emptyRear?: string | null;
+  partialLoadFront?: string | null;
+  partialLoadRear?: string | null;
+  fullLoadFront?: string | null;
+  fullLoadRear?: string | null;
+  source?: string | null;
+  sourceUrl?: string | null;
+};
+
+export async function addPressureSpec(homologationId: number, data: PressureSpecInput) {
+  return prisma.vehiclePressureSpec.create({ data: { homologationId, ...data } });
+}
+
+export async function removePressureSpec(id: number) {
+  await prisma.vehiclePressureSpec.delete({ where: { id } });
+}
+
+export type HomologationDocumentInput = {
+  name: string;
+  url: string;
+  type?: string | null;
+  page?: number | null;
+  sha256?: string | null;
+  manufacturerName?: string | null;
+  publishedAt?: Date | null;
+};
+
+export async function addHomologationDocument(homologationId: number, data: HomologationDocumentInput) {
+  return prisma.homologationDocument.create({ data: { homologationId, ...data } });
+}
+
+export async function removeHomologationDocument(id: number) {
+  await prisma.homologationDocument.delete({ where: { id } });
+}
+
+export async function findWheelById(id: number) {
+  return prisma.wheel.findUnique({ where: { id } });
 }
 
 export async function findVehicleVersionById(id: number) {
