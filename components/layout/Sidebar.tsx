@@ -20,6 +20,7 @@ import {
   Settings,
   Activity,
   Map as MapIcon,
+  Images,
   type LucideIcon,
 } from "lucide-react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -46,6 +47,7 @@ const menuCadastros: MenuItem[] = [
 ];
 
 const menuAdministracao: MenuItem[] = [
+  { nome: "Biblioteca de Imagens", rota: "/administracao/midia", icone: Images, adminOnly: true },
   { nome: "Documentos", rota: "/administracao/documentos", icone: FileText, adminOnly: true },
   { nome: "Crawler", rota: "/administracao/crawler", icone: Bot, adminOnly: true },
   { nome: "Curadoria", rota: "/administracao/curadoria", icone: Sparkles, adminOnly: true },

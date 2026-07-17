@@ -36,6 +36,8 @@ const ALWAYS_ADMIN_API_PREFIXES = [
   "/api/auditoria",
   "/api/status-dev",
   "/api/import-batches",
+  // HomologaPneu Media Manager (isolado) — biblioteca de imagens, só admin.
+  "/api/media",
 ];
 
 function matchesPrefix(pathname: string, prefixes: string[]) {

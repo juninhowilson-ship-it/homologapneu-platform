@@ -88,6 +88,10 @@ model Manufacturer {
 
   automotiveGroup AutomotiveGroup? @relation(fields: [automotiveGroupId], references: [id])
   models          VehicleModel[]
+  /// HomologaPneu Media Manager (isolado — ver prisma/schema.prisma
+  /// model Media) — logos do fabricante geridos pela nova biblioteca de
+  /// imagens, sem substituir o campo `logoUrl` simples já existente.
+  media           Media[]
 
   @@index([automotiveGroupId])
   @@map("manufacturers")
@@ -236,6 +240,10 @@ model VehicleVersion {
   images        VehicleImage[]
   documents     VehicleDocument[]
   homologations Homologation[]
+  /// HomologaPneu Media Manager (isolado) — fotos geridas pela nova
+  /// biblioteca de imagens, complementar a VehicleImage (galeria simples
+  /// já existente, não alterada).
+  media         Media[]
 
   @@unique([vehicleModelId, name, engineId])
   @@index([vehicleModelId])
@@ -381,6 +389,10 @@ model Tire {
   homologationTires HomologationTire[]
   technologies      TireTechnology[]
   images            TireImage[]
+  /// HomologaPneu Media Manager (isolado) — fotos geridas pela nova
+  /// biblioteca de imagens, complementar a TireImage (galeria simples já
+  /// existente, não alterada).
+  media             Media[]
 
   @@unique([tireManufacturerId, model, size])
   @@index([tireManufacturerId])
@@ -489,6 +501,9 @@ model Homologation {
   wheels         HomologationWheel[]
   pressureSpecs  VehiclePressureSpec[]
   documents      HomologationDocument[]
+  /// HomologaPneu Media Manager (isolado) — ex.: etiqueta INMETRO
+  /// vinculada diretamente à homologação (não ao veículo/pneu isolado).
+  media          Media[]
 
   @@unique([vehicleVersionId, code])
   @@index([vehicleVersionId])
@@ -535,6 +550,9 @@ model Wheel {
   updatedAt        DateTime         @updatedAt
 
   homologationWheels HomologationWheel[]
+  /// HomologaPneu Media Manager (isolado) — fotos de roda geridas pela
+  /// nova biblioteca de imagens.
+  media              Media[]
 
   @@unique([width, diameter, offset, boltPattern])
   @@index([diameter])
@@ -1239,4 +1257,92 @@ model ImportQueueItem {
   @@index([sourceId])
   @@index([status])
   @@map("import_queue_items")
+}
+
+// =============================================================================
+// HomologaPneu Media Manager — sistema isolado de gerenciamento de imagens.
+// Complementar aos campos/tabelas de foto já existentes (Manufacturer.logoUrl,
+// VehicleModel.photoUrl, VehicleImage, TireImage, Tire.imageUrl) — nenhum
+// deles foi alterado ou removido; este é o sistema definitivo daqui para
+// frente, mas convive com o legado sem migrá-lo automaticamente.
+// Ver lib/media, services/media, repositories/media, workers/media, storage/.
+// =============================================================================
+
+/// O que a mídia representa (determina, junto dos *Id abaixo, a que
+/// entidade ela está vinculada e o propósito dela na Biblioteca de Imagens).
+enum MediaType {
+  MANUFACTURER
+  VEHICLE
+  TIRE
+  WHEEL
+  DOCUMENT
+  LOGO
+  THUMBNAIL
+}
+
+/// Ciclo de vida de uma mídia. PENDENTE = registrada (ex.: por um futuro
+/// crawler) mas ainda não baixada/processada — nenhum código atual cria
+/// PENDENTE automaticamente; é o estado que prepara o terreno para quando
+/// um crawler de mídia existir.
+enum MediaStatus {
+  PENDENTE
+  PROCESSANDO
+  DISPONIVEL
+  DUPLICADO
+  ERRO
+}
+
+model Media {
+  id             Int         @id @default(autoincrement())
+  type           MediaType
+  manufacturerId Int?
+  vehicleId      Int?
+  tireId         Int?
+  /// Não fazia parte da lista literal de campos pedida, mas MediaType.WHEEL
+  /// não teria como se vincular a uma roda sem este campo — adicionado por
+  /// consistência com manufacturerId/vehicleId/tireId (mesmo padrão).
+  wheelId        Int?
+  homologationId Int?
+  title          String?
+  description    String?
+  /// Fonte declarada (ex.: nome do site oficial do fabricante) — nunca
+  /// "Google Images" ou fonte não-oficial (ver ImageValidator/services).
+  source         String?
+  /// URL de origem (de onde um crawler baixaria, ou de onde foi baixada).
+  /// Null quando o arquivo só existe via upload manual direto.
+  originalUrl    String?
+  /// URL definitiva no Supabase Storage após processamento bem-sucedido.
+  storageUrl     String?
+  thumbnailUrl   String?
+  /// SHA-256 do arquivo já processado (WEBP final) — chave primária do
+  /// Duplicate Detector.
+  sha256         String?
+  mimeType       String?
+  width          Int?
+  height         Int?
+  /// Tamanho em bytes do arquivo armazenado (storageUrl).
+  size           Int?
+  /// Uma mídia "capa" por entidade+tipo (ex.: a foto principal do
+  /// veículo) — aplicação garante no máximo um isPrimary=true por
+  /// (vehicleId, type), etc.; não é uma constraint de banco.
+  isPrimary      Boolean     @default(false)
+  status         MediaStatus @default(PENDENTE)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  manufacturer Manufacturer?   @relation(fields: [manufacturerId], references: [id], onDelete: Cascade)
+  vehicle      VehicleVersion? @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  tire         Tire?           @relation(fields: [tireId], references: [id], onDelete: Cascade)
+  wheel        Wheel?          @relation(fields: [wheelId], references: [id], onDelete: Cascade)
+  homologation Homologation?   @relation(fields: [homologationId], references: [id], onDelete: Cascade)
+
+  @@index([type])
+  @@index([status])
+  @@index([manufacturerId])
+  @@index([vehicleId])
+  @@index([tireId])
+  @@index([wheelId])
+  @@index([homologationId])
+  @@index([sha256])
+  @@map("media")
 }
