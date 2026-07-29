@@ -118,9 +118,10 @@ export const EPICS: Epic[] = [
   {
     id: "relatorios",
     titulo: "Relatórios & Exportação",
-    descricao: "Geração de relatórios de homologações em PDF/Excel.",
-    status: "pendente",
-    data: "2026-07-26",
+    descricao:
+      "Página /relatorios com os mesmos filtros da Pesquisa (fabricante, modelo, ano, medida, categoria, etc.), tabela de prévia e exportação em Excel (.xlsx via exceljs, respeitando os filtros aplicados) e PDF (impressão via window.print(), mesmo padrão do Centro Técnico). Corrige de quebra um bug pré-existente em lib/validations/pesquisa.ts: os selects de Run Flat/XL/Categoria/Segmento enviavam string vazia quando não escolhidos, e o schema Zod (z.enum().optional()) rejeitava esse valor — o formulário de Filtros Avançados falhava a validação silenciosamente e nunca disparava a busca, tanto em /relatorios quanto em /pesquisa.",
+    status: "concluido",
+    data: "2026-07-29",
   },
   {
     id: "base-oficial",

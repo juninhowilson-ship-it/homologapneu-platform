@@ -36,8 +36,14 @@ const ALWAYS_ADMIN_API_PREFIXES = [
   "/api/auditoria",
   "/api/status-dev",
   "/api/import-batches",
+  // Botão "IMPORTAR DADOS" (database/import/) — dispatcher único por pasta.
+  "/api/database-import",
   // HomologaPneu Media Manager (isolado) — biblioteca de imagens, só admin.
   "/api/media",
+  // HomologaPneu IA Engine (isolado) — análise de documentos/sugestões, só admin.
+  "/api/ai",
+  // Relatórios (exportação Excel/PDF) — página já é admin-only no sidebar.
+  "/api/relatorios",
 ];
 
 function matchesPrefix(pathname: string, prefixes: string[]) {
