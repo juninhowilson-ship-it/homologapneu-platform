@@ -134,9 +134,9 @@ export const EPICS: Epic[] = [
     id: "postgres-producao",
     titulo: "Migração para PostgreSQL em Produção",
     descricao:
-      "SQLite atende o volume atual, mas não escala com segurança para centenas de milhares de veículos e milhões de homologações em produção multiusuário. Migrar o datasource do Prisma para PostgreSQL antes do lançamento.",
-    status: "pendente",
-    data: "2026-08-09",
+      "Datasource do Prisma migrado para PostgreSQL (Supabase, região sa-east-1) via @prisma/adapter-pg — schema com ~90 tabelas, suportando o volume real de produção multiusuário.",
+    status: "concluido",
+    data: "2026-07-20",
   },
   {
     id: "importador-pdf-imagens",
@@ -177,6 +177,14 @@ export const EPICS: Epic[] = [
       "Reversão da estratégia de acesso público da Interface v2: apenas a Landing Page (\"/\") permanece pública, sem nenhuma consulta ao banco — apresentação institucional, benefícios e botões Entrar/Solicitar acesso/Falar conosco. Pesquisa, resultado da pesquisa e ficha do veículo voltam a exigir login (movidas para dentro do painel autenticado) e a API /api/pesquisa deixa de ser pública.",
     status: "concluido",
     data: "2026-07-16",
+  },
+  {
+    id: "busca-inteligente-fuzzy",
+    titulo: "Busca Inteligente — fuzzy, acento-insensível e ranqueada",
+    descricao:
+      "Evolução da busca livre (marca+modelo+medida+código): extensões pg_trgm/unaccent, índices GIN de trigrama e função Postgres busca_inteligente() com ranking por similaridade, tolerando erro de digitação e acentuação e expandindo por apelidos (tabela search_aliases, ex.: \"VW\"→Volkswagen) — escopo deliberadamente restrito ao domínio curado (Homologation), sem tocar a camada bruta pré-curadoria (ManufacturerApplication/TireVehicleApplication).",
+    status: "concluido",
+    data: "2026-07-28",
   },
 ];
 

@@ -137,6 +137,23 @@ export async function buscarHomologacoes(
   return mapParaResultados(homologacoes);
 }
 
+type LinhaRanking = { homologationId: number; score: number };
+
+/**
+ * Ranking fuzzy via a função Postgres `busca_inteligente` (migration
+ * 20260728000000): compara o termo (sem acento, minúsculo) por similaridade
+ * de trigramas contra código de homologação, fabricante, modelo, versão,
+ * motorização, medida/modelo de pneu e fabricante de pneu, expandindo
+ * também por SearchAlias ("VW"→Volkswagen, "Corola"→Corolla). Tolera erro
+ * de digitação e acentuação sem exigir correspondência exata como o antigo
+ * `contains`.
+ */
+async function buscarIdsRankeados(termo: string, limite = 100): Promise<LinhaRanking[]> {
+  return prisma.$queryRaw<LinhaRanking[]>`
+    SELECT "homologationId", score FROM busca_inteligente(${termo}, ${limite})
+  `;
+}
+
 /**
  * Busca livre (campo único da Home/Pesquisa pública): combina texto contra
  * fabricante, modelo, versão, motorização, medida do pneu e código de
@@ -146,45 +163,22 @@ export async function buscarLivre(texto: string): Promise<ResultadoPesquisa[]> {
   const termo = texto.trim();
   if (!termo) return [];
 
-  const where: Prisma.HomologationWhereInput = {
-    OR: [
-      { code: { contains: termo, mode: "insensitive" } },
-      { vehicleVersion: { name: { contains: termo, mode: "insensitive" } } },
-      {
-        vehicleVersion: {
-          vehicleModel: { name: { contains: termo, mode: "insensitive" } },
-        },
-      },
-      {
-        vehicleVersion: {
-          vehicleModel: {
-            manufacturer: { name: { contains: termo, mode: "insensitive" } },
-          },
-        },
-      },
-      { vehicleVersion: { engine: { name: { contains: termo, mode: "insensitive" } } } },
-      { tires: { some: { tire: { size: { contains: termo, mode: "insensitive" } } } } },
-      {
-        tires: {
-          some: {
-            tire: {
-              tireManufacturer: { name: { contains: termo, mode: "insensitive" } },
-            },
-          },
-        },
-      },
-    ],
-  };
+  const ranking = await buscarIdsRankeados(termo);
+  if (ranking.length === 0) {
+    await registrarBusca({}, 0, termo);
+    return [];
+  }
 
+  const ids = ranking.map((linha) => linha.homologationId);
   const homologacoes = await prisma.homologation.findMany({
-    where,
+    where: { id: { in: ids } },
     include: RESULTADO_INCLUDE,
-    orderBy: [
-      { vehicleVersion: { vehicleModel: { manufacturer: { name: "asc" } } } },
-      { vehicleVersion: { vehicleModel: { name: "asc" } } },
-    ],
-    take: 100,
   });
+
+  const posicaoPorId = new Map(ids.map((id, indice) => [id, indice]));
+  homologacoes.sort(
+    (a, b) => (posicaoPorId.get(a.id) ?? 0) - (posicaoPorId.get(b.id) ?? 0)
+  );
 
   await registrarBusca({}, homologacoes.length, termo);
 
