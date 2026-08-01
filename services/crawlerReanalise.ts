@@ -4,6 +4,7 @@ import { parseImportFile } from "@/lib/importer/parseFile";
 import { extrairCandidatos } from "@/lib/curadoria/extrairCandidatos";
 import { enfileirarJob } from "@/services/crawlerJobQueue";
 import { NotFoundError } from "@/lib/errors";
+import { downloadDocumentBytes } from "@/lib/storage/documentStorage";
 
 /**
  * Reanálise sob demanda — arquivos novos e standalone (não tocam em
@@ -31,10 +32,20 @@ export async function reanalisarDocumento(documentUploadId: number) {
   });
   if (!documento) throw new NotFoundError("Documento não encontrado");
 
-  const parsed = await parseImportFile(
-    new Uint8Array(documento.fileContent).buffer as ArrayBuffer,
-    documento.fileName
-  );
+  // Arquivo vive no Supabase Storage (ver lib/storage/documentStorage.ts);
+  // fileContent só existiria em alguma linha legada ainda não migrada.
+  const bytes = documento.storagePath
+    ? await downloadDocumentBytes(documento.storagePath)
+    : documento.fileContent
+      ? new Uint8Array(documento.fileContent)
+      : null;
+  if (!bytes) {
+    throw new NotFoundError(
+      `Documento ${documentUploadId} não tem arquivo disponível (nem storagePath nem fileContent).`
+    );
+  }
+
+  const parsed = await parseImportFile(bytes.buffer as ArrayBuffer, documento.fileName);
   const extraidos = await extrairCandidatos(parsed);
 
   const existentes = await prisma.homologationCandidate.findMany({

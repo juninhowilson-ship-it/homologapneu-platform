@@ -6,6 +6,7 @@ import {
   deleteUsuario,
 } from "@/services/usuarios";
 import { errorResponse } from "@/lib/api-response";
+import { requireAdmin } from "@/lib/auth/dal";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -15,14 +16,16 @@ function parseId(rawId: string) {
 }
 
 export async function GET(_request: NextRequest, { params }: RouteParams) {
-  const { id: rawId } = await params;
-  const id = parseId(rawId);
-
-  if (!id) {
-    return NextResponse.json({ error: "ID inválido" }, { status: 400 });
-  }
-
   try {
+    await requireAdmin();
+
+    const { id: rawId } = await params;
+    const id = parseId(rawId);
+
+    if (!id) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    }
+
     const usuario = await getUsuario(id);
     return NextResponse.json(usuario);
   } catch (error) {
@@ -31,24 +34,26 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 }
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
-  const { id: rawId } = await params;
-  const id = parseId(rawId);
-
-  if (!id) {
-    return NextResponse.json({ error: "ID inválido" }, { status: 400 });
-  }
-
-  const body = await request.json();
-  const parsed = usuarioFormSchema.safeParse(body);
-
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: "Dados inválidos", issues: parsed.error.issues },
-      { status: 400 }
-    );
-  }
-
   try {
+    await requireAdmin();
+
+    const { id: rawId } = await params;
+    const id = parseId(rawId);
+
+    if (!id) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const parsed = usuarioFormSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Dados inválidos", issues: parsed.error.issues },
+        { status: 400 }
+      );
+    }
+
     const usuario = await updateUsuario(id, parsed.data);
     return NextResponse.json(usuario);
   } catch (error) {
@@ -57,14 +62,16 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 }
 
 export async function DELETE(_request: NextRequest, { params }: RouteParams) {
-  const { id: rawId } = await params;
-  const id = parseId(rawId);
-
-  if (!id) {
-    return NextResponse.json({ error: "ID inválido" }, { status: 400 });
-  }
-
   try {
+    await requireAdmin();
+
+    const { id: rawId } = await params;
+    const id = parseId(rawId);
+
+    if (!id) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    }
+
     await deleteUsuario(id);
     return new NextResponse(null, { status: 204 });
   } catch (error) {

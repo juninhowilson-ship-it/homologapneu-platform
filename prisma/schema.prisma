@@ -12,6 +12,24 @@ enum ValidationStatus {
   REJEITADO
 }
 
+/// Status da pesquisa de catálogo por marca de pneu — ver
+/// TireManufacturer.researchStatus/brandPolicy.
+enum BrandResearchStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+/// Política de pesquisa de uma marca de pneu — ver
+/// TireManufacturer.brandPolicy. OEM_ONLY/HISTORICAL_ONLY acrescentados
+/// em 2026-07-22 (ainda sem nenhuma marca usando esses dois valores).
+enum BrandPolicy {
+  OEM_ONLY
+  OEM_AND_APPLICATION
+  APPLICATION_ONLY
+  HISTORICAL_ONLY
+}
+
 enum FuelType {
   FLEX
   GASOLINA
@@ -28,6 +46,11 @@ enum VehicleCategory {
   PERUA
   MINIVAN
   COUPE
+  /// Carroceria real ainda não confirmada por uma fonte confiável (FIPE não
+  /// informa; documentação oficial da montadora ainda não verificada para
+  /// este registro) — nunca aproximado por conhecimento geral. Registro
+  /// fica com validationStatus NECESSITA_VALIDACAO até a confirmação real.
+  NAO_CONFIRMADO
 }
 
 enum VehicleSegment {
@@ -61,8 +84,17 @@ enum DrivetrainType {
 model Manufacturer {
   id                Int              @id @default(autoincrement())
   /// Marca comercial (ex.: "Chevrolet"). Nome principal, usado em toda a
-  /// aplicacao (busca, homologacoes, etc.).
-  name              String           @unique
+  /// aplicacao (busca, homologacoes, etc.) — nunca a chave de deduplicação
+  /// (ver normalizedName).
+  name              String
+  /// Chave de deduplicação (Master Data Layer, Etapa 1): minúsculas, sem
+  /// acento, espaços colapsados — calculada por normalizeMasterDataName
+  /// (lib/masterData/normalizeName.ts) em toda escrita, nunca digitada
+  /// manualmente. Substitui `name` como fonte de unicidade porque `name`
+  /// sozinho permitia duplicatas reais (ex.: "Mégane" e "Megane" já
+  /// coexistiam como duas Manufacturer/VehicleModel distintas antes desta
+  /// etapa).
+  normalizedName    String           @unique
   /// Montadora/razao social da entidade fabricante, quando distinta da
   /// marca comercial (ex.: "General Motors do Brasil Ltda."). Null quando
   /// marca e montadora coincidem ou ainda nao foi confirmada.
@@ -83,17 +115,33 @@ model Manufacturer {
   /// Nivel de confianca (0-100) da fonte que originou/atualizou este
   /// registro pela ultima vez. Null quando nao informado pela fonte.
   confidence        Int?
+  /// Soft delete opcional — nenhum código existente lê/escreve este
+  /// campo hoje; preparado para uma futura adoção sem exigir
+  /// remodelagem do schema.
+  deletedAt         DateTime?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
-  automotiveGroup AutomotiveGroup? @relation(fields: [automotiveGroupId], references: [id])
-  models          VehicleModel[]
+  automotiveGroup    AutomotiveGroup?    @relation(fields: [automotiveGroupId], references: [id])
+  models             VehicleModel[]
   /// HomologaPneu Media Manager (isolado — ver prisma/schema.prisma
   /// model Media) — logos do fabricante geridos pela nova biblioteca de
   /// imagens, sem substituir o campo `logoUrl` simples já existente.
-  media           Media[]
+  media              Media[]
+  /// Códigos OE (marcação original de fábrica, ex.: "MO", "AO", "N0") que
+  /// esta montadora exige/reconhece em pneus e rodas homologados — ver
+  /// model OeCode.
+  oeCodes            OeCode[]
+  /// Campanhas de recall reais desta montadora — ver model Recall
+  /// (Fase Final de Arquitetura).
+  recalls            Recall[]
+  /// Boletins técnicos (TSB) reais desta montadora — ver model
+  /// TechnicalBulletin (Fase Final de Arquitetura).
+  technicalBulletins TechnicalBulletin[]
 
   @@index([automotiveGroupId])
+  @@index([country])
+  @@index([name])
   @@map("manufacturers")
 }
 
@@ -111,18 +159,47 @@ model AutomotiveGroup {
 }
 
 model VehicleModel {
-  id             Int      @id @default(autoincrement())
-  manufacturerId Int
-  name           String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                  Int              @id @default(autoincrement())
+  manufacturerId      Int
+  name                String
+  /// Chave de deduplicação por fabricante (Master Data Layer, Etapa 1) —
+  /// ver Manufacturer.normalizedName para a explicação completa. Substitui
+  /// `name` como base de unicidade: 4 duplicatas reais já existentes
+  /// ("Zr-v"/"ZR-V", "CITY"/"City", "WR-V"/"Wr-v", "Mégane"/"Megane") foram
+  /// mescladas ao introduzir este campo.
+  normalizedName      String
+  /// Categoria/segmento "típicos" da linha do modelo — opcionais porque
+  /// a fonte determinística de categoria por versão (VehicleVersion.category,
+  /// obrigatória) já cobre o caso geral; estes campos servem para
+  /// navegação/filtro no nível do modelo antes de abrir uma versão
+  /// específica, sem duplicar a obrigatoriedade já existente.
+  category            VehicleCategory?
+  segment             VehicleSegment?
+  /// Código interno do fabricante para a linha do modelo (distinto de
+  /// VehicleVersion.internalCode, que é por versão/catálogo).
+  internalCode        String?
+  /// Ano civil de início/fim de produção da linha do modelo como um
+  /// todo — distinto de VehicleGeneration.yearStart/yearEnd (por
+  /// geração) para modelos ainda não desmembrados em gerações.
+  productionStartYear Int?
+  productionEndYear   Int?
+  photoUrl            String?
+  notes               String?
+  /// Soft delete opcional — nenhum código existente lê/escreve este
+  /// campo hoje (o fluxo atual de exclusão continua sendo o já
+  /// existente); campo preparado para uma futura adoção sem exigir
+  /// remodelagem do schema.
+  deletedAt           DateTime?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
 
-  manufacturer Manufacturer        @relation(fields: [manufacturerId], references: [id])
-  generations  VehicleGeneration[]
-  versions     VehicleVersion[]
+  manufacturer               Manufacturer                @relation(fields: [manufacturerId], references: [id])
+  generations                VehicleGeneration[]
+  versions                   VehicleVersion[]
+  manufacturerApplications   ManufacturerApplication[]
 
-  @@unique([manufacturerId, name])
-  @@index([manufacturerId])
+  @@unique([manufacturerId, normalizedName])
+  @@index([name])
   @@map("vehicle_models")
 }
 
@@ -130,6 +207,19 @@ model VehicleGeneration {
   id             Int      @id @default(autoincrement())
   vehicleModelId Int
   name           String
+  /// Chave de deduplicação por modelo (Master Data Layer, Etapa 2) — ver
+  /// VehicleModel.normalizedName/Manufacturer.normalizedName para a
+  /// explicação completa. Calculada por normalizeLookupKey
+  /// (lib/masterData/normalizeName.ts), a mesma função usada por
+  /// Manufacturer/VehicleModel.
+  normalizedName String
+  /// Código da geração declarado pelo fabricante (ex.: "E170", "XV70"),
+  /// quando existir — distinto de `name`, que é o nome comercial/período.
+  code           String?
+  /// true quando esta geração é um facelift/reestilização de uma geração
+  /// anterior do mesmo modelo, sem virar uma geração numericamente nova.
+  facelift       Boolean  @default(false)
+  platformId     Int?
   yearStart      Int
   yearEnd        Int?
   notes          String?
@@ -137,24 +227,29 @@ model VehicleGeneration {
   updatedAt      DateTime @updatedAt
 
   vehicleModel VehicleModel     @relation(fields: [vehicleModelId], references: [id])
+  platform     Platform?        @relation(fields: [platformId], references: [id])
   versions     VehicleVersion[]
 
-  @@unique([vehicleModelId, name])
-  @@index([vehicleModelId])
+  @@unique([vehicleModelId, normalizedName])
+  @@index([platformId])
+  @@index([name])
   @@map("vehicle_generations")
 }
 
 model Engine {
-  id        Int      @id @default(autoincrement())
-  name      String
-  fuel      FuelType
-  power     String?
+  id           Int      @id @default(autoincrement())
+  name         String
+  fuel         FuelType
+  /// Cilindrada (texto livre, ex.: "1.998cc" ou "2.0") — mesma
+  /// convenção de `power`/`torque`: formatos variam por fonte.
+  displacement String?
+  power        String?
   /// Torque maximo (texto livre, ex.: "20,4 kgfm" ou "200 Nm") — formatos
   /// variam por fabricante/fonte, por isso mantido como texto como `power`.
-  torque    String?
-  turbo     Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  torque       String?
+  turbo        Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   versions VehicleVersion[]
 
@@ -171,7 +266,8 @@ model Platform {
   description String?
   createdAt   DateTime @default(now())
 
-  versions VehicleVersion[]
+  versions    VehicleVersion[]
+  generations VehicleGeneration[]
 
   @@map("platforms")
 }
@@ -221,6 +317,12 @@ model VehicleVersion {
   /// Peso em ordem de marcha, em quilogramas. Null ate ser confirmado por
   /// uma fonte real.
   weight               Int?
+  /// Capacidade de carga (lotação), em quilogramas. Null ate ser
+  /// confirmada por uma fonte real.
+  cargoCapacity        Int?
+  /// Capacidade do tanque de combustível, em litros. Null ate ser
+  /// confirmada por uma fonte real.
+  fuelTankCapacity     Int?
   country              String?
   notes                String?
   isActive             Boolean          @default(true)
@@ -229,28 +331,40 @@ model VehicleVersion {
   validatedBy          String?
   validatedAt          DateTime?
   confidence           Int?
+  /// Soft delete opcional — ver mesmo comentário em VehicleModel.deletedAt.
+  deletedAt            DateTime?
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
 
-  vehicleModel  VehicleModel       @relation(fields: [vehicleModelId], references: [id])
-  generation    VehicleGeneration? @relation(fields: [generationId], references: [id])
-  engine        Engine             @relation(fields: [engineId], references: [id])
-  transmission  Transmission?      @relation(fields: [transmissionId], references: [id])
-  platform      Platform?          @relation(fields: [platformId], references: [id])
-  images        VehicleImage[]
-  documents     VehicleDocument[]
-  homologations Homologation[]
+  vehicleModel       VehicleModel        @relation(fields: [vehicleModelId], references: [id])
+  generation         VehicleGeneration?  @relation(fields: [generationId], references: [id])
+  engine             Engine              @relation(fields: [engineId], references: [id])
+  transmission       Transmission?       @relation(fields: [transmissionId], references: [id])
+  platform           Platform?           @relation(fields: [platformId], references: [id])
+  images             VehicleImage[]
+  documents          VehicleDocument[]
+  homologations      Homologation[]
   /// HomologaPneu Media Manager (isolado) — fotos geridas pela nova
   /// biblioteca de imagens, complementar a VehicleImage (galeria simples
   /// já existente, não alterada).
-  media         Media[]
+  media              Media[]
+  /// Recalls reais vinculados especificamente a esta versão (quando já
+  /// resolvidos do nível "montadora" para o nível "versão exata") — ver
+  /// model Recall (Fase Final de Arquitetura).
+  recalls            Recall[]
+  /// Boletins técnicos (TSB) vinculados a esta versão — ver model
+  /// TechnicalBulletin (Fase Final de Arquitetura).
+  technicalBulletins TechnicalBulletin[]
 
   @@unique([vehicleModelId, name, engineId])
-  @@index([vehicleModelId])
   @@index([category])
   @@index([yearStart, yearEnd])
   @@index([validationStatus])
   @@index([platformId])
+  @@index([generationId])
+  @@index([engineId])
+  @@index([transmissionId])
+  @@index([name])
   @@map("vehicle_versions")
 }
 
@@ -285,24 +399,58 @@ model VehicleImage {
 }
 
 model TireManufacturer {
-  id               Int              @id @default(autoincrement())
-  name             String           @unique
-  country          String
+  id               Int                 @id @default(autoincrement())
+  name             String              @unique
+  /// Identificador URL-safe único, gerado a partir de `name` (ex.:
+  /// "Continental" -> "continental") — distinto de normalizedName
+  /// (lib/masterData/normalizeName.ts), que existe para deduplicação, não
+  /// para URLs (slug preserva hífen como separador de palavra; a chave de
+  /// dedup remove hífen de propósito — ver lib/masterData/slugify.ts).
+  slug             String?             @unique
+  /// Política de pesquisa da marca: controla se homologações OEM
+  /// (model ManufacturerHomologation/Homologation) devem ser pesquisadas
+  /// além de aplicações comerciais gerais (TireVehicleApplication/
+  /// ManufacturerApplication) — nenhuma tabela nova "oem_homologations"
+  /// foi criada, a marcação de política vive aqui. Enum Prisma (decisão
+  /// revisada em 2026-07-22 — a versão anterior era TEXT livre
+  /// especificamente para não exigir migração ao mudar a política; o
+  /// enum reverte essa flexibilidade em troca de integridade garantida
+  /// pelo banco. Acrescentar uma política nova volta a exigir migração).
+  brandPolicy      BrandPolicy         @default(APPLICATION_ONLY)
+  /// Status da pesquisa de catálogo desta marca, escopado pela
+  /// `brandPolicy` vigente no momento (ex.: para APPLICATION_ONLY,
+  /// COMPLETED significa "aplicações levantadas", nunca implica pesquisa
+  /// de homologação OEM).
+  researchStatus   BrandResearchStatus @default(PENDING)
+  /// Opcional (Etapa de importação de marcas): nem toda fonte de origem
+  /// (ex.: lista de marcas para pesquisa) informa o país — nunca
+  /// preenchido com um valor inventado quando ausente.
+  country          String?
   website          String?
   notes            String?
   logoUrl          String?
-  isActive         Boolean          @default(true)
-  validationStatus ValidationStatus @default(NECESSITA_VALIDACAO)
+  isActive         Boolean             @default(true)
+  validationStatus ValidationStatus    @default(NECESSITA_VALIDACAO)
   source           String?
   /// Nivel de confianca (0-100) da fonte que originou/atualizou este
   /// registro pela ultima vez. Null quando nao informado pela fonte.
   confidence       Int?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  /// Soft delete opcional — ver mesmo comentário em Manufacturer.deletedAt.
+  deletedAt        DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 
-  families TireFamily[]
-  tires    Tire[]
+  families   TireFamily[]
+  tires      Tire[]
+  /// Linhas de pneu (nome comercial + atributos comuns a todas as
+  /// medidas) desta marca — ver model TireModel (Fase Final de
+  /// Arquitetura).
+  tireModels TireModel[]
+  /// Catálogos oficiais desta marca (Pirelli, Michelin, ...) — ver model
+  /// ManufacturerCatalog (Auditoria Técnica 1).
+  catalogs   ManufacturerCatalog[]
 
+  @@index([country])
   @@map("tire_manufacturers")
 }
 
@@ -314,9 +462,9 @@ model TireFamily {
 
   tireManufacturer TireManufacturer @relation(fields: [tireManufacturerId], references: [id])
   tires            Tire[]
+  tireModels       TireModel[]
 
   @@unique([tireManufacturerId, name])
-  @@index([tireManufacturerId])
   @@map("tire_families")
 }
 
@@ -341,10 +489,25 @@ enum TireType {
   DIAGONAL
 }
 
+/// Eixo independente de `TireCategory` (que mistura tipo de uso/veículo
+/// com INVERNO) — temporada real do composto: verão, inverno ou
+/// quatro-estações. Null até confirmado pela fonte.
+enum TireSeason {
+  VERAO
+  INVERNO
+  QUATRO_ESTACOES
+}
+
 model Tire {
   id                 Int              @id @default(autoincrement())
   tireManufacturerId Int
   tireFamilyId       Int?
+  /// Referência normalizada opcional para a linha do pneu (ver model
+  /// TireModel, Fase Final de Arquitetura) — nullable e não
+  /// retropreenchida nesta sessão (só arquitetura, nenhum dado existente
+  /// alterado); `brand`/`model` abaixo continuam funcionando exatamente
+  /// como antes para todo código já existente.
+  tireModelId        Int?
   brand              String
   model              String
   size               String
@@ -370,6 +533,20 @@ model Tire {
   type               TireType         @default(RADIAL)
   category           TireCategory
   segment            TireSegment?
+  /// Temporada do composto (verão/inverno/quatro-estações) — eixo
+  /// independente de `category`. Null até confirmado pela fonte.
+  /// "Tecnologia EV" (reforço/ruído para elétricos) já é coberta pela
+  /// tabela Technology/TireTechnology existente (nenhum campo novo
+  /// necessário: basta um registro Technology com esse nome). "OE"
+  /// (original de fábrica) já é coberto por HomologationTire.role —
+  /// propriedade do VÍNCULO pneu↔homologação, não do pneu em si (o
+  /// mesmo pneu pode ser OE para um veículo e opcional para outro).
+  season             TireSeason?
+  /// Peso do pneu, em gramas. Null até confirmado por uma fonte real.
+  weight             Int?
+  /// País onde esta unidade/lote foi fabricado — distinto de
+  /// TireManufacturer.country (país-sede da marca).
+  countryOfOrigin    String?
   ean                String?          @unique
   description        String?
   imageUrl           String?
@@ -379,28 +556,50 @@ model Tire {
   validatedBy        String?
   validatedAt        DateTime?
   confidence         Int?
+  /// Soft delete opcional — ver mesmo comentário em VehicleModel.deletedAt.
+  deletedAt          DateTime?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
 
-  tireManufacturer  TireManufacturer   @relation(fields: [tireManufacturerId], references: [id])
-  tireFamily        TireFamily?        @relation(fields: [tireFamilyId], references: [id])
-  loadIndexRef      LoadIndex?         @relation(fields: [loadIndexId], references: [id])
-  speedIndexRef     SpeedIndex?        @relation(fields: [speedIndexId], references: [id])
-  homologationTires HomologationTire[]
-  technologies      TireTechnology[]
-  images            TireImage[]
+  tireManufacturer       TireManufacturer      @relation(fields: [tireManufacturerId], references: [id])
+  tireFamily             TireFamily?           @relation(fields: [tireFamilyId], references: [id])
+  tireModel              TireModel?            @relation(fields: [tireModelId], references: [id])
+  loadIndexRef           LoadIndex?            @relation(fields: [loadIndexId], references: [id])
+  speedIndexRef          SpeedIndex?           @relation(fields: [speedIndexId], references: [id])
+  homologationTires      HomologationTire[]
+  technologies           TireTechnology[]
+  images                 TireImage[]
   /// HomologaPneu Media Manager (isolado) — fotos geridas pela nova
   /// biblioteca de imagens, complementar a TireImage (galeria simples já
   /// existente, não alterada).
-  media             Media[]
+  media                  Media[]
+  /// Pneus que ESTE pneu declara como equivalente (ver model
+  /// TireEquivalence, Fase Final de Arquitetura).
+  equivalencesAsBase     TireEquivalence[]     @relation("TireEquivalenceBase")
+  /// Linhas em que este pneu é o ALVO de uma equivalência declarada por
+  /// outro pneu.
+  equivalencesAsTarget   TireEquivalence[]     @relation("TireEquivalenceTarget")
+  /// Eventos de substituição (Fase Enterprise) em que este pneu era o
+  /// ANTERIOR — ver model ReplacementHistory.
+  replacementsAsPrevious ReplacementHistory[]  @relation("ReplacementPreviousTire")
+  /// Eventos de substituição em que este pneu é o NOVO.
+  replacementsAsNew      ReplacementHistory[]  @relation("ReplacementNewTire")
+  /// Linhas de catálogo do fabricante já vinculadas a este pneu curado,
+  /// quando um humano confirmou a correspondência — ver
+  /// ManufacturerProduct.tireId (Auditoria Técnica 1).
+  manufacturerProducts   ManufacturerProduct[]
 
   @@unique([tireManufacturerId, model, size])
-  @@index([tireManufacturerId])
+  @@index([tireFamilyId])
+  @@index([tireModelId])
   @@index([size])
+  @@index([model])
   @@index([category])
+  @@index([season])
   @@index([validationStatus])
   @@index([loadIndexId])
   @@index([speedIndexId])
+  @@index([tireManufacturerId, category])
   @@map("tires")
 }
 
@@ -473,9 +672,50 @@ model TireTechnology {
   @@map("tire_technologies")
 }
 
+/// SUBSTITUTO (aditivo — nunca remove ORIGINAL/OPCIONAL já em uso):
+/// especificação que passou a substituir/suceder uma anterior (ex.: pneu
+/// descontinuado pelo fabricante e trocado por um novo código
+/// homologado), distinta de OPCIONAL (uma alternativa sempre válida).
 enum HomologationTireRole {
   ORIGINAL
   OPCIONAL
+  SUBSTITUTO
+}
+
+/// Eixo em que a especificação se aplica — AMBOS (padrão) cobre o caso
+/// comum de medida única para o veículo; DIANTEIRO/TRASEIRO cobre
+/// fitment escalonado (medidas diferentes por eixo). ESTEPE (Fase Final
+/// de Arquitetura) cobre o pneu/roda reserva — posição física distinta de
+/// DIANTEIRO/TRASEIRO/AMBOS, adicionada de forma aditiva (valores
+/// existentes em linhas já gravadas continuam válidos sem alteração).
+enum AxlePosition {
+  DIANTEIRO
+  TRASEIRO
+  AMBOS
+  ESTEPE
+}
+
+/// Código OE (Original Equipment): marcação que a montadora (vehicleManufacturer)
+/// exige/reconhece estampada em pneus e rodas homologados de fábrica para os
+/// seus veículos (ex.: Mercedes-Benz "MO", Audi "AO", Porsche "N0"-"N4", BMW
+/// "*"). Tabela de referência vazia por padrão — igual a LoadIndex/SpeedIndex/
+/// Technology — populada via find-or-create (repositories/pneus.ts) somente
+/// quando uma fonte real declarar o código para um vínculo pneu/roda↔
+/// homologação específico (HomologationTire.oeCodeId / HomologationWheel.oeCodeId).
+model OeCode {
+  id                    Int      @id @default(autoincrement())
+  code                  String
+  vehicleManufacturerId Int
+  description           String?
+  source                String?
+  createdAt             DateTime @default(now())
+
+  vehicleManufacturer Manufacturer        @relation(fields: [vehicleManufacturerId], references: [id])
+  homologationTires   HomologationTire[]
+  homologationWheels  HomologationWheel[]
+
+  @@unique([vehicleManufacturerId, code])
+  @@map("oe_codes")
 }
 
 model Homologation {
@@ -483,31 +723,72 @@ model Homologation {
   code             String
   vehicleVersionId Int
   /// Ano modelo (ano de referencia comercial do veiculo, ex.: "2024").
+  /// Mantido intacto por compatibilidade — yearStart/yearEnd abaixo
+  /// expressam a mesma informação como faixa (Fase Final de Arquitetura),
+  /// sem substituir nem remover este campo.
   year             Int
+  /// Ano inicial da faixa em que esta homologação vale — aditivo,
+  /// retropreenchido (=year) para as linhas já existentes na migração,
+  /// nunca inferido além do que `year` já continha.
+  yearStart        Int?
+  /// Ano final da faixa — mesmo raciocínio de yearStart. yearStart=yearEnd=year
+  /// para toda linha pré-existente até uma fonte real declarar uma faixa
+  /// maior que um único ano.
+  yearEnd          Int?
   /// Ano de fabricacao (ano civil em que a unidade foi efetivamente
   /// fabricada; pode divergir do ano modelo). Null ate ser confirmado.
   manufactureYear  Int?
+  /// Mercado comercial onde esta homologação é válida (ver model Market,
+  /// Fase Final de Arquitetura) — antes inexistente no schema. Nullable:
+  /// homologações já existentes ficam sem mercado até uma fonte real
+  /// declarar um.
+  marketId         Int?
+  /// Data em que esta homologação passou a valer, quando declarada pela
+  /// fonte — distinta de createdAt (quando o registro foi gravado aqui).
+  validFrom        DateTime?
   notes            String?
   validationStatus ValidationStatus @default(NECESSITA_VALIDACAO)
   source           String?
+  /// Nome livre do validador — mantido por compatibilidade (cobre
+  /// validadores externos sem conta de Usuário). reviewedById abaixo é a
+  /// referência normalizada quando o revisor É um Usuário do sistema.
   validatedBy      String?
   validatedAt      DateTime?
+  /// Referência normalizada (FK) ao Usuário revisor — aditivo, paralelo a
+  /// `validatedBy` (texto livre), nunca a substituindo.
+  reviewedById     Int?
   confidence       Int?
+  /// Soft delete opcional — ver mesmo comentário em VehicleModel.deletedAt.
+  deletedAt        DateTime?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
-  vehicleVersion VehicleVersion         @relation(fields: [vehicleVersionId], references: [id])
-  tires          HomologationTire[]
-  wheels         HomologationWheel[]
-  pressureSpecs  VehiclePressureSpec[]
-  documents      HomologationDocument[]
+  vehicleVersion     VehicleVersion           @relation(fields: [vehicleVersionId], references: [id])
+  market             Market?                  @relation(fields: [marketId], references: [id])
+  reviewedBy         User?                    @relation(fields: [reviewedById], references: [id])
+  tires              HomologationTire[]
+  wheels             HomologationWheel[]
+  pressureSpecs      VehiclePressureSpec[]
+  pressureReadings   VehiclePressureReading[]
+  documents          HomologationDocument[]
   /// HomologaPneu Media Manager (isolado) — ex.: etiqueta INMETRO
   /// vinculada diretamente à homologação (não ao veículo/pneu isolado).
-  media          Media[]
+  media              Media[]
+  /// Snapshots completos e imutáveis desta homologação a cada alteração
+  /// real (Fase Enterprise) — ver model HomologationRevision.
+  revisions          HomologationRevision[]
+  /// Substituições reais de pneu/roda dentro desta homologação — ver
+  /// model ReplacementHistory.
+  replacementHistory ReplacementHistory[]
 
   @@unique([vehicleVersionId, code])
-  @@index([vehicleVersionId])
   @@index([validationStatus])
+  @@index([year])
+  @@index([yearStart, yearEnd])
+  @@index([marketId])
+  @@index([reviewedById])
+  @@index([confidence])
+  @@index([vehicleVersionId, validationStatus])
   @@map("homologations")
 }
 
@@ -516,13 +797,25 @@ model HomologationTire {
   homologationId Int
   tireId         Int
   role           HomologationTireRole @default(ORIGINAL)
+  /// Eixo em que este pneu se aplica — AMBOS é o padrão (preserva o
+  /// significado de todo registro já existente antes deste campo).
+  position       AxlePosition         @default(AMBOS)
+  notes          String?
+  /// Restrição real declarada pela fonte para este vínculo específico
+  /// (ex.: "só para versões sem TPMS"), distinta das notas gerais.
+  restrictions   String?
+  /// Código OE declarado pela fonte para este vínculo pneu↔homologação
+  /// específico, quando existir — ver model OeCode.
+  oeCodeId       Int?
   createdAt      DateTime             @default(now())
 
   homologation Homologation @relation(fields: [homologationId], references: [id], onDelete: Cascade)
   tire         Tire         @relation(fields: [tireId], references: [id])
+  oeCode       OeCode?      @relation(fields: [oeCodeId], references: [id])
 
   @@unique([homologationId, tireId])
   @@index([tireId])
+  @@index([oeCodeId])
   @@map("homologation_tires")
 }
 
@@ -531,6 +824,10 @@ model HomologationTire {
 /// homologações via HomologationWheel.
 model Wheel {
   id               Int              @id @default(autoincrement())
+  /// Marca/fabricante da roda (ver model WheelBrand, Fase Final de
+  /// Arquitetura) — antes inexistente (nenhuma atribuição de marca em
+  /// Wheel). Nullable e não retropreenchida nesta sessão.
+  wheelBrandId     Int?
   /// Largura da roda, em polegadas (ex.: 6.5).
   width            Float
   /// Diâmetro/aro, em polegadas (ex.: 16).
@@ -541,40 +838,63 @@ model Wheel {
   boltPattern      String
   /// Diâmetro do cubo central, em milímetros. Null até ser confirmado.
   hubBore          Float?
+  /// Torque de aperto dos parafusos/porcas, texto livre (ex.: "110 Nm",
+  /// "11 kgfm") — mantém a unidade original da fonte.
+  tighteningTorque String?
+  /// Material da roda (ex.: "Liga leve", "Aço"), quando declarado.
+  material         String?
   source           String?
   validationStatus ValidationStatus @default(NECESSITA_VALIDACAO)
   /// Nivel de confianca (0-100) da fonte que originou/atualizou este
   /// registro pela ultima vez. Null quando nao informado pela fonte.
   confidence       Int?
+  /// Soft delete opcional — ver mesmo comentário em VehicleModel.deletedAt.
+  deletedAt        DateTime?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
-  homologationWheels HomologationWheel[]
+  homologationWheels     HomologationWheel[]
   /// HomologaPneu Media Manager (isolado) — fotos de roda geridas pela
   /// nova biblioteca de imagens.
-  media              Media[]
+  media                  Media[]
+  wheelBrand             WheelBrand?          @relation(fields: [wheelBrandId], references: [id])
+  /// Rodas que ESTA roda declara como equivalente (Fase Enterprise) — ver
+  /// model WheelEquivalence.
+  equivalencesAsBase     WheelEquivalence[]   @relation("WheelEquivalenceBase")
+  equivalencesAsTarget   WheelEquivalence[]   @relation("WheelEquivalenceTarget")
+  replacementsAsPrevious ReplacementHistory[] @relation("ReplacementPreviousWheel")
+  replacementsAsNew      ReplacementHistory[] @relation("ReplacementNewWheel")
 
   @@unique([width, diameter, offset, boltPattern])
   @@index([diameter])
   @@index([boltPattern])
   @@index([validationStatus])
+  @@index([wheelBrandId])
   @@map("wheels")
 }
 
 /// Vínculo homologação↔roda — mesmo formato de HomologationTire
-/// (reaproveita o mesmo enum de papel ORIGINAL/OPCIONAL).
+/// (reaproveita o mesmo enum de papel ORIGINAL/OPCIONAL/SUBSTITUTO).
 model HomologationWheel {
   id             Int                  @id @default(autoincrement())
   homologationId Int
   wheelId        Int
   role           HomologationTireRole @default(ORIGINAL)
+  position       AxlePosition         @default(AMBOS)
+  notes          String?
+  restrictions   String?
+  /// Código OE declarado pela fonte para este vínculo roda↔homologação
+  /// específico, quando existir — ver model OeCode.
+  oeCodeId       Int?
   createdAt      DateTime             @default(now())
 
   homologation Homologation @relation(fields: [homologationId], references: [id], onDelete: Cascade)
   wheel        Wheel        @relation(fields: [wheelId], references: [id])
+  oeCode       OeCode?      @relation(fields: [oeCodeId], references: [id])
 
   @@unique([homologationId, wheelId])
   @@index([wheelId])
+  @@index([oeCodeId])
   @@map("homologation_wheels")
 }
 
@@ -627,12 +947,21 @@ model HomologationDocument {
   manufacturerName String?
   /// Data de publicação do documento pela fonte oficial, quando declarada.
   publishedAt      DateTime?
+  /// Vínculo formal (opcional) com o DocumentUpload que guarda o PDF
+  /// original completo — antes só existia uma referência informal
+  /// embutida em `url` (ex.: "upload:3:arquivo.pdf"); este campo torna a
+  /// relação consultável sem parsear string, sem remover `url` (que
+  /// continua funcionando para documentos externos sem upload
+  /// correspondente).
+  documentUploadId Int?
   createdAt        DateTime  @default(now())
 
-  homologation Homologation @relation(fields: [homologationId], references: [id], onDelete: Cascade)
+  homologation   Homologation    @relation(fields: [homologationId], references: [id], onDelete: Cascade)
+  documentUpload DocumentUpload? @relation(fields: [documentUploadId], references: [id])
 
   @@index([homologationId])
   @@index([sha256])
+  @@index([documentUploadId])
   @@map("homologation_documents")
 }
 
@@ -654,6 +983,17 @@ enum ApplicationStatus {
   ALTA_CONFIANCA
   HOMOLOGACAO_VALIDADA
   DIVERGENCIA
+}
+
+/// O que esta evidência, isoladamente, diz sobre a aplicação que
+/// descreve — atribuído uma única vez na coleta (nunca atualizado depois,
+/// preservando a imutabilidade de HomologationEvidence). Distinto do
+/// `status` agregado em TireVehicleApplication (que combina várias
+/// evidências); aqui é só "o que ESTA evidência particular confirma".
+enum EvidenceOutcome {
+  CONFIRMA
+  CONTRADIZ
+  NEUTRO
 }
 
 /// Agrupa todas as evidencias que descrevem a MESMA aplicacao (mesmo pneu
@@ -722,12 +1062,39 @@ model HomologationEvidence {
   /// marketplace=40, fabricante=70, montadora=90) — distinta da confianca
   /// agregada em TireVehicleApplication.
   sourceConfidence        Int
+  /// Trecho literal de texto de onde a evidência foi lida, quando a
+  /// fonte é um documento — auditoria direta, mesmo espírito de
+  /// HomologationCandidate.rawSnippet.
+  excerpt                 String?
+  /// Posição (offset de caractere) do trecho dentro do texto extraído
+  /// completo, quando aplicável.
+  textPosition            Int?
+  /// Coordenadas visuais (JSON livre em texto, ex.:
+  /// {"page":5,"x":100,"y":200}) de onde o trecho aparece no documento
+  /// original — mesma convenção de string-JSON já usada em
+  /// AuditLog.changes (nenhuma tabela existente usa o tipo Json nativo).
+  coordinates             String?
+  /// Página do documento onde o trecho foi encontrado, quando aplicável.
+  page                    Int?
+  /// Confiança da extração que originou esta evidência (0-100), quando
+  /// veio de um HomologationCandidate aprovado — distinta de
+  /// sourceConfidence (que é do TIPO da fonte, não da extração em si).
+  extractionConfidence    Int?
+  /// Vínculo formal (opcional) com o DocumentUpload de origem, quando a
+  /// evidência veio de um documento carregado no sistema — antes só havia
+  /// `sourceUrl`/`sourceName` em texto livre (Fase Enterprise).
+  documentUploadId        Int?
+  /// O que esta evidência isolada confirma/contradiz — ver enum
+  /// EvidenceOutcome (Fase Enterprise).
+  outcome                 EvidenceOutcome?
   createdAt               DateTime           @default(now())
 
-  application TireVehicleApplication @relation(fields: [applicationId], references: [id])
+  application    TireVehicleApplication @relation(fields: [applicationId], references: [id])
+  documentUpload DocumentUpload?        @relation(fields: [documentUploadId], references: [id])
 
   @@index([applicationId])
   @@index([sourceType])
+  @@index([documentUploadId])
   @@map("homologation_evidences")
 }
 
@@ -746,10 +1113,16 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  importBatches      ImportBatch[]
-  auditLogs          AuditLog[]
-  documentUploads    DocumentUpload[]
-  reviewedCandidates HomologationCandidate[]
+  importBatches            ImportBatch[]
+  auditLogs                AuditLog[]
+  documentUploads          DocumentUpload[]
+  reviewedCandidates       HomologationCandidate[]
+  reviewedHomologations    Homologation[]
+  reviewHistory            ReviewHistory[]
+  reviewedTireEquivalences TireEquivalence[]
+  homologationRevisions    HomologationRevision[]
+  replacementHistories     ReplacementHistory[]
+  wheelEquivalences        WheelEquivalence[]
 
   @@map("users")
 }
@@ -777,7 +1150,24 @@ model DocumentUpload {
   /// Hash SHA-256 do arquivo original, para auditoria/deduplicação.
   fileHash           String
   fileSize           Int
-  fileContent        Bytes
+  /// Tipo MIME real do arquivo (ex.: "application/pdf"), usado ao gerar a
+  /// signed URL/objeto no Supabase Storage.
+  mimeType           String?
+  /// Bucket privado do Supabase Storage onde o objeto vive (hoje sempre
+  /// "documents") — gravado explicitamente em vez de assumido, para o
+  /// caminho abaixo nunca depender de uma constante hardcoded no código.
+  storageBucket      String?
+  /// Caminho do objeto dentro do bucket, determinístico:
+  /// "{fabricante-normalizado}/{sha256}.pdf" (nunca nome aleatório) —
+  /// substitui fileContent como forma definitiva de guardar o arquivo;
+  /// nunca uma URL pública/assinada persistida (expiraria), sempre gerada
+  /// sob demanda a partir deste path.
+  storagePath        String?
+  /// Bytes do arquivo original — LEGADO, mantido nullable só por
+  /// compatibilidade com linhas antigas ainda não migradas para o Storage
+  /// (ver lib/storage/documentStorage.ts). Novos uploads não gravam mais
+  /// aqui; nulo quando storagePath já está preenchido.
+  fileContent        Bytes?
   /// Texto/linhas extraídos (via parseImportFile) antes da extração de
   /// candidatos — guardado para auditoria mesmo se a extração falhar.
   extractedText      String?
@@ -807,16 +1197,66 @@ model DocumentUpload {
   /// extraível) e o ambiente atual não tem OCR disponível — o documento
   /// fica registrado e vinculado, mas sem candidatos, até que OCR rode.
   ocrPending         Boolean              @default(false)
+  /// Idioma do documento (ex.: "pt-BR", "en", "es"), quando identificado
+  /// — texto livre, nunca inferido sem sinal real no conteúdo.
+  language           String?
+  /// Versão/edição do próprio documento declarada pela fonte (ex.: "Rev.
+  /// 2", "Edição 2024/1"), distinta do hash (que detecta mudança de
+  /// conteúdo mesmo sem uma versão textual declarada).
+  documentVersion    String?
+  /// Quando preenchido, este registro é uma duplicata comprovada (mesmo
+  /// fileHash) de outro DocumentUpload — ver duplicateOfId. Nunca apagado,
+  /// só marcado, mesmo padrão de soft delete já usado em Manufacturer/
+  /// VehicleModel/VehicleVersion/Tire/Homologation/Wheel.
+  deletedAt          DateTime?
+  /// Id do DocumentUpload canônico quando este registro foi resolvido
+  /// como duplicata (mesmo fileHash) — ver scripts/resolve-duplicate-documents.ts.
+  duplicateOfId      Int?
+  /// Id da versão ANTERIOR deste documento (Fase Enterprise) — distinto
+  /// de duplicateOfId (mesmo hash, cópia exata): aqui o conteúdo MUDOU
+  /// (nova edição/revisão publicada pela fonte), mas é logicamente "o
+  /// mesmo documento". Nunca apaga a versão anterior — cadeia completa
+  /// preservada.
+  previousVersionId  Int?
+  /// Descrição textual do que mudou em relação à versão anterior, quando
+  /// conhecida (ex.: "atualizou pressão do eixo traseiro").
+  versionChangeNotes String?
   status             DocumentUploadStatus @default(PENDENTE)
   errorMessage       String?
   uploadedById       Int?
   uploadedAt         DateTime             @default(now())
 
-  uploadedBy User?                   @relation(fields: [uploadedById], references: [id])
-  candidates HomologationCandidate[]
+  uploadedBy            User?                   @relation(fields: [uploadedById], references: [id])
+  candidates            HomologationCandidate[]
+  homologationDocuments HomologationDocument[]
+  auditLogs             AuditLog[]
+  duplicateOf           DocumentUpload?         @relation("DocumentDuplicates", fields: [duplicateOfId], references: [id])
+  duplicates            DocumentUpload[]        @relation("DocumentDuplicates")
+  previousVersion       DocumentUpload?         @relation("DocumentVersions", fields: [previousVersionId], references: [id])
+  nextVersions          DocumentUpload[]        @relation("DocumentVersions")
+  /// Texto por página deste documento — ver model DocumentPage (Fase
+  /// Final de Arquitetura).
+  pages                 DocumentPage[]
+  recalls               Recall[]
+  technicalBulletins    TechnicalBulletin[]
+  /// Evidências de homologação que citam este documento como origem
+  /// formal (Fase Enterprise) — ver HomologationEvidence.documentUploadId.
+  evidences             HomologationEvidence[]
 
+  /// Além dos índices abaixo, existe um índice único PARCIAL no banco
+  /// (migration 20260718201746_document_upload_dedupe_index):
+  /// `UNIQUE ("fileHash") WHERE "deletedAt" IS NULL` — Prisma não tem
+  /// sintaxe nativa para índice único filtrado, por isso não aparece como
+  /// `@@unique` aqui. Garante no nível do banco que nunca duas linhas
+  /// ATIVAS compartilhem o mesmo SHA-256 (fecha a corrida de execuções
+  /// concorrentes do crawler); linhas soft-deleted (duplicatas já
+  /// resolvidas, ver scripts/resolve-duplicate-documents.ts) continuam
+  /// podendo compartilhar hash com seu canônico.
   @@index([status])
   @@index([fileHash])
+  @@index([uploadedById])
+  @@index([duplicateOfId])
+  @@index([previousVersionId])
   @@map("document_uploads")
 }
 
@@ -870,6 +1310,14 @@ model HomologationCandidate {
   /// Trecho de texto de origem, para auditoria (o revisor confere contra
   /// a fonte original antes de aprovar).
   rawSnippet              String?
+  /// Posição (offset de caractere) do trecho dentro do texto extraído
+  /// completo do documento, quando aplicável.
+  textPosition            Int?
+  /// Coordenadas visuais (JSON livre em texto) de onde o trecho aparece
+  /// no documento original — mesma convenção de HomologationEvidence.coordinates.
+  coordinates             String?
+  /// Página do documento onde o trecho foi encontrado, quando aplicável.
+  page                    Int?
   status                  CandidateStatus @default(PENDENTE_REVISAO)
   reviewedById            Int?
   reviewedAt              DateTime?
@@ -881,11 +1329,17 @@ model HomologationCandidate {
   createdAt               DateTime        @default(now())
   updatedAt               DateTime        @updatedAt
 
-  documentUpload DocumentUpload @relation(fields: [documentUploadId], references: [id])
-  reviewedBy     User?          @relation(fields: [reviewedById], references: [id])
+  documentUpload DocumentUpload  @relation(fields: [documentUploadId], references: [id])
+  reviewedBy     User?           @relation(fields: [reviewedById], references: [id])
+  /// Trilha completa e append-only de cada ação de revisão sobre este
+  /// candidato — ver model ReviewHistory (Fase Final de Arquitetura). Os
+  /// campos reviewedBy/reviewedAt/reviewNotes acima continuam sendo o
+  /// cache do estado mais recente, inalterados.
+  reviewHistory  ReviewHistory[]
 
   @@index([status])
   @@index([documentUploadId])
+  @@index([reviewedById])
   @@map("homologation_candidates")
 }
 
@@ -913,6 +1367,160 @@ enum CrawlerSourceStatus {
   BLOQUEADA
   PENDENTE
   ERRO
+}
+
+enum OfficialSourceType {
+  SITE_INSTITUCIONAL
+  PORTAL_PROPRIETARIO
+  BIBLIOTECA_MANUAIS
+  CATALOGO_TECNICO
+  PORTAL_SERVICOS
+  PORTAL_PECAS
+  PORTAL_RECALLS
+  PDF_PUBLICO
+  DADOS_FIPE
+  DADOS_UNECE
+  DADOS_INMETRO
+  DADOS_SENATRAN
+  OUTRA
+}
+
+/// Classificação padronizada e estável da fonte por função/tópico —
+/// dimensão independente de OfficialSourceType (que descreve a NATUREZA
+/// técnica da fonte). Uma fonte tem um "tipo" (ex.: PORTAL_RECALLS) e uma
+/// "categoria" (ex.: RECALL) — os dois às vezes coincidem em nome, mas
+/// servem propósitos de relatório diferentes: categoria agrupa por tema
+/// para o relatório executivo de cobertura; tipo orienta o crawler/health
+/// score sobre como a fonte costuma se comportar.
+enum OfficialSourceCategory {
+  GOVERNAMENTAL
+  MANUAL_PROPRIETARIO
+  CATALOGO_TECNICO
+  PORTAL_PECAS
+  PORTAL_POSVENDA
+  RECALL
+  BIBLIOTECA_PDF
+  SITE_INSTITUCIONAL
+  FONTE_UNIVERSAL
+}
+
+enum OfficialSourceStatus {
+  ATIVA
+  PENDENTE
+  BLOQUEADA
+  /// Fonte que existiu mas deixou de existir de verdade (domínio saiu do
+  /// ar, 404 permanente, programa descontinuado) — distinta de BLOQUEADA
+  /// (a fonte existe, só não é acessível a nós). Nunca apagada da tabela,
+  /// só marcada — mesmo espírito de soft delete do resto do projeto.
+  REMOVIDA
+}
+
+/// Camada de Source Discovery: cadastro de TODAS as fontes oficiais
+/// possíveis de um fabricante (não só as que o Intelligent Crawler sabe
+/// raspar) — site institucional, portal do proprietário, biblioteca de
+/// manuais, catálogo técnico, portal de serviços/peças/recalls, PDFs
+/// públicos avulsos, e integrações de dados públicos (FIPE/UNECE/Inmetro).
+/// Cada fabricante pode ter várias fontes do mesmo tipo (ex.: duas
+/// bibliotecas de manuais). Quando a fonte corresponde a uma URL raspável
+/// pelo crawler, `crawlerSourceId` aponta pra linha real em CrawlerSource
+/// (esta tabela não substitui o mecanismo de crawling existente, só o
+/// cataloga e prioriza — ver scripts/lib/sourceDiscovery.ts).
+model OfficialSource {
+  id                 Int                     @id @default(autoincrement())
+  manufacturerName   String
+  type               OfficialSourceType
+  url                String
+  status             OfficialSourceStatus    @default(PENDENTE)
+  lastValidatedAt    DateTime?
+  /// 0-100: quão confiável esta fonte se mostrou na prática (fontes com
+  /// robots.txt permissivo + conteúdo real confirmado pontuam mais alto
+  /// que uma URL só citada por busca externa, nunca verificada).
+  confidence         Int                     @default(0)
+  /// Última verificação real: a fonte respondeu (mesmo que bloqueada por
+  /// motivo diferente de estar fora do ar)? Distingue "bloqueado mas
+  /// existe" de "não consegui nem conectar".
+  available          Boolean                 @default(true)
+  /// Motivo do bloqueio verificado (robots.txt, WAF por User-Agent,
+  /// catálogo por JS, CDN/Akamai etc.) — nunca um bypass, só o registro.
+  blockReason        String?
+  documentsCount     Int                     @default(0)
+  /// Menor valor = maior prioridade (0 é a fonte preferida). Ajuste
+  /// manual opcional — a escolha automática (escolherMelhorFonte) usa o
+  /// healthScore + tipo + recência + documentos por padrão; este campo
+  /// só desempata ou permite uma override humana pontual.
+  priority           Int                     @default(100)
+  /// 0-100, calculado por calcularHealthScore() a partir de
+  /// disponibilidade + tempo de resposta + documentos úteis + taxa de
+  /// sucesso + estabilidade histórica + frequência de mudanças — ver
+  /// scripts/lib/sourceDiscovery.ts. Nunca setado manualmente.
+  healthScore        Int                     @default(0)
+  /// Média móvel simples do tempo de resposta (ms) das últimas
+  /// verificações — null até a primeira medição real.
+  avgResponseTimeMs  Int?
+  /// Quantas vezes esta fonte já foi verificada (validação ou
+  /// monitoramento) — denominador da taxa de sucesso/uptime.
+  totalChecks        Int                     @default(0)
+  /// Quantas dessas verificações encontraram a fonte ATIVA — numerador
+  /// da taxa de sucesso/uptime estimado (activeChecks/totalChecks).
+  activeChecks       Int                     @default(0)
+  /// Quando o status mudou pela última vez de verdade (não a cada
+  /// checagem — só quando o valor observado é diferente do anterior).
+  /// Usado no cálculo de estabilidade histórica.
+  lastStatusChangeAt DateTime?
+  notes              String?
+  crawlerSourceId    Int?
+  /// Classificação padronizada por função/tópico (ver enum
+  /// OfficialSourceCategory) — nullable só para não quebrar linhas
+  /// anteriores a este campo; todo cadastro novo passa a preenchê-lo.
+  category           OfficialSourceCategory?
+  /// País de origem/alvo do conteúdo da fonte (ex.: "BR", "Internacional")
+  /// — inferido do domínio/conteúdo real, nunca um valor genérico assumido.
+  country            String?
+  /// Idioma predominante do conteúdo real da fonte (ex.: "pt-BR", "en").
+  language           String?
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  crawlerSource CrawlerSource?        @relation(fields: [crawlerSourceId], references: [id])
+  events        OfficialSourceEvent[]
+
+  @@unique([manufacturerName, type, url])
+  @@index([status])
+  @@index([category])
+  @@map("official_sources")
+}
+
+enum OfficialSourceEventType {
+  DESCOBERTA
+  VALIDACAO
+  MUDANCA_STATUS
+  NOVOS_DOCUMENTOS
+  REDIRECIONAMENTO
+}
+
+/// Histórico append-only de cada fonte oficial — nunca apagado nem
+/// sobrescrito (mesmo espírito de AuditLog). Uma linha por evento real
+/// observado: primeira descoberta, cada validação/monitoramento, cada
+/// mudança de status, novos documentos encontrados, redirecionamento.
+model OfficialSourceEvent {
+  id               Int                     @id @default(autoincrement())
+  officialSourceId Int
+  type             OfficialSourceEventType
+  previousStatus   OfficialSourceStatus?
+  newStatus        OfficialSourceStatus?
+  documentsCount   Int?
+  blockReason      String?
+  /// Preenchido só em eventos REDIRECIONAMENTO — URL final observada,
+  /// nunca grava por cima da url original da fonte automaticamente.
+  redirectedToUrl  String?
+  notes            String?
+  createdAt        DateTime                @default(now())
+
+  officialSource OfficialSource @relation(fields: [officialSourceId], references: [id], onDelete: Cascade)
+
+  @@index([officialSourceId])
+  @@index([type])
+  @@map("official_source_events")
 }
 
 /// Catálogo permanente de fontes do HomologaPneu Intelligent Crawler — uma
@@ -952,6 +1560,8 @@ model CrawlerSource {
   httpLastModified String?
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
+
+  officialSources OfficialSource[]
 
   @@index([manufacturerName])
   @@index([status])
@@ -1109,6 +1719,19 @@ enum ImportEntity {
   PNEUS
   HOMOLOGACOES
   RODAS
+  /// Catálogo completo de um fabricante de pneu (xlsx/xls/csv/ods) — ver
+  /// model ManufacturerCatalogImport (Auditoria Técnica 1). Distinto de
+  /// FABRICANTES_PNEUS (lista de nomes de marca), este é o catálogo de
+  /// produtos linha a linha.
+  CATALOGO_FABRICANTE_PNEU
+  /// database/import/{countries,technologies,oe_codes,applications} —
+  /// entidades de referência sem ImportEntity próprio até aqui.
+  PAISES
+  TECNOLOGIAS
+  CODIGOS_OE
+  APLICACOES
+  /// database/import/markets — Market não tinha ImportEntity próprio.
+  MERCADOS
 }
 
 enum ImportBatchStatus {
@@ -1149,12 +1772,17 @@ model ImportBatch {
   durationMs     Int?
   rolledBackAt   DateTime?
 
-  user      User?         @relation(fields: [userId], references: [id])
-  errors    ImportError[]
-  auditLogs AuditLog[]
+  user                       User?                       @relation(fields: [userId], references: [id])
+  errors                     ImportError[]
+  auditLogs                  AuditLog[]
+  /// Execuções de importação de catálogo de fabricante de pneu que
+  /// reaproveitam este lote genérico para rastreamento — ver model
+  /// ManufacturerCatalogImport (Auditoria Técnica 1).
+  manufacturerCatalogImports ManufacturerCatalogImport[]
 
   @@index([status])
   @@index([entity])
+  @@index([userId])
   @@map("import_batches")
 }
 
@@ -1181,22 +1809,42 @@ enum AuditAction {
   ROLLBACK
 }
 
+/// Particionada nativamente no Postgres por ano de "createdAt" (ver migration
+/// 20260718230000_partition_audit_logs) — tabela só de inserção (nunca
+/// UPDATE/DELETE por id isolado em nenhum lugar do código, confirmado antes
+/// de migrar), preparada para crescer por muitos anos sem degradar. Prisma
+/// não tem sintaxe nativa para `PARTITION BY`, então a partição em si vive
+/// só na migration SQL; aqui só refletimos a consequência direta exigida
+/// pelo Postgres: a chave de partição ("createdAt") precisa fazer parte de
+/// toda constraint única/primária, por isso a PK é composta (id, createdAt)
+/// em vez de só `id`. `id` sozinho continua efetivamente único na prática
+/// (uma única sequence), só não é mais declarado como tal no banco.
 model AuditLog {
-  id            Int         @id @default(autoincrement())
-  entity        String
-  entityId      Int
-  action        AuditAction
-  userId        Int?
-  importBatchId Int?
-  changes       String?
-  createdAt     DateTime    @default(now())
+  id               Int         @default(autoincrement())
+  entity           String
+  entityId         Int
+  action           AuditAction
+  userId           Int?
+  importBatchId    Int?
+  /// Documento oficial que respaldou esta alteração, quando aplicável
+  /// (ex.: publishApprovedHomologation criando/atualizando uma
+  /// Homologation a partir de um DocumentUpload aprovado).
+  documentUploadId Int?
+  /// JSON serializado (mesma convenção do resto do schema) com os
+  /// valores antigos/novos por campo — ver lib/importer/diff.ts.
+  changes          String?
+  createdAt        DateTime    @default(now())
 
-  user        User?        @relation(fields: [userId], references: [id])
-  importBatch ImportBatch? @relation(fields: [importBatchId], references: [id])
+  user           User?           @relation(fields: [userId], references: [id])
+  importBatch    ImportBatch?    @relation(fields: [importBatchId], references: [id])
+  documentUpload DocumentUpload? @relation(fields: [documentUploadId], references: [id])
 
+  @@id([id, createdAt])
   @@index([entity, entityId])
   @@index([importBatchId])
   @@index([createdAt])
+  @@index([documentUploadId])
+  @@index([userId])
   @@map("audit_logs")
 }
 
@@ -1345,4 +1993,1081 @@ model Media {
   @@index([homologationId])
   @@index([sha256])
   @@map("media")
+}
+
+// =============================================================================
+// HomologaPneu IA Engine — camada de inteligência artificial, isolada do
+// Crawler, do Banco Mestre, do Media Manager e do painel existente. A IA
+// NUNCA aprova nem grava homologação nenhuma: só analisa documentos,
+// reconhece veículos/pneus, calcula confiança e gera sugestões para revisão
+// humana. Por isso os models abaixo usam apenas referências soltas
+// (campos *IdRaw, sem @relation) para tabelas de outros domínios — mesmo
+// padrão já usado por HomologationCandidate.evidenceId — em vez de
+// back-relations, para não alterar nenhum model existente neste arquivo.
+// Ver lib/ai, services/ai, workers/ai, repositories/ai, prompts/ai,
+// pipelines/ai, validators/ai.
+// =============================================================================
+
+enum AiJobQueue {
+  DOCUMENT_ANALYSIS
+}
+
+/// Mesmos valores de CrawlerJobStatus, por consistência entre as duas filas.
+enum AiJobStatus {
+  PENDENTE
+  EXECUTANDO
+  CONCLUIDO
+  ERRO
+  AGUARDANDO_RETRY
+}
+
+/// Fila de processamento assíncrono da IA Engine — mesmo espírito de
+/// CrawlerJob/services/crawlerJobQueue.ts (fila como dado, processada por
+/// chamada explícita via workers/ai/processor.ts, sem worker em background
+/// separado nesta stack serverless). O arquivo enviado fica guardado
+/// (fileContent) para auditoria completa, assim como DocumentUpload.
+model AiJob {
+  id               Int         @id @default(autoincrement())
+  queue            AiJobQueue  @default(DOCUMENT_ANALYSIS)
+  status           AiJobStatus @default(PENDENTE)
+  /// Maior = processado primeiro.
+  priority         Int         @default(0)
+  /// Modelo de IA usado nesta execução (Fase Enterprise) — ver AiModel.
+  /// Relação formal permitida (fica dentro do próprio domínio isolado da
+  /// IA Engine, não acopla a Manufacturer/User/etc.).
+  aiModelId        Int?
+  /// Versão do prompt usada nesta execução — ver AiPrompt.
+  aiPromptId       Int?
+  fileName         String
+  /// Hash SHA-256 do arquivo original, para auditoria/deduplicação (mesmo
+  /// uso de DocumentUpload.fileHash).
+  fileHash         String
+  fileSize         Int
+  fileContent      Bytes
+  /// Texto extraído do documento antes da análise — guardado mesmo se a
+  /// análise falhar, para auditoria.
+  extractedText    String?
+  /// Resultado estruturado da pipeline (JSON serializado: medidas, códigos
+  /// OE, veículo/pneu reconhecidos, confiança) quando CONCLUIDO.
+  result           String?
+  attempts         Int         @default(0)
+  maxAttempts      Int         @default(3)
+  timeoutMs        Int         @default(120000)
+  error            String?
+  log              String?
+  /// Referência solta (sem @relation, para não acoplar ao domínio de
+  /// Usuários) a quem fez o upload. Null quando disparado pelo sistema.
+  requestedByIdRaw Int?
+  nextAttemptAt    DateTime    @default(now())
+  createdAt        DateTime    @default(now())
+  startedAt        DateTime?
+  finishedAt       DateTime?
+
+  aiModel     AiModel?          @relation(fields: [aiModelId], references: [id])
+  aiPrompt    AiPrompt?         @relation(fields: [aiPromptId], references: [id])
+  suggestions AiSuggestion[]
+  conflicts   AiConflict[]
+  logs        AiProcessingLog[]
+  tokenUsages AiTokenUsage[]
+
+  @@index([queue, status])
+  @@index([fileHash])
+  @@index([aiModelId])
+  @@index([aiPromptId])
+  @@map("ai_jobs")
+}
+
+enum AiSuggestionType {
+  VEHICLE
+  TIRE
+  HOMOLOGATION
+  DOCUMENT
+}
+
+enum AiSuggestionStatus {
+  PENDENTE
+  ALTA_CONFIANCA
+  BAIXA_CONFIANCA
+  CONFLITO
+  DUPLICADO
+  REVISADA
+  DESCARTADA
+}
+
+/// Sugestão gerada pela IA a partir de um AiJob — NUNCA grava direto em
+/// Manufacturer/VehicleVersion/Tire/Homologation; `payload` carrega os
+/// dados propostos (JSON serializado) para um humano revisar e, se
+/// aprovar, cadastrar pelos fluxos normais do painel (Cadastros/Curadoria).
+model AiSuggestion {
+  id              Int                @id @default(autoincrement())
+  jobId           Int
+  type            AiSuggestionType
+  status          AiSuggestionStatus @default(PENDENTE)
+  payload         String
+  /// 0-100, calculado por lib/ai/confidence/calculateConfidence.ts.
+  confidence      Int                @default(0)
+  rawSnippet      String?
+  page            Int?
+  /// Referência solta (sem @relation) a quem revisou.
+  reviewedByIdRaw Int?
+  reviewedAt      DateTime?
+  reviewNotes     String?
+  createdAt       DateTime           @default(now())
+
+  job AiJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([status])
+  @@index([type])
+  @@map("ai_suggestions")
+}
+
+enum AiConflictType {
+  MEDIDA_DIFERENTE
+  PRESSAO_CONFLITANTE
+  VERSAO_INCOMPATIVEL
+  CODIGO_OE_DUPLICADO
+  DOCUMENTO_ANTIGO
+  FABRICANTE_DIFERENTE
+}
+
+enum AiConflictSeverity {
+  BAIXA
+  MEDIA
+  ALTA
+}
+
+enum AiConflictStatus {
+  ABERTO
+  RESOLVIDO
+  IGNORADO
+}
+
+/// Conflito detectado por lib/ai/conflicts/detectConflicts.ts ao comparar
+/// uma sugestão nova com o Banco Mestre (leitura apenas) ou com outras
+/// sugestões pendentes do mesmo lote.
+model AiConflict {
+  id              Int                @id @default(autoincrement())
+  jobId           Int
+  type            AiConflictType
+  severity        AiConflictSeverity @default(MEDIA)
+  status          AiConflictStatus   @default(ABERTO)
+  description     String
+  /// IDs de AiSuggestion envolvidos (array de inteiros, JSON serializado).
+  suggestionIds   String
+  createdAt       DateTime           @default(now())
+  /// Referência solta (sem @relation) a quem resolveu/ignorou.
+  resolvedByIdRaw Int?
+  resolvedAt      DateTime?
+
+  job AiJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([status])
+  @@index([type])
+  @@map("ai_conflicts")
+}
+
+/// Log completo de cada execução de análise — quem processou, quando,
+/// documento, tempo gasto, resultado e confiança média, conforme exigido
+/// para auditoria da IA Engine.
+model AiProcessingLog {
+  id                Int      @id @default(autoincrement())
+  jobId             Int
+  /// Referência solta (sem @relation) a quem disparou o processamento.
+  actorIdRaw        Int?
+  /// "sistema" quando disparado pela fila sem usuário associado (ex.: cron
+  /// futuro); nome/e-mail do usuário quando disparado manualmente.
+  actorLabel        String   @default("sistema")
+  documentName      String
+  durationMs        Int
+  result            String
+  averageConfidence Int?
+  createdAt         DateTime @default(now())
+
+  job AiJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@index([createdAt])
+  @@map("ai_processing_logs")
+}
+
+// =============================================================================
+// Histórico do pipeline `npm run manufacturer:import` (scripts/manufacturer-import.ts)
+// — uma linha por execução de montadora. Retomada automática: se uma linha
+// fica EXECUTANDO (processo interrompido no meio), a próxima chamada do
+// mesmo comando REUTILIZA essa linha (nunca cria uma nova nem reinicia do
+// zero) — a retomada em si já é garantida pelo desenho idempotente do
+// crawler (dedupe por SHA-256) e da normalização de catálogo (só processa
+// VehicleModel ainda sem VehicleVersion e sem deletedAt); esta tabela é o
+// registro/observabilidade dessa execução, não o mecanismo de retomada.
+// =============================================================================
+
+enum ImportHistoryStatus {
+  EXECUTANDO
+  CONCLUIDO
+  FALHOU
+  PAUSADO
+}
+
+model ImportHistory {
+  id                   Int                 @id @default(autoincrement())
+  manufacturerName     String
+  status               ImportHistoryStatus @default(EXECUTANDO)
+  startedAt            DateTime            @default(now())
+  finishedAt           DateTime?
+  documentsFound       Int                 @default(0)
+  documentsDownloaded  Int                 @default(0)
+  documentsProcessed   Int                 @default(0)
+  homologationsCreated Int                 @default(0)
+  tiresCreated         Int                 @default(0)
+  errors               Int                 @default(0)
+  totalDurationMs      Int?
+  /// Etapa em que a execução está/parou (ex.: "CRAWLER", "CATALOG"),
+  /// só para observabilidade — a retomada real não depende deste campo.
+  lastStage            String?
+  /// Log completo e cronológico desta execução (uma linha de texto por
+  /// evento relevante) — mesmo espírito de CrawlerJob.log já existente.
+  log                  String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@index([manufacturerName])
+  @@index([status])
+  @@map("import_history")
+}
+
+// =============================================================================
+// Fase Final de Arquitetura — expansão estrutural do Banco Mestre para
+// suportar milhões de homologações, mercado internacional, recalls,
+// boletins técnicos, granularidade de OCR por página, trilha completa de
+// revisão e equivalência de pneus. Toda adição aqui é ADITIVA: nenhuma
+// tabela/coluna existente foi removida, renomeada ou teve seu tipo
+// alterado; nenhuma linha existente foi perdida. Ver relatório técnico
+// desta sessão para a justificativa entidade-a-entidade (o que já existia
+// sob outro nome, o que foi deliberadamente NÃO criado por já estar
+// coberto ou por violar 3FN, e o que é novo de fato).
+// =============================================================================
+
+/// País de referência (ISO 3166-1) — tabela vazia até ser populada, mesmo
+/// padrão de Platform/Technology/LoadIndex/SpeedIndex (find-or-create na
+/// primeira evidência real). Prepara a expansão internacional futura sem
+/// obrigar nenhuma coluna String de país já existente (Manufacturer.country,
+/// VehicleVersion.country, Tire.countryOfOrigin, OfficialSource.country) a
+/// virar FK agora — nenhuma dessas colunas foi alterada.
+model Country {
+  id        Int      @id @default(autoincrement())
+  isoCode   String   @unique
+  name      String
+  region    String?
+  createdAt DateTime @default(now())
+
+  markets Market[]
+
+  @@map("countries")
+}
+
+/// Mercado comercial onde uma homologação é válida (ex.: "BR", "MERCOSUL",
+/// "EU") — antes inexistente no schema (Homologation não tinha nenhum
+/// conceito de mercado). countryId é opcional porque um mercado pode ser
+/// supranacional (sem um único país correspondente).
+model Market {
+  id        Int      @id @default(autoincrement())
+  code      String   @unique
+  name      String
+  countryId Int?
+  createdAt DateTime @default(now())
+
+  country       Country?       @relation(fields: [countryId], references: [id])
+  homologations Homologation[]
+
+  @@index([countryId])
+  @@map("markets")
+}
+
+/// Linha do pneu (ex.: "Michelin Primacy 4") — nome comercial e atributos
+/// que são os MESMOS em todas as medidas dessa linha (categoria, tipo,
+/// temporada), hoje repetidos em cada linha de Tire (uma por medida:
+/// "Primacy 4 205/55R16", "Primacy 4 195/65R15") por não existir esta
+/// tabela — a única violação de 3FN genuína e de alto valor identificada
+/// nesta auditoria. Tire.tireModelId é opcional e NÃO retropreenchido
+/// nesta sessão (só arquitetura, nenhum dado existente tocado) — os
+/// registros atuais de Tire continuam funcionando exatamente como antes.
+model TireModel {
+  id                 Int           @id @default(autoincrement())
+  tireManufacturerId Int
+  tireFamilyId       Int?
+  name               String
+  category           TireCategory?
+  segment            TireSegment?
+  season             TireSeason?
+  type               TireType?
+  notes              String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  tireManufacturer TireManufacturer @relation(fields: [tireManufacturerId], references: [id])
+  tireFamily       TireFamily?      @relation(fields: [tireFamilyId], references: [id])
+  tires            Tire[]
+
+  @@unique([tireManufacturerId, name])
+  @@index([tireFamilyId])
+  @@map("tire_models")
+}
+
+/// Marca/fabricante de rodas (ex.: "BBS", "OZ Racing") — antes inexistente:
+/// Wheel não tinha nenhuma atribuição de marca. Mesmo padrão de
+/// TireManufacturer. Wheel.wheelBrandId é opcional e não retropreenchido
+/// nesta sessão.
+model WheelBrand {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  country   String?
+  website   String?
+  logoUrl   String?
+  notes     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  wheels Wheel[]
+
+  @@map("wheel_brands")
+}
+
+enum RecallSeverity {
+  BAIXA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+enum RecallStatus {
+  ABERTO
+  ENCERRADO
+}
+
+/// Campanha de recall real declarada pela montadora/órgão regulador (ex.:
+/// SENATRAN) — entidade que antes não existia: só havia a FONTE de recall
+/// (OfficialSource categoria RECALL), nunca o CONTEÚDO estruturado de uma
+/// campanha individual. vehicleVersionId é opcional porque um recall pode
+/// ser anunciado antes de ser resolvido para uma VehicleVersion exata do
+/// catálogo.
+model Recall {
+  id                Int             @id @default(autoincrement())
+  manufacturerId    Int
+  vehicleVersionId  Int?
+  code              String
+  title             String
+  description       String?
+  affectedYearStart Int?
+  affectedYearEnd   Int?
+  severity          RecallSeverity?
+  status            RecallStatus    @default(ABERTO)
+  publishedAt       DateTime?
+  source            String?
+  sourceUrl         String?
+  documentUploadId  Int?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  manufacturer   Manufacturer    @relation(fields: [manufacturerId], references: [id])
+  vehicleVersion VehicleVersion? @relation(fields: [vehicleVersionId], references: [id])
+  documentUpload DocumentUpload? @relation(fields: [documentUploadId], references: [id])
+
+  @@unique([manufacturerId, code])
+  @@index([vehicleVersionId])
+  @@index([status])
+  @@index([documentUploadId])
+  @@map("recalls")
+}
+
+/// Boletim Técnico (TSB) real — mesmo raciocínio de Recall: antes só
+/// existia a CATEGORIA de documento (CrawlerDocumentCategory.BOLETIM_TECNICO)
+/// e a FONTE (OfficialSource), nunca o conteúdo estruturado do boletim.
+model TechnicalBulletin {
+  id               Int       @id @default(autoincrement())
+  manufacturerId   Int
+  vehicleVersionId Int?
+  code             String
+  title            String
+  description      String?
+  category         String?
+  publishedAt      DateTime?
+  source           String?
+  sourceUrl        String?
+  documentUploadId Int?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  manufacturer   Manufacturer    @relation(fields: [manufacturerId], references: [id])
+  vehicleVersion VehicleVersion? @relation(fields: [vehicleVersionId], references: [id])
+  documentUpload DocumentUpload? @relation(fields: [documentUploadId], references: [id])
+
+  @@unique([manufacturerId, code])
+  @@index([vehicleVersionId])
+  @@index([documentUploadId])
+  @@map("technical_bulletins")
+}
+
+/// Texto por página de um DocumentUpload — granularidade que antes não
+/// existia (DocumentUpload.extractedText é um único blob do documento
+/// inteiro). Cobre tanto "DocumentPages" quanto "OCRText" pedidos
+/// separadamente: o texto de uma página vinda de OCR é o mesmo tipo de
+/// dado que o texto de uma página extraída nativamente — uma tabela só
+/// evita duplicar a mesma informação em dois lugares.
+model DocumentPage {
+  id               Int      @id @default(autoincrement())
+  documentUploadId Int
+  pageNumber       Int
+  text             String?
+  /// 0-100, confiança do motor de OCR nesta página especificamente — null
+  /// quando o texto veio de extração nativa (PDF com texto real).
+  ocrConfidence    Int?
+  createdAt        DateTime @default(now())
+
+  documentUpload DocumentUpload @relation(fields: [documentUploadId], references: [id], onDelete: Cascade)
+
+  @@unique([documentUploadId, pageNumber])
+  @@map("document_pages")
+}
+
+enum ReviewAction {
+  APROVADO
+  REJEITADO
+  SOLICITADO_REVISAO
+  REABERTO
+}
+
+/// Histórico append-only de cada ação de revisão sobre um
+/// HomologationCandidate — antes, reviewedById/reviewedAt/reviewNotes em
+/// HomologationCandidate guardavam só o ÚLTIMO estado (uma revisão
+/// reaberta e revisada de novo sobrescrevia a anterior, perdendo o
+/// histórico), violando a regra "nada poderá ser apagado, tudo deverá ser
+/// versionado". Os campos em HomologationCandidate continuam existindo e
+/// funcionando exatamente como antes (cache do estado mais recente); esta
+/// tabela adiciona a trilha completa.
+model ReviewHistory {
+  id           Int          @id @default(autoincrement())
+  candidateId  Int
+  reviewedById Int?
+  action       ReviewAction
+  notes        String?
+  createdAt    DateTime     @default(now())
+
+  candidate  HomologationCandidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  reviewedBy User?                 @relation(fields: [reviewedById], references: [id])
+
+  @@index([candidateId])
+  @@index([reviewedById])
+  @@map("review_history")
+}
+
+/// Regra nomeada que define o que torna dois pneus "equivalentes" para
+/// fins de homologação (ex.: tolerância de índice de carga/velocidade
+/// aceita por uma montadora específica) — referência opcional em
+/// TireEquivalence; nunca aplicada automaticamente (toda equivalência
+/// registrada exige uma fonte real, nunca inferida por regra sozinha).
+model EquivalenceRule {
+  id                  Int      @id @default(autoincrement())
+  name                String   @unique
+  description         String?
+  toleranceLoadIndex  Int?
+  toleranceSpeedIndex Int?
+  source              String?
+  createdAt           DateTime @default(now())
+
+  equivalences      TireEquivalence[]
+  wheelEquivalences WheelEquivalence[]
+
+  @@map("equivalence_rules")
+}
+
+enum EquivalenceType {
+  MESMA_ESPECIFICACAO
+  INDICE_SUPERIOR_COMPATIVEL
+  MEDIDA_ALTERNATIVA_OFICIAL
+}
+
+/// Par de pneus considerados equivalentes por uma fonte real (nunca
+/// inferido automaticamente) — entidade que antes não existia. Direcional
+/// (tireId -> equivalentTireId); duas linhas expressam equivalência
+/// bidirecional, mesmo padrão já usado em DocumentUpload.duplicateOfId
+/// (relação dirigida, não simétrica automática).
+model TireEquivalence {
+  id               Int              @id @default(autoincrement())
+  tireId           Int
+  equivalentTireId Int
+  ruleId           Int?
+  type             EquivalenceType?
+  source           String?
+  sourceUrl        String?
+  confidence       Int?
+  /// Revisor humano que confirmou esta equivalência (Fase Enterprise) —
+  /// aditivo, nullable: equivalências já cadastradas sem revisor continuam
+  /// válidas.
+  reviewedById     Int?
+  notes            String?
+  createdAt        DateTime         @default(now())
+
+  tire           Tire             @relation("TireEquivalenceBase", fields: [tireId], references: [id])
+  equivalentTire Tire             @relation("TireEquivalenceTarget", fields: [equivalentTireId], references: [id])
+  rule           EquivalenceRule? @relation(fields: [ruleId], references: [id])
+  reviewedBy     User?            @relation(fields: [reviewedById], references: [id])
+
+  @@unique([tireId, equivalentTireId])
+  @@index([equivalentTireId])
+  @@index([ruleId])
+  @@index([reviewedById])
+  @@map("tire_equivalences")
+}
+
+enum PressureCondition {
+  VAZIO
+  CARGA_PARCIAL
+  CARGA_TOTAL
+  ALTA_VELOCIDADE
+}
+
+/// Forma normalizada (3FN) de pressão de pneu por condição×eixo — uma
+/// linha por combinação, em vez das 6 colunas fixas já existentes em
+/// VehiclePressureSpec (emptyFront/emptyRear/partialLoadFront/
+/// partialLoadRear/fullLoadFront/fullLoadRear). Adicionada em PARALELO,
+/// sem alterar nem remover VehiclePressureSpec (que continua sendo
+/// gravada pelo pipeline atual, inalterado) — estrutura preparada para uma
+/// migração de dados futura, fora do escopo desta sessão.
+model VehiclePressureReading {
+  id             Int               @id @default(autoincrement())
+  homologationId Int
+  condition      PressureCondition
+  axlePosition   AxlePosition
+  value          String
+  source         String?
+  createdAt      DateTime          @default(now())
+
+  homologation Homologation @relation(fields: [homologationId], references: [id], onDelete: Cascade)
+
+  @@unique([homologationId, condition, axlePosition, source])
+  @@map("vehicle_pressure_readings")
+}
+
+// =============================================================================
+// Fase Enterprise — segunda rodada de expansão estrutural, sobre a Fase
+// Final de Arquitetura anterior. Objetivo: sustentar milhões de
+// homologações por muitos anos sem reestruturação. Toda adição aqui é
+// ADITIVA (mesma disciplina da fase anterior): nenhuma tabela/coluna
+// existente removida, renomeada ou com tipo alterado; nenhuma linha
+// existente perdida. Ver relatório técnico desta sessão para a auditoria
+// completa e a justificativa fase-a-fase.
+// =============================================================================
+
+enum ReasonCategory {
+  DESCONTINUACAO
+  RECALL
+  ATUALIZACAO_HOMOLOGACAO
+  CORRECAO_CADASTRAL
+  MUDANCA_REGULATORIA
+  OUTRO
+}
+
+/// Motivo padronizado e reutilizável para substituições em todo o domínio
+/// (pneu ou roda) — tabela de referência vazia até uma fonte real declarar
+/// o motivo de uma substituição específica, mesmo padrão de OeCode/
+/// TireModel/WheelBrand.
+model ReasonCode {
+  id          Int            @id @default(autoincrement())
+  code        String         @unique
+  category    ReasonCategory
+  description String?
+  createdAt   DateTime       @default(now())
+
+  replacements ReplacementHistory[]
+
+  @@map("reason_codes")
+}
+
+/// Histórico de substituição real (pneu OU roda) dentro de uma
+/// homologação — quando um vínculo com role=SUBSTITUTO troca o que era
+/// ORIGINAL/OPCIONAL antes. Distinto de AuditLog (genérico, qualquer
+/// entidade) e de HomologationRevision (snapshot completo): aqui o foco é
+/// o EVENTO DE NEGÓCIO "isto substituiu aquilo, por este motivo".
+/// previousTireId/newTireId OU previousWheelId/newWheelId — nunca os
+/// quatro ao mesmo tempo (convenção de uso, não uma constraint de banco).
+model ReplacementHistory {
+  id              Int       @id @default(autoincrement())
+  homologationId  Int
+  previousTireId  Int?
+  newTireId       Int?
+  previousWheelId Int?
+  newWheelId      Int?
+  reasonCodeId    Int?
+  reviewedById    Int?
+  source          String?
+  sourceUrl       String?
+  effectiveDate   DateTime?
+  notes           String?
+  createdAt       DateTime  @default(now())
+
+  homologation  Homologation @relation(fields: [homologationId], references: [id], onDelete: Cascade)
+  previousTire  Tire?        @relation("ReplacementPreviousTire", fields: [previousTireId], references: [id])
+  newTire       Tire?        @relation("ReplacementNewTire", fields: [newTireId], references: [id])
+  previousWheel Wheel?       @relation("ReplacementPreviousWheel", fields: [previousWheelId], references: [id])
+  newWheel      Wheel?       @relation("ReplacementNewWheel", fields: [newWheelId], references: [id])
+  reasonCode    ReasonCode?  @relation(fields: [reasonCodeId], references: [id])
+  reviewedBy    User?        @relation(fields: [reviewedById], references: [id])
+
+  @@index([homologationId])
+  @@index([reasonCodeId])
+  @@index([previousTireId])
+  @@index([newTireId])
+  @@index([previousWheelId])
+  @@index([newWheelId])
+  @@index([reviewedById])
+  @@map("replacement_history")
+}
+
+/// Par de rodas consideradas equivalentes por uma fonte real — mesmo
+/// desenho de TireEquivalence, replicado para Wheel (lacuna real
+/// encontrada na auditoria desta fase: Wheel não tinha nenhum equivalente
+/// de TireEquivalence). Reaproveita EquivalenceRule (os campos de
+/// tolerância de índice de carga/velocidade ficam null quando a regra é
+/// especificamente sobre rodas).
+model WheelEquivalence {
+  id                Int              @id @default(autoincrement())
+  wheelId           Int
+  equivalentWheelId Int
+  ruleId            Int?
+  type              EquivalenceType?
+  source            String?
+  sourceUrl         String?
+  confidence        Int?
+  reviewedById      Int?
+  notes             String?
+  createdAt         DateTime         @default(now())
+
+  wheel           Wheel            @relation("WheelEquivalenceBase", fields: [wheelId], references: [id])
+  equivalentWheel Wheel            @relation("WheelEquivalenceTarget", fields: [equivalentWheelId], references: [id])
+  rule            EquivalenceRule? @relation(fields: [ruleId], references: [id])
+  reviewedBy      User?            @relation(fields: [reviewedById], references: [id])
+
+  @@unique([wheelId, equivalentWheelId])
+  @@index([equivalentWheelId])
+  @@index([ruleId])
+  @@index([reviewedById])
+  @@map("wheel_equivalences")
+}
+
+/// Snapshot completo e imutável de uma Homologation em cada alteração
+/// real de negócio — uma linha por revisão. Complementar (não substitui)
+/// o AuditLog genérico: AuditLog guarda um diff JSON de qualquer
+/// entidade; HomologationRevision guarda o ESTADO INTEIRO da entidade
+/// mais crítica do sistema (afeta segurança veicular real), permitindo
+/// reconstruir "como era a homologação #X na revisão N" sem precisar
+/// reprocessar diffs. `snapshot` é o registro serializado (mesma
+/// convenção de JSON-como-texto já usada em AuditLog.changes).
+model HomologationRevision {
+  id               Int              @id @default(autoincrement())
+  homologationId   Int
+  revisionNumber   Int
+  code             String
+  yearStart        Int?
+  yearEnd          Int?
+  marketId         Int?
+  validationStatus ValidationStatus
+  confidence       Int?
+  notes            String?
+  changedById      Int?
+  changeReason     String?
+  snapshot         String
+  createdAt        DateTime         @default(now())
+
+  homologation Homologation @relation(fields: [homologationId], references: [id], onDelete: Cascade)
+  changedBy    User?        @relation(fields: [changedById], references: [id])
+
+  @@unique([homologationId, revisionNumber])
+  @@index([changedById])
+  @@map("homologation_revisions")
+}
+
+enum CacheProvider {
+  FIPE
+  SENATRAN
+  INMETRO
+  CRAWLER
+  OCR
+  OUTRO
+}
+
+/// Cache genérico de respostas de fontes externas (API ou HTTP) — chave
+/// única por provider+chave lógica (ex.: provider=FIPE, cacheKey="marcas").
+/// Resolve uma lacuna real vivida nesta mesma sessão: a API da FIPE
+/// aplicou rate-limit de ~23h e bloqueou a normalização de catálogo de 5
+/// montadoras seguidas por não existir nenhuma camada de cache entre o
+/// pipeline e a API externa (CrawlerSource já tem etag/contentHash para
+/// DOCUMENTOS crawleados; nada equivalente existia para respostas de API).
+model ExternalCache {
+  id           Int           @id @default(autoincrement())
+  provider     CacheProvider
+  cacheKey     String
+  payload      String
+  etag         String?
+  lastModified String?
+  contentHash  String?
+  expiresAt    DateTime?
+  fetchedAt    DateTime      @default(now())
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@unique([provider, cacheKey])
+  @@index([expiresAt])
+  @@map("external_cache")
+}
+
+/// Modelo de IA usado (fornecedor + nome + versão) — referência para
+/// reprodutibilidade e comparação de custo/qualidade entre modelos ao
+/// longo do tempo. Domínio isolado da IA Engine (ver bloco AiJob acima);
+/// relação formal permitida aqui por ficar dentro do mesmo domínio.
+model AiModel {
+  id        Int      @id @default(autoincrement())
+  provider  String
+  name      String
+  version   String?
+  createdAt DateTime @default(now())
+
+  jobs AiJob[]
+
+  @@unique([provider, name, version])
+  @@map("ai_models")
+}
+
+/// Versão de um prompt/template usado pela IA Engine — permite saber
+/// exatamente qual instrução gerou qual sugestão, essencial para
+/// reproduzir/depurar resultados divergentes entre execuções.
+model AiPrompt {
+  id        Int      @id @default(autoincrement())
+  name      String
+  version   Int
+  template  String
+  createdAt DateTime @default(now())
+
+  jobs AiJob[]
+
+  @@unique([name, version])
+  @@map("ai_prompts")
+}
+
+/// Consumo de tokens por execução da IA Engine — base para custo real e
+/// limites de uso, hoje inexistente (AiJob roda sem nenhum registro de
+/// quanto custou).
+model AiTokenUsage {
+  id           Int      @id @default(autoincrement())
+  jobId        Int
+  inputTokens  Int
+  outputTokens Int
+  costUsdCents Int?
+  createdAt    DateTime @default(now())
+
+  job AiJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@map("ai_token_usage")
+}
+
+enum SearchAliasEntityType {
+  MANUFACTURER
+  VEHICLE_MODEL
+  /// Etapa 2 (Master Generation Database) — apelido de VehicleGeneration
+  /// (ex.: "3a geracao"→"E170"), escopado por VehicleModel via entityId
+  /// (mesmo padrão de VEHICLE_MODEL, escopado por Manufacturer).
+  VEHICLE_GENERATION
+  TIRE_MANUFACTURER
+  TIRE_MODEL
+}
+
+/// Alias/sinônimo de busca — uma tabela única (não 4 separadas) cobrindo
+/// fabricante de veículo, modelo de veículo, fabricante de pneu e linha de
+/// pneu, com um discriminador de tipo — mesmo padrão já usado por
+/// CrawlerJob.queue (uma fila para 4 tipos) e Media.type (uma tabela para
+/// 7 tipos de mídia) em vez de tabelas quase-idênticas. entityId é uma
+/// referência solta (sem @relation) por apontar para tabelas diferentes
+/// conforme entityType — mesmo padrão já usado em AiJob.requestedByIdRaw.
+/// Permite "VW"→Volkswagen, "Corola"→Corolla sem duplicar a entidade
+/// principal.
+model SearchAlias {
+  id         Int                   @id @default(autoincrement())
+  entityType SearchAliasEntityType
+  entityId   Int
+  alias      String
+  source     String?
+  createdAt  DateTime              @default(now())
+
+  @@unique([entityType, entityId, alias])
+  @@index([alias])
+  @@map("search_aliases")
+}
+
+enum StatisticsMetric {
+  COBERTURA_FABRICANTE
+  QUALIDADE_EXTRACAO
+  HOMOLOGACOES_TOTAL
+  PNEUS_TOTAL
+  VEICULOS_COMPLETOS
+  VERSOES_COMPLETAS
+  DOCUMENTOS_PROCESSADOS
+  CANDIDATOS_PENDENTES
+}
+
+/// Snapshot materializado de métricas de dashboard — uma linha por
+/// (métrica, dimensão, momento). Resolve o gargalo real de escala: a 10M+
+/// homologações, agregações GROUP BY ao vivo em todo carregamento de
+/// dashboard (report-executive.ts, quality-dashboard.ts) deixam de ser
+/// viáveis. Populado por um job periódico (fora do escopo desta sessão,
+/// que não altera pipeline) — os scripts de relatório continuam
+/// funcionando exatamente como hoje até adotarem esta tabela.
+model StatisticsSnapshot {
+  id         Int              @id @default(autoincrement())
+  metric     StatisticsMetric
+  /// Dimensão opcional (ex.: nome do fabricante) — null para métricas
+  /// globais.
+  dimension  String?
+  value      Float
+  computedAt DateTime         @default(now())
+
+  @@index([metric, dimension, computedAt])
+  @@map("statistics_snapshots")
+}
+
+// =============================================================================
+// Auditoria Técnica 1 — infraestrutura para importar catálogos oficiais de
+// fabricante de pneu (Pirelli, Michelin, Continental, Bridgestone,
+// Goodyear, Yokohama, Hankook, Kumho, Giti, Nexen, Toyo, Falken,
+// BFGoodrich, Firestone, General Tire, e qualquer futuro — sistema
+// genérico, nenhuma marca hardcoded no schema). Toda adição é ADITIVA;
+// nenhuma tabela/coluna existente foi alterada. Reaproveita
+// ImportBatch/ImportError/ImportFileType (genéricos, já existentes) e
+// AxlePosition (DIANTEIRO/TRASEIRO/AMBOS/ESTEPE já existente — "TODOS OS
+// EIXOS" pedido nesta fase mapeia para AMBOS no parser, sem duplicar o
+// enum) em vez de recriá-los. Nenhum dado é importado nesta fase — ver
+// docs/plataforma-catalogo-fabricante.md para o fluxo completo e o
+// passo a passo de como conectar um fabricante real.
+// =============================================================================
+
+/// Catálogo de um fabricante de pneu (ex.: "Pirelli", "Michelin") —
+/// tabela de referência vazia até a primeira importação real, mesmo
+/// padrão de Platform/Technology/TireModel.
+model ManufacturerCatalog {
+  id                 Int      @id @default(autoincrement())
+  tireManufacturerId Int
+  name               String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  tireManufacturer     TireManufacturer            @relation(fields: [tireManufacturerId], references: [id])
+  imports              ManufacturerCatalogImport[]
+  manufacturerProducts ManufacturerProduct[]
+
+  @@unique([tireManufacturerId, name])
+  @@map("manufacturer_catalogs")
+}
+
+enum ManufacturerCatalogImportStatus {
+  PENDENTE
+  EXECUTANDO
+  CONCLUIDO
+  CONCLUIDO_COM_ERROS
+  FALHOU
+}
+
+/// Uma execução de importação de um arquivo de catálogo (xlsx/xls/csv/ods
+/// — os 4 formatos pedidos já são lidos pelo parser genérico existente,
+/// lib/importer/parseFile.ts, reaproveitado sem alteração). Vincula-se
+/// opcionalmente ao ImportBatch genérico já existente (mesmo mecanismo
+/// de rastreamento de lote/usuário/hash) em vez de duplicar seus campos.
+/// `log` segue o mesmo padrão de texto livre já usado em
+/// CrawlerJob.log/ImportHistory.log — nenhuma tabela de log por linha
+/// foi criada só para isto (ver ManufacturerCatalogRow, que já cumpre
+/// esse papel de auditoria por linha).
+model ManufacturerCatalogImport {
+  id            Int                             @id @default(autoincrement())
+  catalogId     Int
+  importBatchId Int?
+  fileName      String
+  fileType      ImportFileType
+  status        ManufacturerCatalogImportStatus @default(PENDENTE)
+  totalRows     Int                             @default(0)
+  processedRows Int                             @default(0)
+  errorRows     Int                             @default(0)
+  log           String?
+  startedAt     DateTime                        @default(now())
+  finishedAt    DateTime?
+
+  catalog     ManufacturerCatalog      @relation(fields: [catalogId], references: [id])
+  importBatch ImportBatch?             @relation(fields: [importBatchId], references: [id])
+  rows        ManufacturerCatalogRow[]
+
+  @@index([catalogId])
+  @@index([importBatchId])
+  @@index([status])
+  @@map("manufacturer_catalog_imports")
+}
+
+/// Uma linha bruta do arquivo importado, ANTES de qualquer normalização
+/// — preserva o dado original completo (JSON serializado coluna→valor,
+/// mesma convenção de string-JSON já usada em AuditLog.changes), nunca
+/// perdido mesmo que a normalização falhe. Mesmo espírito de
+/// ImportError.rawData, mas para TODA linha (não só as que falharam) —
+/// é o registro de auditoria por linha desta camada.
+model ManufacturerCatalogRow {
+  id           Int      @id @default(autoincrement())
+  importId     Int
+  rowNumber    Int
+  rawData      String
+  normalized   Boolean  @default(false)
+  errorMessage String?
+  createdAt    DateTime @default(now())
+
+  import   ManufacturerCatalogImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  products ManufacturerProduct[]
+
+  @@index([importId])
+  @@map("manufacturer_catalog_rows")
+}
+
+/// Produto (pneu) tal como declarado no catálogo do PRÓPRIO fabricante —
+/// distinto de Tire (catálogo curado/publicado do HomologaPneu, usado
+/// pelas Homologation reais). Um ManufacturerProduct só vira Tire depois
+/// que um humano revisar e confirmar a correspondência (mesmo espírito
+/// de HomologationCandidate → aprovação → dado real), por isso `tireId`
+/// é opcional e nunca preenchido automaticamente nesta fase.
+/// `produtoSubstitutoId`/`produtoEquivalenteId` são auto-relações
+/// (aponta para outro ManufacturerProduct do mesmo catálogo).
+model ManufacturerProduct {
+  id                   Int      @id @default(autoincrement())
+  catalogId            Int
+  rowId                Int?
+  tireId               Int?
+  medida               String?
+  descricao            String?
+  /// Código interno do fabricante para este produto (SKU/código de
+  /// catálogo) — texto livre, formato varia por marca.
+  codigoInterno        String?
+  /// Rolling Resistance — etiqueta europeia de pneu, texto livre (ex.:
+  /// "A", "B", "C") — nunca convertido/normalizado além do que a fonte
+  /// declara.
+  rr                   String?
+  /// Wet grip — mesma etiqueta europeia, mesma regra de rr.
+  wet                  String?
+  /// Ruído externo — mesma etiqueta europeia (ex.: "70 dB" ou classe A/B/C).
+  noise                String?
+  /// Valor bruto da coluna "Phase Out" do catálogo (nunca inferido) —
+  /// distinto da classificação derivada em
+  /// ManufacturerHomologation.status (PHASE_OUT), que pode considerar
+  /// mais de uma coluna na normalização.
+  phaseOut             Boolean  @default(false)
+  produtoSubstitutoId  Int?
+  produtoEquivalenteId Int?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  catalog            ManufacturerCatalog       @relation(fields: [catalogId], references: [id])
+  row                ManufacturerCatalogRow?   @relation(fields: [rowId], references: [id])
+  tire               Tire?                     @relation(fields: [tireId], references: [id])
+  produtoSubstituto  ManufacturerProduct?      @relation("ProdutoSubstituto", fields: [produtoSubstitutoId], references: [id])
+  substitutoDe       ManufacturerProduct[]     @relation("ProdutoSubstituto")
+  produtoEquivalente ManufacturerProduct?      @relation("ProdutoEquivalente", fields: [produtoEquivalenteId], references: [id])
+  equivalenteDe      ManufacturerProduct[]     @relation("ProdutoEquivalente")
+  applications       ManufacturerApplication[]
+
+  @@index([catalogId])
+  @@index([rowId])
+  @@index([tireId])
+  @@index([produtoSubstitutoId])
+  @@index([produtoEquivalenteId])
+  @@map("manufacturer_products")
+}
+
+/// Aplicação (veículo↔produto) tal como declarada no catálogo do
+/// fabricante — texto livre para marca/modelo do veículo, porque o
+/// catálogo do fabricante nem sempre bate exatamente com
+/// Manufacturer/VehicleModel já cadastrados; o match fica para quem
+/// promover isto a HomologationEvidence (fora do escopo desta fase).
+/// `axlePosition` reaproveita o enum AxlePosition já existente — "TODOS
+/// OS EIXOS" pedido nesta fase mapeia para AMBOS.
+model ManufacturerApplication {
+  id           Int           @id @default(autoincrement())
+  productId    Int
+  vehicleBrand String
+  vehicleModel String
+  /// Texto livre da coluna "Aplicação" do catálogo, quando distinta de
+  /// marca+modelo estruturados (ex.: "OE Fiat Toro 2020+").
+  aplicacao    String?
+  axlePosition AxlePosition?
+  /// Referência normalizada para o VehicleModel real da Base Mestre —
+  /// mesmo espírito de ManufacturerProduct.tireId: opcional, só
+  /// preenchida depois que um humano/processo revisar e confirmar a
+  /// correspondência vehicleBrand+vehicleModel (nunca automática sem
+  /// essa confirmação).
+  vehicleModelId Int?
+  createdAt    DateTime      @default(now())
+
+  product       ManufacturerProduct        @relation(fields: [productId], references: [id])
+  homologations ManufacturerHomologation[]
+  vehicleModelRef VehicleModel?             @relation(fields: [vehicleModelId], references: [id])
+
+  @@index([productId])
+  @@index([vehicleModelId])
+  @@map("manufacturer_applications")
+}
+
+/// Classificação declarada pelo PRÓPRIO fabricante para uma aplicação —
+/// NUNCA a Homologation oficial/curada do HomologaPneu (essa continua
+/// exigindo aprovação humana via Curadoria, inalterada por esta fase).
+/// Uma linha nova a cada catálogo que mencionar esta aplicação forma um
+/// histórico natural (append-only) sem precisar de tabela de revisão
+/// separada — a mesma aplicação pode aparecer como HOMOLOGADO num
+/// catálogo antigo e PHASE_OUT num catálogo novo.
+enum ManufacturerProductStatus {
+  HOMOLOGADO
+  APLICACAO
+  PHASE_OUT
+  SUBSTITUTO
+  SEM_STATUS
+}
+
+model ManufacturerHomologation {
+  id            Int                       @id @default(autoincrement())
+  applicationId Int
+  status        ManufacturerProductStatus @default(SEM_STATUS)
+  /// Valor bruto da coluna "Homologado" do catálogo (nunca inferido) —
+  /// distinto de `status`, que é a classificação derivada.
+  homologado    Boolean?
+  createdAt     DateTime                  @default(now())
+
+  application ManufacturerApplication @relation(fields: [applicationId], references: [id])
+  evidences   ManufacturerEvidence[]
+
+  @@index([applicationId])
+  @@map("manufacturer_homologations")
+}
+
+/// Ponte entre uma ManufacturerHomologation (declaração bruta do
+/// catálogo do fabricante) e a HomologationEvidence real já existente
+/// (Motor de Validação, services/homologationEvidence.ts) — preenchido
+/// só depois que um humano revisar e promover esta linha. Sem relação
+/// formal do Prisma com HomologationEvidence, mesmo padrão já usado em
+/// HomologationCandidate.evidenceId, para não alterar esse model já
+/// existente. Nada preenche este campo nesta fase ("somente
+/// infraestrutura").
+model ManufacturerEvidence {
+  id                         Int       @id @default(autoincrement())
+  manufacturerHomologationId Int
+  homologationEvidenceId     Int?
+  promotedAt                 DateTime?
+  createdAt                  DateTime  @default(now())
+
+  manufacturerHomologation ManufacturerHomologation @relation(fields: [manufacturerHomologationId], references: [id])
+
+  @@index([manufacturerHomologationId])
+  @@index([homologationEvidenceId])
+  @@map("manufacturer_evidences")
 }

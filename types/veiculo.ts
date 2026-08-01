@@ -26,6 +26,7 @@ export type Veiculo = {
   regulatoryCategory: string | null;
   segment: VehicleSegment | null;
   platformName: string | null;
+  generationName: string | null;
   transmissionType: TransmissionType | null;
   transmissionGears: number | null;
   drivetrain: DrivetrainType | null;

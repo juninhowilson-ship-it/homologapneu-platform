@@ -13,6 +13,7 @@ import {
   type VeiculoRecord,
 } from "@/repositories/veiculos";
 import { NotFoundError, ConflictError, ValidationError } from "@/lib/errors";
+import { normalizeLookupKey } from "@/lib/masterData/normalizeName";
 import {
   veiculoFormSchema,
   type VeiculoFormValues,
@@ -73,6 +74,7 @@ function toDTO(record: VeiculoRecord): Veiculo {
     regulatoryCategory: record.regulatoryCategory,
     segment: record.segment as VehicleSegment | null,
     platformName: record.platform?.name ?? null,
+    generationName: record.generation?.name ?? null,
     transmissionType: (record.transmission?.type as TransmissionType) ?? null,
     transmissionGears: record.transmission?.gears ?? null,
     drivetrain: record.drivetrain as DrivetrainType | null,
@@ -116,6 +118,7 @@ function normalizeInput(
     regulatoryCategory: input.regulatoryCategory ? input.regulatoryCategory : null,
     segment: input.segment ? input.segment : null,
     platformName: input.platformName ? input.platformName : null,
+    generationName: input.generationName ? input.generationName : null,
     transmissionType: input.transmissionType ? input.transmissionType : null,
     transmissionGears: input.transmissionGears ?? null,
     drivetrain: input.drivetrain ? input.drivetrain : undefined,
@@ -238,6 +241,7 @@ export async function updateVeiculo(
       regulatoryCategory: before.regulatoryCategory,
       segment: before.segment,
       platformName: before.platformName,
+      generationName: before.generationName,
       transmissionType: before.transmissionType,
       transmissionGears: before.transmissionGears,
       drivetrain: before.drivetrain,
@@ -265,6 +269,7 @@ export async function updateVeiculo(
       regulatoryCategory: after.regulatoryCategory,
       segment: after.segment,
       platformName: after.platformName,
+      generationName: after.generationName,
       transmissionType: after.transmissionType,
       transmissionGears: after.transmissionGears,
       drivetrain: after.drivetrain,
@@ -336,7 +341,7 @@ export async function importVeiculos(
 
   const manufacturers = await listManufacturersRepo();
   const manufacturerIdByName = new Map(
-    manufacturers.map((m) => [m.name.toLowerCase(), m.id])
+    manufacturers.map((m) => [normalizeLookupKey(m.name), m.id])
   );
 
   let criados = 0;
@@ -350,7 +355,7 @@ export async function importVeiculos(
 
     try {
       const manufacturerId = manufacturerIdByName.get(
-        (record.marca ?? "").trim().toLowerCase()
+        normalizeLookupKey(record.marca ?? "")
       );
       if (!manufacturerId) {
         detalhes.push({
@@ -404,6 +409,7 @@ export async function importVeiculos(
         regulatoryCategory: record.categoriaRegulatoria,
         segment: segment ?? undefined,
         platformName: record.plataforma,
+        generationName: record.geracao,
         transmissionType: transmissionType ?? undefined,
         transmissionGears: record.marchas ? Number(record.marchas) : null,
         drivetrain: drivetrain ?? undefined,
@@ -453,6 +459,7 @@ export async function importVeiculos(
           country: parsed.data.country || current.country || "",
           segment: parsed.data.segment || current.segment || "",
           platformName: parsed.data.platformName || current.platformName || "",
+          generationName: parsed.data.generationName || current.generationName || "",
           transmissionType:
             parsed.data.transmissionType || current.transmissionType || "",
           transmissionGears:
@@ -478,6 +485,7 @@ export async function importVeiculos(
             regulatoryCategory: current.regulatoryCategory,
             segment: current.segment,
             platformName: current.platformName,
+            generationName: current.generationName,
             transmissionType: current.transmissionType,
             transmissionGears: current.transmissionGears,
             drivetrain: current.drivetrain,
@@ -500,6 +508,7 @@ export async function importVeiculos(
             regulatoryCategory: merged.regulatoryCategory || null,
             segment: merged.segment || null,
             platformName: merged.platformName || null,
+            generationName: merged.generationName || null,
             transmissionType: merged.transmissionType || null,
             transmissionGears: merged.transmissionGears ?? null,
             drivetrain: merged.drivetrain || null,
@@ -615,7 +624,7 @@ export async function importModelosVeiculo(
 
   const manufacturers = await listManufacturersRepo();
   const manufacturerIdByName = new Map(
-    manufacturers.map((m) => [m.name.toLowerCase(), m.id])
+    manufacturers.map((m) => [normalizeLookupKey(m.name), m.id])
   );
 
   let criados = 0;
@@ -628,7 +637,7 @@ export async function importModelosVeiculo(
 
     try {
       const manufacturerId = manufacturerIdByName.get(
-        (record.marca ?? "").trim().toLowerCase()
+        normalizeLookupKey(record.marca ?? "")
       );
       const modelo = (record.modelo ?? "").trim();
 

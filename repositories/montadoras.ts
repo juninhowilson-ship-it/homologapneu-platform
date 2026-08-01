@@ -1,6 +1,8 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
+import { resolveManufacturerId } from "@/lib/masterData/resolveManufacturer";
+import { normalizeLookupKey } from "@/lib/masterData/normalizeName";
 
 const withModelsCount = {
   include: {
@@ -26,30 +28,38 @@ export async function findMontadoraById(
   return prisma.manufacturer.findUnique({ where: { id }, ...withModelsCount });
 }
 
+/**
+ * Resolução canônica por normalizedName + SearchAlias — ver
+ * lib/masterData/resolveManufacturer.ts. Nunca faz match por `name` puro.
+ */
 export async function findMontadoraByName(
   name: string,
   excludeId?: number
 ): Promise<{ id: number } | null> {
-  return prisma.manufacturer.findFirst({
-    where: {
-      name,
-      ...(excludeId ? { id: { not: excludeId } } : {}),
-    },
-    select: { id: true },
-  });
+  const match = await resolveManufacturerId(prisma, name);
+  if (!match) return null;
+  if (excludeId && match.id === excludeId) return null;
+  return { id: match.id };
 }
 
 export async function createMontadora(
-  data: Prisma.ManufacturerUncheckedCreateInput
+  data: Omit<Prisma.ManufacturerUncheckedCreateInput, "normalizedName">
 ): Promise<MontadoraRecord> {
-  return prisma.manufacturer.create({ data, ...withModelsCount });
+  return prisma.manufacturer.create({
+    data: { ...data, normalizedName: normalizeLookupKey(data.name) },
+    ...withModelsCount,
+  });
 }
 
 export async function updateMontadora(
   id: number,
   data: Prisma.ManufacturerUncheckedUpdateInput
 ): Promise<MontadoraRecord> {
-  return prisma.manufacturer.update({ where: { id }, data, ...withModelsCount });
+  const patch: Prisma.ManufacturerUncheckedUpdateInput = { ...data };
+  if (typeof patch.name === "string") {
+    patch.normalizedName = normalizeLookupKey(patch.name);
+  }
+  return prisma.manufacturer.update({ where: { id }, data: patch, ...withModelsCount });
 }
 
 export async function deleteMontadora(id: number): Promise<void> {

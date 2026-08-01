@@ -1,15 +1,32 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { ParsedFile } from "@/lib/importer/parsers/types";
+import {
+  TIRE_SIZE_REGEX,
+  JANELA,
+  calcularConfianca,
+  reconhecerCandidato,
+  type CandidatoExtraido,
+  type Dicionario,
+} from "@/lib/curadoria/extracaoPura";
+
+export type { CandidatoExtraido };
 
 /**
  * Extração determinística (não-LLM) de candidatos a partir de um
  * documento já convertido em texto/linhas (ParsedFile). NUNCA inventa:
- * marca/modelo de veículo e fabricante de pneu só entram num candidato
- * quando batem, por substring exata (case-insensitive), com um nome já
- * cadastrado no banco — medida/índice/ano só entram quando o padrão real
- * (regex) aparece no texto. Campos que não forem encontrados ficam nulos
+ * marca/modelo/versão de veículo, família de pneu e fabricante de pneu só
+ * entram num candidato quando batem, por match de palavra inteira
+ * (case-insensitive), com um nome já cadastrado no banco — medida/índice/
+ * ano/roda/pressão só entram quando o padrão real (regex) aparece no
+ * texto, e pressão só quando o eixo (dianteiro/traseiro) está rotulado
+ * explicitamente por perto. Campos que não forem encontrados ficam nulos
  * — nunca preenchidos por suposição.
+ *
+ * O reconhecimento em si (regex + cruzamento com o dicionário) é uma
+ * função pura em lib/curadoria/extracaoPura.ts — este arquivo só carrega
+ * o dicionário real do banco (por isso "server-only") e recorta as
+ * janelas de texto ao redor de cada medida de pneu encontrada.
  *
  * Uma integração com um modelo de linguagem (Claude/outro) poderia
  * substituir/complementar esta função no futuro para reconhecer
@@ -18,45 +35,17 @@ import type { ParsedFile } from "@/lib/importer/parsers/types";
  * 100% baseada em padrões e cruzamento com dados reais já cadastrados.
  */
 
-export type CandidatoExtraido = {
-  tireManufacturerName: string | null;
-  tireModel: string | null;
-  tireSize: string | null;
-  loadIndex: string | null;
-  speedIndex: string | null;
-  runFlat: boolean | null;
-  xl: boolean | null;
-  vehicleManufacturerName: string | null;
-  vehicleModel: string | null;
-  vehicleVersion: string | null;
-  yearStart: number | null;
-  yearEnd: number | null;
-  extractionConfidence: number;
-  rawSnippet: string;
-};
-
-const TIRE_SIZE_REGEX = /\b(\d{3})\s?\/\s?(\d{2})\s?[Rr]\s?(\d{2})\b/g;
-const SPEED_INDEX_VALIDOS = new Set([
-  "A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8",
-  "B", "C", "D", "E", "F", "G", "J", "K", "L", "M", "N", "P",
-  "Q", "R", "S", "T", "U", "H", "V", "W", "Y", "Z", "ZR",
-]);
-const YEAR_REGEX = /\b(19[9]\d|20[0-4]\d)\b/g;
-const JANELA = 220;
-
-type Dicionario = {
-  vehicleManufacturers: string[];
-  vehicleModelsByManufacturer: Map<string, string[]>;
-  tireManufacturers: string[];
-};
-
-async function carregarDicionario(): Promise<Dicionario> {
-  const [manufacturers, models, tireManufacturers] = await Promise.all([
+export async function carregarDicionario(): Promise<Dicionario> {
+  const [manufacturers, models, versions, tireManufacturers, tireFamilies] = await Promise.all([
     prisma.manufacturer.findMany({ select: { name: true } }),
     prisma.vehicleModel.findMany({
       select: { name: true, manufacturer: { select: { name: true } } },
     }),
+    prisma.vehicleVersion.findMany({
+      select: { name: true, vehicleModel: { select: { name: true, manufacturer: { select: { name: true } } } } },
+    }),
     prisma.tireManufacturer.findMany({ select: { name: true } }),
+    prisma.tireFamily.findMany({ select: { name: true, tireManufacturer: { select: { name: true } } } }),
   ]);
 
   const vehicleModelsByManufacturer = new Map<string, string[]>();
@@ -70,44 +59,33 @@ async function carregarDicionario(): Promise<Dicionario> {
     lista.sort((a, b) => b.length - a.length);
   }
 
+  const vehicleVersionsByModel = new Map<string, string[]>();
+  for (const v of versions) {
+    const chave = `${v.vehicleModel.manufacturer.name.toLowerCase()}|${v.vehicleModel.name.toLowerCase()}`;
+    if (!vehicleVersionsByModel.has(chave)) vehicleVersionsByModel.set(chave, []);
+    vehicleVersionsByModel.get(chave)!.push(v.name);
+  }
+  for (const lista of vehicleVersionsByModel.values()) {
+    lista.sort((a, b) => b.length - a.length);
+  }
+
+  const tireFamiliesByManufacturer = new Map<string, string[]>();
+  for (const f of tireFamilies) {
+    const chave = f.tireManufacturer.name.toLowerCase();
+    if (!tireFamiliesByManufacturer.has(chave)) tireFamiliesByManufacturer.set(chave, []);
+    tireFamiliesByManufacturer.get(chave)!.push(f.name);
+  }
+  for (const lista of tireFamiliesByManufacturer.values()) {
+    lista.sort((a, b) => b.length - a.length);
+  }
+
   return {
     vehicleManufacturers: manufacturers.map((m) => m.name).sort((a, b) => b.length - a.length),
     vehicleModelsByManufacturer,
+    vehicleVersionsByModel,
     tireManufacturers: tireManufacturers.map((m) => m.name).sort((a, b) => b.length - a.length),
+    tireFamiliesByManufacturer,
   };
-}
-
-function encontrarNaJanela(texto: string, candidatos: string[]): string | null {
-  const textoLower = texto.toLowerCase();
-  for (const candidato of candidatos) {
-    if (textoLower.includes(candidato.toLowerCase())) return candidato;
-  }
-  return null;
-}
-
-function extrairIndices(janela: string, size: string): { loadIndex: string | null; speedIndex: string | null } {
-  const posSize = janela.indexOf(size);
-  if (posSize === -1) return { loadIndex: null, speedIndex: null };
-  const depois = janela.slice(posSize + size.length, posSize + size.length + 15);
-  const match = depois.match(/\s*(\d{2,3})\s*([A-Za-z]{1,2})\b/);
-  if (!match) return { loadIndex: null, speedIndex: null };
-  const speedCandidato = match[2].toUpperCase();
-  return {
-    loadIndex: match[1],
-    speedIndex: SPEED_INDEX_VALIDOS.has(speedCandidato) ? speedCandidato : null,
-  };
-}
-
-function calcularConfianca(c: Omit<CandidatoExtraido, "extractionConfidence" | "rawSnippet">): number {
-  const campos = [
-    c.tireManufacturerName,
-    c.tireModel,
-    c.tireSize,
-    c.vehicleManufacturerName,
-    c.vehicleModel,
-  ];
-  const preenchidos = campos.filter(Boolean).length;
-  return Math.round((preenchidos / campos.length) * 100);
 }
 
 /**
@@ -140,38 +118,7 @@ export async function extrairCandidatos(arquivo: ParsedFile): Promise<CandidatoE
     if (tamanhosVistos.has(chaveJanela)) continue;
     tamanhosVistos.add(chaveJanela);
 
-    const { loadIndex, speedIndex } = extrairIndices(janela, size);
-
-    const vehicleManufacturerName = encontrarNaJanela(janela, dicionario.vehicleManufacturers);
-    let vehicleModel: string | null = null;
-    if (vehicleManufacturerName) {
-      const modelos = dicionario.vehicleModelsByManufacturer.get(vehicleManufacturerName.toLowerCase()) ?? [];
-      vehicleModel = encontrarNaJanela(janela, modelos);
-    }
-
-    const tireManufacturerName = encontrarNaJanela(janela, dicionario.tireManufacturers);
-
-    const anos = Array.from(janela.matchAll(YEAR_REGEX)).map((m) => Number(m[1]));
-    const yearStart = anos.length > 0 ? Math.min(...anos) : null;
-    const yearEnd = anos.length > 0 ? Math.max(...anos) : null;
-
-    const runFlat = /run\s?-?\s?flat|\brft\b/i.test(janela) ? true : null;
-    const xl = /\bxl\b|extra\s?load/i.test(janela) ? true : null;
-
-    const base = {
-      tireManufacturerName,
-      tireModel: null,
-      tireSize: size,
-      loadIndex,
-      speedIndex,
-      runFlat,
-      xl,
-      vehicleManufacturerName,
-      vehicleModel,
-      vehicleVersion: null,
-      yearStart,
-      yearEnd,
-    };
+    const base = reconhecerCandidato(janela, size, dicionario);
 
     candidatos.push({
       ...base,

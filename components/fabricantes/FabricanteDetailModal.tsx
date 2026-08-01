@@ -53,7 +53,7 @@ export default function FabricanteDetailModal({ open, onClose, id }: Props) {
 
             <div>
               <h3 className="text-lg font-bold">{fabricante.name}</h3>
-              <p className="text-muted-foreground">{fabricante.country}</p>
+              <p className="text-muted-foreground">{fabricante.country ?? "País não informado"}</p>
             </div>
 
             <Badge

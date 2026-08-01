@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { HomologacaoListQuery } from "@/lib/validations/homologacao";
-import type { Prisma } from "@prisma/client";
+import type { Prisma, BrandPolicy } from "@prisma/client";
 
 const withRelations = {
   include: {
@@ -14,11 +14,11 @@ const withRelations = {
       },
     },
     tires: {
-      include: { tire: { include: { tireManufacturer: true } } },
+      include: { tire: { include: { tireManufacturer: true } }, oeCode: true },
       orderBy: { role: "asc" },
     },
     wheels: {
-      include: { wheel: true },
+      include: { wheel: true, oeCode: true },
       orderBy: { role: "asc" },
     },
     pressureSpecs: { orderBy: { createdAt: "asc" } },
@@ -193,11 +193,12 @@ export async function deleteHomologacao(id: number): Promise<void> {
 export async function addWheelToHomologacao(
   homologationId: number,
   wheelId: number,
-  role: "ORIGINAL" | "OPCIONAL"
+  role: "ORIGINAL" | "OPCIONAL",
+  oeCodeId?: number
 ) {
   return prisma.homologationWheel.create({
-    data: { homologationId, wheelId, role },
-    include: { wheel: true },
+    data: { homologationId, wheelId, role, oeCodeId },
+    include: { wheel: true, oeCode: true },
   });
 }
 
@@ -219,11 +220,12 @@ export async function findHomologationWheel(homologationId: number, wheelId: num
 export async function addTireToHomologacao(
   homologationId: number,
   tireId: number,
-  role: "ORIGINAL" | "OPCIONAL"
+  role: "ORIGINAL" | "OPCIONAL",
+  oeCodeId?: number
 ) {
   return prisma.homologationTire.create({
-    data: { homologationId, tireId, role },
-    include: { tire: true },
+    data: { homologationId, tireId, role, oeCodeId },
+    include: { tire: true, oeCode: true },
   });
 }
 
@@ -326,6 +328,21 @@ export async function findTireByNaturalKey(
 
 export async function findTiresByIds(ids: number[]) {
   return prisma.tire.findMany({ where: { id: { in: ids } } });
+}
+
+/**
+ * BrandPolicy da marca de um pneu já resolvido — usado por
+ * importHomologacoes para impor a matriz de política antes de criar a
+ * homologação (ver lib/constants/brandPolicy.ts).
+ */
+export async function findTireManufacturerPolicy(
+  tireId: number
+): Promise<{ name: string; brandPolicy: BrandPolicy } | null> {
+  const tire = await prisma.tire.findUnique({
+    where: { id: tireId },
+    select: { tireManufacturer: { select: { name: true, brandPolicy: true } } },
+  });
+  return tire?.tireManufacturer ?? null;
 }
 
 export async function listVehicleOptions() {

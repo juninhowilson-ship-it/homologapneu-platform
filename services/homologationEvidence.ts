@@ -3,6 +3,17 @@ import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import type { EvidenceSourceType, ApplicationStatus } from "@prisma/client";
 import { SOURCE_TYPE_POINTS, isHomologacaoOficial } from "@/lib/constants/evidence";
+import { inferFileType } from "@/lib/importer/parseFile";
+import type { ImportContexto } from "@/lib/importer/context";
+import { computeImportHash } from "@/lib/importer/hash";
+import { iniciarLote, finalizarLote } from "@/services/importBatches";
+import type {
+  ImportacaoResultado,
+  ImportacaoLinhaResultado,
+} from "@/types/importacao";
+import { policyAllowsApplication } from "@/lib/constants/brandPolicy";
+import { resolveManufacturerId } from "@/lib/masterData/resolveManufacturer";
+import { normalizeLookupKey } from "@/lib/masterData/normalizeName";
 
 export { SOURCE_TYPE_POINTS, isHomologacaoOficial };
 
@@ -282,5 +293,256 @@ export async function registrarLoteEvidencias(
     aplicacoesComerciais,
     divergencias,
     falhas,
+  };
+}
+
+const EVIDENCE_SOURCE_TYPES: EvidenceSourceType[] = [
+  "MARKETPLACE",
+  "DISTRIBUIDOR_OFICIAL",
+  "FABRICANTE_PNEU",
+  "MONTADORA",
+  "MANUAL",
+  "CATALOGO_OE",
+];
+
+/**
+ * Wrapper de database/import/applications/ sobre registrarEvidencia —
+ * adiciona ImportBatch/relatório de erro por linha (ausentes em
+ * registrarLoteEvidencias, que não é voltado a upload de arquivo). Nunca
+ * cria Homologation/ManufacturerHomologation — só TireVehicleApplication/
+ * HomologationEvidence, a mesma garantia estrutural de sempre. Colunas:
+ * fabricantePneu, modeloPneu, medida, montadora, modeloVeiculo,
+ * versaoVeiculo, anoInicial, anoFinal, fonteUrl, fonteNome, tipoFonte
+ * (MARKETPLACE/DISTRIBUIDOR_OFICIAL/FABRICANTE_PNEU/MONTADORA/MANUAL/
+ * CATALOGO_OE), dataColeta (AAAA-MM-DD).
+ */
+export async function importarAplicacoesCsv(
+  rows: Record<string, string>[],
+  contexto?: ImportContexto
+): Promise<ImportacaoResultado> {
+  const inicio = Date.now();
+
+  const lote = contexto
+    ? await iniciarLote({
+        fileName: contexto.fileName,
+        fileType: contexto.fileType ?? inferFileType(contexto.fileName),
+        entity: "APLICACOES",
+        userId: contexto.userId,
+        sourceVersion: contexto.sourceVersion,
+        collectedAt: contexto.collectedAt,
+        sourceUrl: contexto.sourceUrl,
+        importHash: computeImportHash(rows),
+      })
+    : null;
+
+  let criados = 0;
+  let duplicados = 0;
+  const detalhes: ImportacaoLinhaResultado[] = [];
+
+  for (const [index, record] of rows.entries()) {
+    const linha = index + 2;
+    const label = `${record.fabricantePneu ?? ""} ${record.modeloPneu ?? ""} ${record.medida ?? ""} → ${record.montadora ?? ""} ${record.modeloVeiculo ?? ""}`.trim();
+
+    try {
+      const tireManufacturerName = (record.fabricantePneu ?? "").trim();
+      const tireModel = (record.modeloPneu ?? "").trim();
+      const tireSize = (record.medida ?? "").trim();
+      const vehicleManufacturerName = (record.montadora ?? "").trim();
+      const vehicleModel = (record.modeloVeiculo ?? "").trim();
+      const sourceUrl = (record.fonteUrl ?? "").trim();
+      const sourceName = (record.fonteNome ?? "").trim();
+      const sourceTypeRaw = (record.tipoFonte ?? "").trim().toUpperCase();
+      const collectedAtRaw = (record.dataColeta ?? "").trim();
+
+      if (
+        !tireManufacturerName ||
+        !tireModel ||
+        !tireSize ||
+        !vehicleManufacturerName ||
+        !vehicleModel ||
+        !sourceUrl ||
+        !sourceName
+      ) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro:
+            "fabricantePneu, modeloPneu, medida, montadora, modeloVeiculo, fonteUrl e fonteNome são obrigatórios",
+          rotulo: label,
+        });
+        continue;
+      }
+
+      if (!EVIDENCE_SOURCE_TYPES.includes(sourceTypeRaw as EvidenceSourceType)) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: `tipoFonte "${record.tipoFonte ?? ""}" inválido — use um de: ${EVIDENCE_SOURCE_TYPES.join(", ")}`,
+          rotulo: label,
+        });
+        continue;
+      }
+
+      const collectedAt = collectedAtRaw ? new Date(collectedAtRaw) : new Date();
+      if (Number.isNaN(collectedAt.getTime())) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: `dataColeta "${collectedAtRaw}" inválida — use AAAA-MM-DD`,
+          rotulo: label,
+        });
+        continue;
+      }
+
+      // Validações de existência (regra explícita: fabricante/modelo/
+      // medida/veículo precisam já existir antes de criar o
+      // relacionamento — nunca criar a partir de uma aplicação isolada).
+      const tireManufacturer = await prisma.tireManufacturer.findUnique({
+        where: { name: tireManufacturerName },
+        select: { id: true, brandPolicy: true },
+      });
+      if (!tireManufacturer) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: `Fabricante de pneu "${tireManufacturerName}" não encontrado — importe em brands/ antes`,
+          rotulo: label,
+        });
+        continue;
+      }
+
+      if (!policyAllowsApplication(tireManufacturer.brandPolicy)) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: `Política "${tireManufacturer.brandPolicy}" de "${tireManufacturerName}" não permite aplicações`,
+          rotulo: label,
+        });
+        continue;
+      }
+
+      const tireModelExists = await prisma.tireModel.findUnique({
+        where: { tireManufacturerId_name: { tireManufacturerId: tireManufacturer.id, name: tireModel } },
+        select: { id: true },
+      });
+      if (!tireModelExists) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: `Modelo "${tireModel}" não encontrado para "${tireManufacturerName}" — importe em tire_models/ antes`,
+          rotulo: label,
+        });
+        continue;
+      }
+
+      const tireSizeExists = await prisma.tire.findFirst({
+        where: { tireManufacturerId: tireManufacturer.id, model: tireModel, size: tireSize },
+        select: { id: true },
+      });
+      if (!tireSizeExists) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: `Medida "${tireSize}" não encontrada para "${tireManufacturerName} ${tireModel}" — importe em tire_sizes/ antes`,
+          rotulo: label,
+        });
+        continue;
+      }
+
+      const vehicleManufacturerExists = await resolveManufacturerId(prisma, vehicleManufacturerName);
+      if (!vehicleManufacturerExists) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: `Montadora "${vehicleManufacturerName}" não encontrada — importe em vehicles/ antes`,
+          rotulo: label,
+        });
+        continue;
+      }
+
+      const vehicleModelExists = await prisma.vehicleModel.findFirst({
+        where: { manufacturerId: vehicleManufacturerExists.id, normalizedName: normalizeLookupKey(vehicleModel) },
+        select: { id: true },
+      });
+      if (!vehicleModelExists) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: `Veículo "${vehicleManufacturerName} ${vehicleModel}" não encontrado — importe em vehicles/ antes`,
+          rotulo: label,
+        });
+        continue;
+      }
+
+      const resultado = await registrarEvidencia({
+        tireManufacturerName,
+        tireModel,
+        tireSize,
+        vehicleManufacturerName,
+        vehicleModel,
+        vehicleVersion: (record.versaoVeiculo ?? "").trim() || null,
+        yearStart: record.anoInicial ? Number(record.anoInicial) : null,
+        yearEnd: record.anoFinal ? Number(record.anoFinal) : null,
+        sourceUrl,
+        sourceName,
+        sourceType: sourceTypeRaw as EvidenceSourceType,
+        collectedAt,
+      });
+
+      if (resultado.duplicada) {
+        duplicados++;
+        detalhes.push({ linha, status: "duplicado", sucesso: true, rotulo: label });
+      } else {
+        criados++;
+        detalhes.push({ linha, status: "criado", sucesso: true, rotulo: label });
+      }
+    } catch (error) {
+      detalhes.push({
+        linha,
+        status: "erro",
+        sucesso: false,
+        erro: error instanceof Error ? error.message : "Erro desconhecido",
+        rotulo: label,
+      });
+    }
+  }
+
+  const falhas = detalhes.filter((d) => d.status === "erro").length;
+
+  if (lote) {
+    await finalizarLote(lote.id, {
+      totalRows: rows.length,
+      importedCount: criados,
+      updatedCount: 0,
+      duplicateCount: duplicados,
+      errorCount: falhas,
+      durationMs: Date.now() - inicio,
+      erros: detalhes
+        .filter((d) => d.status === "erro")
+        .map((d) => ({
+          rowNumber: d.linha,
+          message: d.erro ?? "Erro desconhecido",
+          rawData: d.rotulo ? JSON.stringify({ rotulo: d.rotulo }) : null,
+        })),
+    });
+  }
+
+  return {
+    total: rows.length,
+    sucesso: criados,
+    criados,
+    atualizados: 0,
+    duplicados,
+    falhas,
+    detalhes,
   };
 }

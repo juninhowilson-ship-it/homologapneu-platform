@@ -21,6 +21,8 @@ import {
   Activity,
   Map as MapIcon,
   Images,
+  Brain,
+  Upload,
   type LucideIcon,
 } from "lucide-react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -51,6 +53,8 @@ const menuAdministracao: MenuItem[] = [
   { nome: "Documentos", rota: "/administracao/documentos", icone: FileText, adminOnly: true },
   { nome: "Crawler", rota: "/administracao/crawler", icone: Bot, adminOnly: true },
   { nome: "Curadoria", rota: "/administracao/curadoria", icone: Sparkles, adminOnly: true },
+  { nome: "Montadoras (Pipeline)", rota: "/administracao/montadoras", icone: Factory, adminOnly: true },
+  { nome: "Importação", rota: "/administracao#importacao", icone: Upload, adminOnly: true },
   { nome: "Usuários", rota: "/usuarios", icone: Users, adminOnly: true },
   { nome: "Logs", rota: "/administracao/logs", icone: ScrollText, adminOnly: true },
   { nome: "Relatórios", rota: "/relatorios", icone: BarChart3, adminOnly: true },

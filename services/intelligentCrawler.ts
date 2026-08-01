@@ -164,16 +164,29 @@ async function processarDocumento(
   const fileName = decodeURIComponent(url.split("/").pop() || "documento.pdf").split("?")[0];
   const evidenceType = CATEGORY_TO_EVIDENCE_TYPE[fonte.category] ?? "MANUAL";
 
-  const resultado = await uploadDocumento({
-    buffer,
-    fileName,
-    declaredSourceType: evidenceType,
-    declaredSourceName: `${fonte.manufacturerName} — ${CATEGORY_LABEL[fonte.category] ?? fonte.category} (${new URL(url).hostname})`,
-    userId,
-    sourceUrl: url,
-    manufacturerName: fonte.manufacturerName,
-    reliability: SOURCE_TYPE_POINTS[evidenceType],
-  });
+  // uploadDocumento pode lançar (ex.: upload ao Storage rejeitado por
+  // tamanho — visto na prática com um PDF de 57,5MB da Kia, HTTP 413 no
+  // upload resumable/TUS) em vez de retornar { erro }. Sem este try/catch,
+  // a exceção escapava até o laço da fonte HUB (abaixo), abortando TODO o
+  // restante da lista de links (não só este documento) e marcando a fonte
+  // inteira como ERRO — mesmo já tendo processado outros documentos com
+  // sucesso na mesma visita. Qualquer falha aqui deve derrubar só ESTE
+  // documento, nunca a fonte inteira.
+  let resultado;
+  try {
+    resultado = await uploadDocumento({
+      buffer,
+      fileName,
+      declaredSourceType: evidenceType,
+      declaredSourceName: `${fonte.manufacturerName} — ${CATEGORY_LABEL[fonte.category] ?? fonte.category} (${new URL(url).hostname})`,
+      userId,
+      sourceUrl: url,
+      manufacturerName: fonte.manufacturerName,
+      reliability: SOURCE_TYPE_POINTS[evidenceType],
+    });
+  } catch (error) {
+    return { status: "erro", motivo: error instanceof Error ? error.message : "Falha ao processar documento" };
+  }
 
   if (resultado.duplicado) return { status: "duplicado" };
   if (resultado.erro) return { status: "erro", motivo: resultado.erro };
@@ -199,7 +212,8 @@ export type CrawlerRunResumo = {
  */
 export async function executarCrawler(
   trigger: CrawlerRunTrigger,
-  userId: number | null
+  userId: number | null,
+  options?: { manufacturerName?: string }
 ): Promise<CrawlerRunResumo> {
   // Garante que o catálogo semente (achados reais desta sessão) está
   // presente antes de cada execução — igual ao padrão já usado por
@@ -207,6 +221,24 @@ export async function executarCrawler(
   // status de uma fonte já visitada (cadastrarFonte só atualiza campos
   // descritivos em cima de uma linha existente).
   await cadastrarFontes(OFFICIAL_DOCUMENT_SOURCES);
+
+  // Auto-cura de CrawlerRun órfã: diferente de ImportHistory, uma
+  // CrawlerRun não tem retomada — ela deveria concluir dentro do próprio
+  // ciclo de vida da requisição. Uma linha ainda "EXECUTANDO" muito além
+  // do orçamento de tempo real (TEMPO_MAXIMO_MS) só existe porque o
+  // processo do servidor morreu no meio (visto na prática: dev server
+  // encerrado por fora enquanto uma requisição estava em curso) — nunca
+  // vai se completar sozinha e ficaria travada em audit:crawler para
+  // sempre. Não mexe em runs recentes (podem ser concorrência real).
+  const ORPHAN_RUN_THRESHOLD_MS = 15 * 60 * 1000;
+  await prisma.crawlerRun.updateMany({
+    where: { status: "EXECUTANDO", startedAt: { lt: new Date(Date.now() - ORPHAN_RUN_THRESHOLD_MS) } },
+    data: {
+      status: "FALHOU",
+      finishedAt: new Date(),
+      errorMessage: "Execução órfã: processo do servidor encerrado antes de concluir (auto-detectado).",
+    },
+  });
 
   const run = await prisma.crawlerRun.create({ data: { trigger, status: "EXECUTANDO" } });
 
@@ -218,8 +250,16 @@ export async function executarCrawler(
   let errorCount = 0;
   const erros: string[] = [];
 
+  // Filtro opcional por montadora (usado por `npm run manufacturer:import`,
+  // scripts/manufacturer-import.ts) — sem filtro, comportamento idêntico ao
+  // já existente (todas as fontes ATIVA/PENDENTE, disparo manual/painel).
   const fontes = await prisma.crawlerSource.findMany({
-    where: { status: { in: ["ATIVA", "PENDENTE"] } },
+    where: {
+      status: { in: ["ATIVA", "PENDENTE"] },
+      ...(options?.manufacturerName
+        ? { manufacturerName: { equals: options.manufacturerName, mode: "insensitive" } }
+        : {}),
+    },
   });
 
   let novosDownloads = 0;
@@ -273,6 +313,12 @@ export async function executarCrawler(
 
         for (const link of links) {
           if (novosDownloads >= MAX_NEW_DOWNLOADS_PER_RUN) break;
+          // TEMPO_MAXIMO_MS era checado só ENTRE fontes (loop externo) —
+          // sem efeito quando a chamada é filtrada por montadora e só
+          // existe 1 fonte (o caso comum de scripts/manufacturer-import.ts).
+          // Uma única fonte HUB com muitos links grandes (ex.: Kia, PDF de
+          // 57,5MB) podia então rodar sem nenhum teto de tempo real.
+          if (Date.now() - inicio >= TEMPO_MAXIMO_MS) break;
           const resultado = await processarDocumento(link, fonte, userId);
           if (resultado.status === "baixado") {
             documentsDownloaded++;

@@ -7,13 +7,22 @@ import {
   findTireManufacturerById,
   findOrCreateTireFamily,
   findOrCreateTechnology,
+  findOrCreateTireModel,
+  findTireManufacturerByName,
   syncTireTechnologies,
+  findTechnologyByName,
+  updateTechnologyDescription,
+  findOeCode,
+  findOrCreateOeCode,
+  updateOeCodeDescription,
   listTireManufacturers as listTireManufacturersRepo,
   createPneu as createPneuRepo,
   updatePneu as updatePneuRepo,
   deletePneu as deletePneuRepo,
   type PneuRecord,
 } from "@/repositories/pneus";
+import { resolveManufacturerId } from "@/lib/masterData/resolveManufacturer";
+import { prisma } from "@/lib/prisma";
 import { NotFoundError, ConflictError, ValidationError } from "@/lib/errors";
 import {
   pneuFormSchema,
@@ -521,6 +530,378 @@ export async function importPneus(
   return {
     total: rows.length,
     sucesso,
+    criados,
+    atualizados,
+    duplicados,
+    falhas,
+    detalhes,
+  };
+}
+
+export type ModeloParaImportar = { nome: string; fabricante: string };
+
+/**
+ * Importa uma lista de modelos/linhas de pneu (TireModel — ex.: "Primacy
+ * 5"), cada um já com o nome do fabricante ao qual pertence. Distinto de
+ * importPneus (que importa Tire, o SKU com medida/índices/categoria já
+ * definidos): este só cadastra a linha do produto, sem nenhuma medida —
+ * TireModel não exige nenhum dado que não foi dado (nome + fabricante).
+ *
+ * Idempotente: TireModel.@@unique([tireManufacturerId, name]) garante
+ * nunca duplicar; reexecutar a mesma lista não cria nada novo.
+ */
+export async function importarModelosPorNome(
+  modelos: ModeloParaImportar[],
+  contexto?: ImportContexto
+): Promise<ImportacaoResultado> {
+  const inicio = Date.now();
+
+  const lote = contexto
+    ? await iniciarLote({
+        fileName: contexto.fileName,
+        fileType: contexto.fileType ?? inferFileType(contexto.fileName),
+        entity: "PNEUS",
+        userId: contexto.userId,
+        sourceVersion: contexto.sourceVersion,
+        collectedAt: contexto.collectedAt,
+        sourceUrl: contexto.sourceUrl,
+        importHash: computeImportHash(modelos),
+      })
+    : null;
+
+  let criados = 0;
+  let duplicados = 0;
+  const detalhes: ImportacaoLinhaResultado[] = [];
+
+  for (const [index, item] of modelos.entries()) {
+    const linha = index + 2;
+    const nome = item.nome.trim();
+    const fabricante = item.fabricante.trim();
+    const label = `${fabricante} ${nome}`.trim();
+
+    try {
+      if (!nome || !fabricante) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: "Nome do modelo e fabricante são obrigatórios",
+          rotulo: label,
+        });
+        continue;
+      }
+
+      const manufacturer = await findTireManufacturerByName(fabricante);
+      if (!manufacturer) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: `Fabricante "${fabricante}" não encontrado — cadastre-o antes de importar seus modelos`,
+          rotulo: label,
+        });
+        continue;
+      }
+
+      const { id: tireModelId, created } = await findOrCreateTireModel(manufacturer.id, nome);
+
+      if (lote) {
+        if (created) {
+          await registrarCriacao("TireModel", tireModelId, lote.id, contexto?.userId ?? null);
+        }
+      }
+
+      if (created) {
+        criados++;
+        detalhes.push({ linha, status: "criado", sucesso: true, rotulo: label });
+      } else {
+        duplicados++;
+        detalhes.push({ linha, status: "duplicado", sucesso: true, rotulo: label });
+      }
+    } catch (error) {
+      detalhes.push({
+        linha,
+        status: "erro",
+        sucesso: false,
+        erro: error instanceof Error ? error.message : "Erro desconhecido",
+        rotulo: label,
+      });
+    }
+  }
+
+  const falhas = detalhes.filter((d) => d.status === "erro").length;
+  const sucesso = criados;
+
+  if (lote) {
+    await finalizarLote(lote.id, {
+      totalRows: modelos.length,
+      importedCount: criados,
+      updatedCount: 0,
+      duplicateCount: duplicados,
+      errorCount: falhas,
+      durationMs: Date.now() - inicio,
+      erros: detalhes
+        .filter((d) => d.status === "erro")
+        .map((d) => ({
+          rowNumber: d.linha,
+          message: d.erro ?? "Erro desconhecido",
+          rawData: d.rotulo ? JSON.stringify({ rotulo: d.rotulo }) : null,
+        })),
+    });
+  }
+
+  return {
+    total: modelos.length,
+    sucesso,
+    criados,
+    atualizados: 0,
+    duplicados,
+    falhas,
+    detalhes,
+  };
+}
+
+/**
+ * Importa Technology (tecnologias de pneu, ex.: "Seal Inside",
+ * "ContiSilent" — nunca códigos OEM, ver Technology/OeCode). Colunas:
+ * nome, descricao. Idempotente via Technology.name @unique.
+ */
+export async function importarTecnologias(
+  rows: Record<string, string>[],
+  contexto?: ImportContexto
+): Promise<ImportacaoResultado> {
+  const inicio = Date.now();
+
+  const lote = contexto
+    ? await iniciarLote({
+        fileName: contexto.fileName,
+        fileType: contexto.fileType ?? inferFileType(contexto.fileName),
+        entity: "TECNOLOGIAS",
+        userId: contexto.userId,
+        sourceVersion: contexto.sourceVersion,
+        collectedAt: contexto.collectedAt,
+        sourceUrl: contexto.sourceUrl,
+        importHash: computeImportHash(rows),
+      })
+    : null;
+
+  let criados = 0;
+  let atualizados = 0;
+  let duplicados = 0;
+  const detalhes: ImportacaoLinhaResultado[] = [];
+
+  for (const [index, record] of rows.entries()) {
+    const linha = index + 2;
+    const nome = (record.nome ?? "").trim();
+    const descricao = (record.descricao ?? "").trim() || null;
+
+    try {
+      if (!nome) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: "Nome é obrigatório",
+          rotulo: nome,
+        });
+        continue;
+      }
+
+      const existing = await findTechnologyByName(nome);
+
+      if (existing) {
+        const changes = diffRecords(
+          { description: existing.description },
+          { description: descricao }
+        );
+        if (!changes) {
+          duplicados++;
+          detalhes.push({ linha, status: "duplicado", sucesso: true, rotulo: nome });
+          continue;
+        }
+        await updateTechnologyDescription(existing.id, descricao);
+        if (lote) {
+          await registrarAtualizacao("Technology", existing.id, lote.id, contexto?.userId ?? null, changes);
+        }
+        atualizados++;
+        detalhes.push({ linha, status: "atualizado", sucesso: true, rotulo: nome });
+      } else {
+        const created = await prisma.technology.create({
+          data: { name: nome, description: descricao },
+          select: { id: true },
+        });
+        if (lote) {
+          await registrarCriacao("Technology", created.id, lote.id, contexto?.userId ?? null);
+        }
+        criados++;
+        detalhes.push({ linha, status: "criado", sucesso: true, rotulo: nome });
+      }
+    } catch (error) {
+      detalhes.push({
+        linha,
+        status: "erro",
+        sucesso: false,
+        erro: error instanceof Error ? error.message : "Erro desconhecido",
+        rotulo: nome,
+      });
+    }
+  }
+
+  const falhas = detalhes.filter((d) => d.status === "erro").length;
+
+  if (lote) {
+    await finalizarLote(lote.id, {
+      totalRows: rows.length,
+      importedCount: criados,
+      updatedCount: atualizados,
+      duplicateCount: duplicados,
+      errorCount: falhas,
+      durationMs: Date.now() - inicio,
+      erros: detalhes
+        .filter((d) => d.status === "erro")
+        .map((d) => ({
+          rowNumber: d.linha,
+          message: d.erro ?? "Erro desconhecido",
+          rawData: d.rotulo ? JSON.stringify({ rotulo: d.rotulo }) : null,
+        })),
+    });
+  }
+
+  return {
+    total: rows.length,
+    sucesso: criados + atualizados,
+    criados,
+    atualizados,
+    duplicados,
+    falhas,
+    detalhes,
+  };
+}
+
+/**
+ * Importa OeCode (código OE declarado pela montadora, ex.: "MO", "AO",
+ * "N0" — nunca confundir com Technology). Colunas: montadora, codigo,
+ * descricao. Resolve a montadora pelo mesmo mecanismo do domínio de
+ * veículos (normalizedName + SearchAlias) — nunca cria a montadora, só
+ * resolve uma já existente. Idempotente via
+ * OeCode.@@unique([vehicleManufacturerId, code]).
+ */
+export async function importarOeCodes(
+  rows: Record<string, string>[],
+  contexto?: ImportContexto
+): Promise<ImportacaoResultado> {
+  const inicio = Date.now();
+
+  const lote = contexto
+    ? await iniciarLote({
+        fileName: contexto.fileName,
+        fileType: contexto.fileType ?? inferFileType(contexto.fileName),
+        entity: "CODIGOS_OE",
+        userId: contexto.userId,
+        sourceVersion: contexto.sourceVersion,
+        collectedAt: contexto.collectedAt,
+        sourceUrl: contexto.sourceUrl,
+        importHash: computeImportHash(rows),
+      })
+    : null;
+
+  let criados = 0;
+  let atualizados = 0;
+  let duplicados = 0;
+  const detalhes: ImportacaoLinhaResultado[] = [];
+
+  for (const [index, record] of rows.entries()) {
+    const linha = index + 2;
+    const montadora = (record.montadora ?? "").trim();
+    const codigo = (record.codigo ?? "").trim();
+    const descricao = (record.descricao ?? "").trim() || null;
+    const label = `${montadora} ${codigo}`.trim();
+
+    try {
+      if (!montadora || !codigo) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: "montadora e codigo são obrigatórios",
+          rotulo: label,
+        });
+        continue;
+      }
+
+      const manufacturer = await resolveManufacturerId(prisma, montadora);
+      if (!manufacturer) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: `Montadora "${montadora}" não encontrada — cadastre-a antes de importar seus códigos OE`,
+          rotulo: label,
+        });
+        continue;
+      }
+
+      const existing = await findOeCode(manufacturer.id, codigo);
+
+      if (existing) {
+        const changes = diffRecords(
+          { description: existing.description },
+          { description: descricao }
+        );
+        if (!changes) {
+          duplicados++;
+          detalhes.push({ linha, status: "duplicado", sucesso: true, rotulo: label });
+          continue;
+        }
+        await updateOeCodeDescription(existing.id, descricao);
+        if (lote) {
+          await registrarAtualizacao("OeCode", existing.id, lote.id, contexto?.userId ?? null, changes);
+        }
+        atualizados++;
+        detalhes.push({ linha, status: "atualizado", sucesso: true, rotulo: label });
+      } else {
+        const id = await findOrCreateOeCode(manufacturer.id, codigo, contexto ? `Importação: ${contexto.fileName}` : null);
+        if (descricao) await updateOeCodeDescription(id, descricao);
+        if (lote) {
+          await registrarCriacao("OeCode", id, lote.id, contexto?.userId ?? null);
+        }
+        criados++;
+        detalhes.push({ linha, status: "criado", sucesso: true, rotulo: label });
+      }
+    } catch (error) {
+      detalhes.push({
+        linha,
+        status: "erro",
+        sucesso: false,
+        erro: error instanceof Error ? error.message : "Erro desconhecido",
+        rotulo: label,
+      });
+    }
+  }
+
+  const falhas = detalhes.filter((d) => d.status === "erro").length;
+
+  if (lote) {
+    await finalizarLote(lote.id, {
+      totalRows: rows.length,
+      importedCount: criados,
+      updatedCount: atualizados,
+      duplicateCount: duplicados,
+      errorCount: falhas,
+      durationMs: Date.now() - inicio,
+      erros: detalhes
+        .filter((d) => d.status === "erro")
+        .map((d) => ({
+          rowNumber: d.linha,
+          message: d.erro ?? "Erro desconhecido",
+          rawData: d.rotulo ? JSON.stringify({ rotulo: d.rotulo }) : null,
+        })),
+    });
+  }
+
+  return {
+    total: rows.length,
+    sucesso: criados + atualizados,
     criados,
     atualizados,
     duplicados,

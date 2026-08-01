@@ -1,6 +1,6 @@
 import type { ValidationStatus } from "@/lib/constants/validacao";
 
-export type HomologacaoTireRole = "ORIGINAL" | "OPCIONAL";
+export type HomologacaoTireRole = "ORIGINAL" | "OPCIONAL" | "SUBSTITUTO";
 
 export type HomologacaoTireItem = {
   id: number;

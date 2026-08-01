@@ -11,6 +11,8 @@ import {
   REAL_HOMOLOGATION_TIRES,
   HOMOLOGATIONS,
 } from "./seedData";
+import { normalizeLookupKey } from "../lib/masterData/normalizeName";
+import { findOrCreateVehicleModelId } from "../lib/masterData/resolveVehicleModel";
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL,
@@ -42,10 +44,11 @@ async function main() {
   const manufacturerIds = new Map<string, number>();
   for (const name of MANUFACTURERS) {
     const manufacturer = await prisma.manufacturer.upsert({
-      where: { name },
+      where: { normalizedName: normalizeLookupKey(name) },
       update: {},
       create: {
         name,
+        normalizedName: normalizeLookupKey(name),
         validationStatus: "NECESSITA_VALIDACAO",
         source: "Cadastro inicial de demonstração",
       },
@@ -79,15 +82,7 @@ async function main() {
     const modelKey = `${vehicle.manufacturer}|${vehicle.model}`;
     let vehicleModelId = vehicleModelIds.get(modelKey);
     if (!vehicleModelId) {
-      const existingModel = await prisma.vehicleModel.findFirst({
-        where: { manufacturerId, name: vehicle.model },
-      });
-      const model =
-        existingModel ??
-        (await prisma.vehicleModel.create({
-          data: { manufacturerId, name: vehicle.model },
-        }));
-      vehicleModelId = model.id;
+      vehicleModelId = await findOrCreateVehicleModelId(prisma, manufacturerId, vehicle.model);
       vehicleModelIds.set(modelKey, vehicleModelId);
     }
 

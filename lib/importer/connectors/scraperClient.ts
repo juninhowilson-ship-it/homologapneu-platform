@@ -1,5 +1,6 @@
-import "server-only";
-
+// Sem `server-only`: só faz fetch a endpoints públicos (sem segredo, sem
+// Prisma), precisa rodar também em scripts standalone de importação —
+// mesmo motivo de lib/importer/manufacturerCatalog/columnMapping.ts.
 const USER_AGENT = "HomologaPneu-DataImport/1.0 (+https://github.com/homologapneu; contato via projeto)";
 
 type RobotsRule = { path: string; allow: boolean };

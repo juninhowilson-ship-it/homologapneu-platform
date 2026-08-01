@@ -72,7 +72,9 @@ export const OFFICIAL_DOCUMENT_SOURCES: FonteCadastro[] = [
       "robots.txt com grupo `User-agent: *` vazio (sem Disallow). Página estática com 48 links diretos para PDFs de manuais.",
   },
   {
-    manufacturerName: "Kia",
+    // Nome canônico é "Kia Motors" na tabela Manufacturer (Prisma) — "Kia"
+    // sozinho não resolve lá, mesmo com match case-insensitive.
+    manufacturerName: "Kia Motors",
     category: "MANUAL_PROPRIETARIO",
     kind: "HUB",
     url: "https://www.kia.com.br/manual-do-proprietario",

@@ -105,7 +105,11 @@ export default function HomologacaoDetailModal({ open, onClose, id }: Props) {
                   <TableRow key={tire.id}>
                     <TableTd>
                       <Badge tone={tire.role === "ORIGINAL" ? "success" : "neutral"}>
-                        {tire.role === "ORIGINAL" ? "Original" : "Opcional"}
+                        {tire.role === "ORIGINAL"
+                          ? "Original"
+                          : tire.role === "SUBSTITUTO"
+                            ? "Substituto"
+                            : "Opcional"}
                       </Badge>
                     </TableTd>
                     <TableTd className="font-semibold">

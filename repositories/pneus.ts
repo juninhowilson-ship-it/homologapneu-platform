@@ -106,6 +106,39 @@ export async function findOrCreateTireFamily(
   return created.id;
 }
 
+/**
+ * TireModel (linha de pneu, ex.: "Primacy 5") por fabricante. Mesmo
+ * padrão exato de findOrCreateTireFamily — TireModel não tem
+ * normalizedName (fase de conteúdo, decisão explícita de não fazer
+ * migração nova agora); dedup por nome exato, já garantida pelo
+ * @@unique([tireManufacturerId, name]) do schema.
+ */
+export async function findOrCreateTireModel(
+  tireManufacturerId: number,
+  name: string
+): Promise<{ id: number; created: boolean }> {
+  const existing = await prisma.tireModel.findUnique({
+    where: { tireManufacturerId_name: { tireManufacturerId, name } },
+    select: { id: true },
+  });
+  if (existing) return { id: existing.id, created: false };
+
+  const created = await prisma.tireModel.create({
+    data: { tireManufacturerId, name },
+    select: { id: true },
+  });
+  return { id: created.id, created: true };
+}
+
+export async function findTireManufacturerByName(
+  name: string
+): Promise<{ id: number } | null> {
+  return prisma.tireManufacturer.findUnique({
+    where: { name },
+    select: { id: true },
+  });
+}
+
 export async function findOrCreateLoadIndex(
   code: string,
   source: string | null
@@ -140,6 +173,24 @@ export async function findOrCreateSpeedIndex(
   return created.id;
 }
 
+export async function findOrCreateOeCode(
+  vehicleManufacturerId: number,
+  code: string,
+  source: string | null
+): Promise<number> {
+  const existing = await prisma.oeCode.findUnique({
+    where: { vehicleManufacturerId_code: { vehicleManufacturerId, code } },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  const created = await prisma.oeCode.create({
+    data: { vehicleManufacturerId, code, source },
+    select: { id: true },
+  });
+  return created.id;
+}
+
 export async function findOrCreateTechnology(
   name: string,
   source: string | null
@@ -155,6 +206,39 @@ export async function findOrCreateTechnology(
     select: { id: true },
   });
   return created.id;
+}
+
+export async function findTechnologyByName(
+  name: string
+): Promise<{ id: number; description: string | null } | null> {
+  return prisma.technology.findUnique({
+    where: { name },
+    select: { id: true, description: true },
+  });
+}
+
+export async function updateTechnologyDescription(
+  id: number,
+  description: string | null
+): Promise<void> {
+  await prisma.technology.update({ where: { id }, data: { description } });
+}
+
+export async function findOeCode(
+  vehicleManufacturerId: number,
+  code: string
+): Promise<{ id: number; description: string | null } | null> {
+  return prisma.oeCode.findUnique({
+    where: { vehicleManufacturerId_code: { vehicleManufacturerId, code } },
+    select: { id: true, description: true },
+  });
+}
+
+export async function updateOeCodeDescription(
+  id: number,
+  description: string | null
+): Promise<void> {
+  await prisma.oeCode.update({ where: { id }, data: { description } });
 }
 
 export async function syncTireTechnologies(

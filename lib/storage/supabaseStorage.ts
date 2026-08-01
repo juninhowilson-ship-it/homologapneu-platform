@@ -1,4 +1,6 @@
-import "server-only";
+// Sem `server-only`: só lê variáveis de ambiente em runtime (nenhum
+// segredo embutido no próprio arquivo), precisa rodar também em scripts
+// standalone de importação — mesmo motivo de lib/importer/manufacturerCatalog/columnMapping.ts.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -42,6 +44,43 @@ function getClient(): SupabaseClient {
     );
   }
   return cachedClient;
+}
+
+/**
+ * Cria os buckets de logo/imagem re-hospedada que ainda não existirem —
+ * idempotente (ignora "already exists"). Mesmo padrão de
+ * storage/mediaStorage.ts#ensureMediaBucketsExist (bucket separado, nunca
+ * criado automaticamente por nenhum cron/inicialização).
+ */
+export async function ensureLogoBucketsExist(): Promise<{
+  configured: boolean;
+  created: string[];
+  existing: string[];
+}> {
+  if (!isStorageConfigured()) {
+    return { configured: false, created: [], existing: [] };
+  }
+
+  const client = getClient();
+  const { data: existentes } = await client.storage.listBuckets();
+  const nomesExistentes = new Set((existentes ?? []).map((b) => b.name));
+
+  const created: string[] = [];
+  const existing: string[] = [];
+
+  for (const bucket of [BUCKET_LOGOS, BUCKET_VEHICLE_IMAGES, BUCKET_TIRE_IMAGES]) {
+    if (nomesExistentes.has(bucket)) {
+      existing.push(bucket);
+      continue;
+    }
+    const { error } = await client.storage.createBucket(bucket, { public: true });
+    if (error && !error.message.toLowerCase().includes("already exists")) {
+      throw new Error(`Falha ao criar bucket "${bucket}": ${error.message}`);
+    }
+    created.push(bucket);
+  }
+
+  return { configured: true, created, existing };
 }
 
 export type StoredImage = {

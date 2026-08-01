@@ -1,12 +1,20 @@
 import "server-only";
 import { NextResponse } from "next/server";
-import { NotFoundError, ConflictError, ValidationError } from "@/lib/errors";
+import {
+  NotFoundError,
+  ConflictError,
+  ValidationError,
+  UnauthorizedError,
+  ForbiddenError,
+} from "@/lib/errors";
 
 export function errorResponse(error: unknown) {
   if (
     error instanceof NotFoundError ||
     error instanceof ConflictError ||
-    error instanceof ValidationError
+    error instanceof ValidationError ||
+    error instanceof UnauthorizedError ||
+    error instanceof ForbiddenError
   ) {
     return NextResponse.json(
       { error: error.message },

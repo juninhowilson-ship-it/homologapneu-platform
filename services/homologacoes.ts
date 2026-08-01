@@ -7,6 +7,7 @@ import {
   findVehicleVersionByNaturalKey,
   findTiresByIds,
   findTireByNaturalKey,
+  findTireManufacturerPolicy,
   listVehicleOptions as listVehicleOptionsRepo,
   listTireOptions as listTireOptionsRepo,
   createHomologacao as createHomologacaoRepo,
@@ -41,6 +42,7 @@ import {
   registrarAtualizacao,
   registrarAlteracaoManual,
 } from "@/services/importBatches";
+import { policyAllowsHomologation } from "@/lib/constants/brandPolicy";
 import type {
   Homologacao,
   HomologacaoListResponse,
@@ -126,10 +128,11 @@ function toDTO(record: HomologacaoRecord): Homologacao {
     validatedAt: record.validatedAt ? record.validatedAt.toISOString() : null,
     tires,
     originalTire: tires.find((tire) => tire.role === "ORIGINAL") ?? null,
-    optionalTires: tires.filter((tire) => tire.role === "OPCIONAL"),
+    // OPCIONAL e SUBSTITUTO são ambos alternativas ao pneu original.
+    optionalTires: tires.filter((tire) => tire.role !== "ORIGINAL"),
     wheels,
     originalWheel: wheels.find((wheel) => wheel.role === "ORIGINAL") ?? null,
-    optionalWheels: wheels.filter((wheel) => wheel.role === "OPCIONAL"),
+    optionalWheels: wheels.filter((wheel) => wheel.role !== "ORIGINAL"),
     pressureSpecs,
     documents,
     createdAt: record.createdAt.toISOString(),
@@ -539,6 +542,20 @@ export async function importHomologacoes(
           status: "erro",
           sucesso: false,
           erro: `Pneu original "${record.pneuOriginalFabricante ?? ""} ${record.pneuOriginalModelo ?? ""} ${record.pneuOriginalMedida ?? ""}" não encontrado. Importe os pneus antes das homologações.`,
+          rotulo: label,
+        });
+        continue;
+      }
+
+      // BrandPolicy da marca do pneu original — nunca criar homologação
+      // fora do que a política da marca permite (regra explícita).
+      const originalTireBrand = await findTireManufacturerPolicy(originalTire.id);
+      if (originalTireBrand && !policyAllowsHomologation(originalTireBrand.brandPolicy)) {
+        detalhes.push({
+          linha,
+          status: "erro",
+          sucesso: false,
+          erro: `Política "${originalTireBrand.brandPolicy}" de "${originalTireBrand.name}" não permite homologações`,
           rotulo: label,
         });
         continue;

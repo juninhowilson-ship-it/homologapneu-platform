@@ -82,7 +82,7 @@ export default async function AdministracaoPage() {
         </div>
       </div>
 
-      <div>
+      <div id="importacao">
         <h2 className="mb-4 text-lg font-bold">Importação de arquivos</h2>
         <Card className="space-y-4">
           <div>

@@ -10,7 +10,7 @@ export type HomologacaoConfirmada = {
   codigo: string;
   ano: number;
   status: string;
-  papel: "ORIGINAL" | "OPCIONAL";
+  papel: "ORIGINAL" | "OPCIONAL" | "SUBSTITUTO";
   fonte: string | null;
   validadoPor: string | null;
   validadoEm: string | null;

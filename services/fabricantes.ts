@@ -31,6 +31,13 @@ import type {
   ImportacaoResultado,
   ImportacaoLinhaResultado,
 } from "@/types/importacao";
+import {
+  DEFAULT_BRAND_POLICY,
+  isKnownBrandPolicy,
+  type BrandPolicy,
+} from "@/lib/constants/brandPolicy";
+import { slugify } from "@/lib/masterData/slugify";
+import { normalizeLookupKey } from "@/lib/masterData/normalizeName";
 
 function toDTO(record: FabricanteRecord): Fabricante {
   return {
@@ -182,6 +189,31 @@ export async function deleteFabricante(
   });
 }
 
+/**
+ * Aplica slug/brandPolicy/researchStatus após o create/update via
+ * fabricanteFormSchema (que não conhece esses 3 campos — são específicos
+ * do Master Data Layer/database/import/brands, não do formulário manual
+ * de cadastro). Coluna brandPolicy do CSV é opcional; valor desconhecido
+ * ou ausente cai no default.
+ */
+async function aplicarPoliticaDeMarca(
+  id: number,
+  nome: string,
+  brandPolicyRaw: string | undefined
+): Promise<void> {
+  const brandPolicy: BrandPolicy =
+    brandPolicyRaw && isKnownBrandPolicy(brandPolicyRaw.trim().toUpperCase())
+      ? (brandPolicyRaw.trim().toUpperCase() as BrandPolicy)
+      : DEFAULT_BRAND_POLICY;
+  const researchStatus = brandPolicy === "APPLICATION_ONLY" ? "COMPLETED" : "PENDING";
+
+  await updateFabricanteRepo(id, {
+    slug: slugify(nome),
+    brandPolicy,
+    researchStatus,
+  });
+}
+
 export async function importFabricantes(
   rows: Record<string, string>[],
   contexto?: ImportContexto
@@ -241,6 +273,11 @@ export async function importFabricantes(
 
         const merged: FabricanteFormValues = {
           ...parsed.data,
+          // country: só preenche se hoje estiver vazio — nunca sobrescreve
+          // um valor já registrado (regra explícita: "atualizar apenas os
+          // campos vazios"), distinto do fallback de website/notes/logoUrl
+          // abaixo (que prioriza o valor novo do CSV quando informado).
+          country: current.country || parsed.data.country || "",
           website: parsed.data.website || current.website || "",
           notes: parsed.data.notes || current.notes || "",
           logoUrl: parsed.data.logoUrl || current.logoUrl || "",
@@ -271,6 +308,7 @@ export async function importFabricantes(
         }
 
         await updateFabricante(existing.id, merged);
+        await aplicarPoliticaDeMarca(existing.id, parsed.data.name, record.brandPolicy ?? record.politica);
         if (lote) {
           await registrarAtualizacao(
             "TireManufacturer",
@@ -284,6 +322,7 @@ export async function importFabricantes(
         detalhes.push({ linha, status: "atualizado", sucesso: true, rotulo: label });
       } else {
         const criado = await createFabricante(parsed.data);
+        await aplicarPoliticaDeMarca(criado.id, parsed.data.name, record.brandPolicy ?? record.politica);
         if (lote) {
           await registrarCriacao(
             "TireManufacturer",
@@ -329,6 +368,158 @@ export async function importFabricantes(
 
   return {
     total: rows.length,
+    sucesso,
+    criados,
+    atualizados,
+    duplicados,
+    falhas,
+    detalhes,
+  };
+}
+
+/**
+ * Exceções de política por marca — chave normalizada (case/acento-
+ * insensível, via normalizeLookupKey) para não depender da grafia exata
+ * na lista de entrada. Pedido explícito do usuário (2026-07-22): fora
+ * desta lista, toda marca recebe DEFAULT_BRAND_POLICY
+ * (APPLICATION_ONLY). Para acrescentar uma exceção nova: só editar este
+ * objeto — nenhuma migração de banco é necessária (brandPolicy é TEXT
+ * livre, ver lib/constants/brandPolicy.ts).
+ */
+const BRAND_POLICY_EXCEPTIONS: Record<string, BrandPolicy> = {
+  [normalizeLookupKey("Linglong")]: "OEM_AND_APPLICATION",
+  [normalizeLookupKey("Toyo")]: "OEM_AND_APPLICATION",
+  [normalizeLookupKey("Maxxis")]: "OEM_AND_APPLICATION",
+};
+
+/**
+ * Importa uma lista simples de nomes de marca (distinto de
+ * importFabricantes: aquele lê um CSV com colunas já preenchidas —
+ * país/site/logo/etc.; este recebe só nomes e DERIVA slug/política/status
+ * pelas regras de negócio abaixo). Reaproveita o mesmo repositório
+ * (findFabricanteByName/createFabricante/updateFabricante) e o mesmo
+ * rastro de auditoria (ImportBatch/AuditLog) de importFabricantes — não
+ * duplica a camada de dados, só o ponto de entrada, que tem forma de
+ * input e regra de derivação diferentes.
+ *
+ * Idempotente: reexecutar com a mesma lista atualiza slug/política/status
+ * das marcas já existentes (nunca cria duplicata — TireManufacturer.name
+ * é @unique) e não recria as que já foram encontradas por nome exato.
+ *
+ * Nunca cria nenhuma linha em Homologation/ManufacturerHomologation —
+ * essa regra é garantida estruturalmente: esta função só escreve em
+ * TireManufacturer, para qualquer política.
+ */
+export async function importarMarcasPorNome(
+  nomes: string[],
+  contexto?: ImportContexto
+): Promise<ImportacaoResultado> {
+  const inicio = Date.now();
+  const nomesLimpos = [...new Set(nomes.map((n) => n.trim()).filter(Boolean))];
+
+  const lote = contexto
+    ? await iniciarLote({
+        fileName: contexto.fileName,
+        fileType: contexto.fileType ?? inferFileType(contexto.fileName),
+        entity: "FABRICANTES_PNEUS",
+        userId: contexto.userId,
+        sourceVersion: contexto.sourceVersion,
+        collectedAt: contexto.collectedAt,
+        sourceUrl: contexto.sourceUrl,
+        importHash: computeImportHash(nomesLimpos.map((nome) => ({ nome }))),
+      })
+    : null;
+
+  let criados = 0;
+  let atualizados = 0;
+  let duplicados = 0;
+  const detalhes: ImportacaoLinhaResultado[] = [];
+
+  for (const [index, nome] of nomesLimpos.entries()) {
+    const linha = index + 2;
+
+    try {
+      const chave = normalizeLookupKey(nome);
+      const brandPolicy = BRAND_POLICY_EXCEPTIONS[chave] ?? DEFAULT_BRAND_POLICY;
+      // COMPLETED só para APPLICATION_ONLY: marcas com OEM_AND_APPLICATION
+      // ainda precisam de pesquisa de homologação OEM além da aplicação
+      // comercial, então a pesquisa não está completa por definição.
+      const researchStatus = brandPolicy === "APPLICATION_ONLY" ? "COMPLETED" : "PENDING";
+      const slug = slugify(nome);
+
+      const existing = await findFabricanteByName(nome);
+
+      if (existing) {
+        const current = await findFabricanteById(existing.id);
+        if (!current) throw new Error("Fabricante não encontrado após find-or-create");
+
+        const changes = diffRecords(
+          { slug: current.slug, brandPolicy: current.brandPolicy, researchStatus: current.researchStatus },
+          { slug, brandPolicy, researchStatus }
+        );
+
+        if (!changes) {
+          duplicados++;
+          detalhes.push({ linha, status: "duplicado", sucesso: true, rotulo: nome });
+          continue;
+        }
+
+        await updateFabricanteRepo(existing.id, { slug, brandPolicy, researchStatus });
+        if (lote) {
+          await registrarAtualizacao("TireManufacturer", existing.id, lote.id, contexto?.userId ?? null, changes);
+        }
+        atualizados++;
+        detalhes.push({ linha, status: "atualizado", sucesso: true, rotulo: nome });
+      } else {
+        const criado = await createFabricanteRepo({
+          name: nome,
+          slug,
+          brandPolicy,
+          researchStatus,
+          isActive: true,
+          validationStatus: "NECESSITA_VALIDACAO",
+          source: contexto ? `Importação: ${contexto.fileName}` : "Lista de marcas",
+        });
+        if (lote) {
+          await registrarCriacao("TireManufacturer", criado.id, lote.id, contexto?.userId ?? null);
+        }
+        criados++;
+        detalhes.push({ linha, status: "criado", sucesso: true, rotulo: nome });
+      }
+    } catch (error) {
+      detalhes.push({
+        linha,
+        status: "erro",
+        sucesso: false,
+        erro: error instanceof Error ? error.message : "Erro desconhecido",
+        rotulo: nome,
+      });
+    }
+  }
+
+  const falhas = detalhes.filter((d) => d.status === "erro").length;
+  const sucesso = criados + atualizados;
+
+  if (lote) {
+    await finalizarLote(lote.id, {
+      totalRows: nomesLimpos.length,
+      importedCount: criados,
+      updatedCount: atualizados,
+      duplicateCount: duplicados,
+      errorCount: falhas,
+      durationMs: Date.now() - inicio,
+      erros: detalhes
+        .filter((d) => d.status === "erro")
+        .map((d) => ({
+          rowNumber: d.linha,
+          message: d.erro ?? "Erro desconhecido",
+          rawData: d.rotulo ? JSON.stringify({ rotulo: d.rotulo }) : null,
+        })),
+    });
+  }
+
+  return {
+    total: nomesLimpos.length,
     sucesso,
     criados,
     atualizados,

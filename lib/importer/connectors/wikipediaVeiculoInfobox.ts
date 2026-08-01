@@ -1,4 +1,6 @@
-import "server-only";
+// Sem `server-only`: só faz fetch à API pública da Wikipédia (sem
+// segredo, sem Prisma), precisa rodar também em scripts standalone de
+// importação — mesmo motivo de lib/importer/manufacturerCatalog/columnMapping.ts.
 import { politeFetch } from "./scraperClient";
 
 /**
@@ -27,6 +29,10 @@ export type InfoboxVeiculo = {
    * versão individual (uma busca de infobox é compartilhada por todas as
    * versões do mesmo modelo, mas cada uma pode ter um motor diferente). */
   motorVariantes: string[];
+  /** URL da imagem principal do infobox (campo "imagem"), já resolvida
+   * para o endpoint público do Wikimedia Commons — null quando o infobox
+   * não declara nenhuma imagem. */
+  imageUrl: string | null;
   sourceUrl: string;
 };
 
@@ -204,6 +210,21 @@ function classificarTracao(raw: string): string | null {
   return null;
 }
 
+const IMAGEM_APELIDOS = ["imagem", "imagem_veiculo", "imagem veiculo"];
+
+/** Campo "imagem" do infobox costuma ser só o nome do arquivo no Commons
+ * (ex.: "Toyota Corolla (XI) 1.jpg"), às vezes envolto em [[Ficheiro:...]]
+ * — extrai o nome puro e monta a URL pública de download direto. */
+function resolverImagemCommons(raw: string): string | null {
+  const semMarcacao = raw
+    .replace(/\[\[(?:ficheiro|file|imagem):/i, "")
+    .replace(/\]\]$/, "")
+    .split("|")[0]
+    .trim();
+  if (!semMarcacao) return null;
+  return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(semMarcacao)}`;
+}
+
 const CARROCERIA_APELIDOS = ["carroceria", "tipo de carroçaria", "tipo de carroceria"];
 const CLASSE_APELIDOS = ["classe"];
 const LAYOUT_APELIDOS = ["layout", "tração"];
@@ -261,6 +282,9 @@ export async function buscarInfoboxModelo(
   const motorRaw = primeiroCampo(campos, MOTOR_APELIDOS);
   const motorVariantes = motorRaw ? splitVariantes(motorRaw) : [];
 
+  const imagemRaw = primeiroCampo(campos, IMAGEM_APELIDOS);
+  const imageUrl = imagemRaw ? resolverImagemCommons(imagemRaw) : null;
+
   return {
     carroceria,
     segmento,
@@ -269,6 +293,7 @@ export async function buscarInfoboxModelo(
     weight,
     doors,
     motorVariantes,
+    imageUrl,
     sourceUrl: `https://pt.wikipedia.org/wiki/${titulo}`,
   };
 }

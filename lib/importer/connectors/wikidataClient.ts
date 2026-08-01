@@ -1,5 +1,6 @@
-import "server-only";
-
+// Sem `server-only`: só faz fetch a um endpoint público (sem segredo, sem
+// Prisma), precisa rodar também em scripts standalone de importação —
+// mesmo motivo de lib/importer/manufacturerCatalog/columnMapping.ts.
 const SPARQL_ENDPOINT = "https://query.wikidata.org/sparql";
 
 export type SparqlBinding = Record<string, { type: string; value: string; "xml:lang"?: string }>;

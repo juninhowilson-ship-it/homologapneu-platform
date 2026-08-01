@@ -7,11 +7,16 @@ export const fabricanteFormSchema = z.object({
     .trim()
     .min(1, "Nome é obrigatório")
     .max(120, "Nome deve ter no máximo 120 caracteres"),
+  // Opcional desde que TireManufacturer.country virou nullable (fase de
+  // conteúdo — listas de marca nem sempre informam país). Formulário
+  // manual continua podendo pedir preenchimento na UI se quiser, mas a
+  // validação em si acompanha o que o banco já permite.
   country: z
     .string()
     .trim()
-    .min(1, "País é obrigatório")
-    .max(80, "País deve ter no máximo 80 caracteres"),
+    .max(80, "País deve ter no máximo 80 caracteres")
+    .optional()
+    .or(z.literal("")),
   website: z
     .union([z.literal(""), z.string().trim().url("URL inválida")])
     .optional(),

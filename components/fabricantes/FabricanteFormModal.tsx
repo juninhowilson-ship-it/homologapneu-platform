@@ -73,7 +73,7 @@ export default function FabricanteFormModal({
       fabricante
         ? {
             name: fabricante.name,
-            country: fabricante.country,
+            country: fabricante.country ?? "",
             website: fabricante.website ?? "",
             notes: fabricante.notes ?? "",
             logoUrl: fabricante.logoUrl ?? "",

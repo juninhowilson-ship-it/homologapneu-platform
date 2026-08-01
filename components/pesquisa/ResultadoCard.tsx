@@ -57,7 +57,11 @@ export default function ResultadoCard({ resultado }: Props) {
             <div className="text-right">
               <div className="flex items-center justify-end gap-2">
                 <Badge tone={resultado.pneuTipo === "ORIGINAL" ? "success" : "neutral"}>
-                  {resultado.pneuTipo === "ORIGINAL" ? "Original" : "Opcional"}
+                  {resultado.pneuTipo === "ORIGINAL"
+                    ? "Original"
+                    : resultado.pneuTipo === "SUBSTITUTO"
+                      ? "Substituto"
+                      : "Opcional"}
                 </Badge>
                 <span className="text-sm text-muted-foreground">Medida do Pneu</span>
               </div>

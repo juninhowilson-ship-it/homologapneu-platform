@@ -10,7 +10,21 @@
     "start": "next start",
     "lint": "eslint",
     "db:seed": "tsx prisma/seed.ts",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "report:database": "tsx scripts/report-database.ts",
+    "report:dashboard": "tsx scripts/report-dashboard.ts",
+    "audit:database": "tsx scripts/audit-database.ts",
+    "audit:storage": "tsx scripts/audit-storage.ts",
+    "audit:manufacturer": "tsx scripts/audit-manufacturer.ts",
+    "audit:homologation": "tsx scripts/audit-homologation.ts",
+    "audit:crawler": "tsx scripts/audit-crawler.ts",
+    "manufacturer:import": "tsx scripts/manufacturer-import.ts",
+    "report:manufacturer": "tsx scripts/report-manufacturer.ts",
+    "quality:dashboard": "tsx scripts/quality-dashboard.ts",
+    "quality:extraction": "tsx scripts/extraction-quality-report.ts",
+    "source:discovery": "tsx scripts/source-discovery.ts",
+    "report:executive": "tsx scripts/executive-dashboard.ts",
+    "fix:duplicate-models": "tsx scripts/merge-duplicate-models.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -36,6 +50,7 @@
     "server-only": "^0.0.1",
     "sharp": "^0.35.3",
     "tailwind-merge": "^3.6.0",
+    "tus-js-client": "^4.3.1",
     "xlsx": "^0.18.5",
     "zod": "^4.4.3"
   },

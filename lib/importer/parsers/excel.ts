@@ -2,7 +2,16 @@ import "server-only";
 import ExcelJS from "exceljs";
 import type { ParsedFile } from "./types";
 
-export async function parseExcelFile(buffer: ArrayBuffer): Promise<ParsedFile> {
+/**
+ * `headerRowNumber` cobre planilhas reais que trazem um bloco de
+ * título/observações antes do cabeçalho de verdade (ex.: catálogos de
+ * fabricante de pneu) — default 1 preserva o comportamento de sempre para
+ * todos os chamadores existentes.
+ */
+export async function parseExcelFile(
+  buffer: ArrayBuffer,
+  headerRowNumber = 1
+): Promise<ParsedFile> {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(buffer);
 
@@ -11,7 +20,7 @@ export async function parseExcelFile(buffer: ArrayBuffer): Promise<ParsedFile> {
     return { headers: [], rows: [] };
   }
 
-  const headerRow = worksheet.getRow(1);
+  const headerRow = worksheet.getRow(headerRowNumber);
   const headers: string[] = [];
   headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
     headers[colNumber - 1] = String(cell.value ?? "").trim();
@@ -19,7 +28,7 @@ export async function parseExcelFile(buffer: ArrayBuffer): Promise<ParsedFile> {
 
   const rows: Record<string, string>[] = [];
   worksheet.eachRow((row, rowNumber) => {
-    if (rowNumber === 1) return;
+    if (rowNumber <= headerRowNumber) return;
 
     const record: Record<string, string> = {};
     let hasValue = false;

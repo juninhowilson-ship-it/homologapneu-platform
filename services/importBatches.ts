@@ -29,7 +29,13 @@ export type AuditableEntity =
   | "Tire"
   | "Homologation"
   | "Wheel"
-  | "VehiclePressureSpec";
+  | "VehiclePressureSpec"
+  | "TireModel"
+  | "OeCode"
+  | "Technology"
+  | "Country"
+  | "Market"
+  | "TireVehicleApplication";
 
 export async function iniciarLote(params: {
   fileName: string;

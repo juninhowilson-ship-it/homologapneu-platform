@@ -26,6 +26,7 @@ export const veiculoFormSchema = z
     regulatoryCategory: z.string().trim().max(80).optional().or(z.literal("")),
     segment: z.enum(VEHICLE_SEGMENTS).optional().or(z.literal("")),
     platformName: z.string().trim().max(80).optional().or(z.literal("")),
+    generationName: z.string().trim().max(80).optional().or(z.literal("")),
     transmissionType: z.enum(TRANSMISSION_TYPES).optional().or(z.literal("")),
     transmissionGears: z.number().int().min(1).max(10).nullable().optional(),
     drivetrain: z.enum(DRIVETRAIN_TYPES).optional().or(z.literal("")),

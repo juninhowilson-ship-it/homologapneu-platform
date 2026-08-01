@@ -3,7 +3,7 @@ import type { ValidationStatus } from "@/lib/constants/validacao";
 export type Fabricante = {
   id: number;
   name: string;
-  country: string;
+  country: string | null;
   website: string | null;
   notes: string | null;
   logoUrl: string | null;

@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { obterCoberturaNacional } from "@/services/cobertura";
 import type {
@@ -313,7 +314,19 @@ async function calcularUltimosAcessos(): Promise<UltimoAcesso[]> {
   }));
 }
 
-export async function obterDashboard(): Promise<DashboardData> {
+/** Consulta pesada (15 agregações em paralelo, várias com GROUP BY sobre
+ * tabelas que devem crescer para milhões de linhas) — cacheada por 60s via
+ * unstable_cache (não usamos "use cache"/Cache Components aqui de propósito:
+ * exigiria ligar `cacheComponents` no next.config.ts, uma mudança de
+ * comportamento de renderização para o app inteiro, não só esta função).
+ * revalidateTag("dashboard") invalida sob demanda quando necessário. */
+export const obterDashboard = unstable_cache(
+  async (): Promise<DashboardData> => obterDashboardSemCache(),
+  ["dashboard-obterDashboard"],
+  { revalidate: 60, tags: ["dashboard"] }
+);
+
+async function obterDashboardSemCache(): Promise<DashboardData> {
   const [
     kpis,
     homologacoesPorFabricante,

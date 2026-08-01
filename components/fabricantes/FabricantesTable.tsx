@@ -111,7 +111,7 @@ export default function FabricantesTable({
             </TableTd>
 
             <TableTd className="font-semibold">{fabricante.name}</TableTd>
-            <TableTd>{fabricante.country}</TableTd>
+            <TableTd>{fabricante.country ?? "—"}</TableTd>
             <TableTd>{formatDate(fabricante.createdAt)}</TableTd>
             <TableTd>{formatDate(fabricante.updatedAt)}</TableTd>
 

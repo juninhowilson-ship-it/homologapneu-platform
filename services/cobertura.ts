@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import type { CoberturaMetrica, CoberturaNacional } from "@/types/cobertura";
 
@@ -119,7 +120,17 @@ async function calcularImagens(): Promise<CoberturaMetrica> {
   );
 }
 
-export async function obterCoberturaNacional(): Promise<CoberturaNacional> {
+/** Consulta pesada (6 agregações completas sobre montadoras/modelos/
+ * versões/pneus/homologações) — cacheada por 60s, mesma justificativa de
+ * services/dashboard.ts (unstable_cache em vez de "use cache" para não
+ * exigir ligar Cache Components pro app inteiro). */
+export const obterCoberturaNacional = unstable_cache(
+  async (): Promise<CoberturaNacional> => obterCoberturaNacionalSemCache(),
+  ["dashboard-obterCoberturaNacional"],
+  { revalidate: 60, tags: ["dashboard"] }
+);
+
+async function obterCoberturaNacionalSemCache(): Promise<CoberturaNacional> {
   const [montadoras, modelos, versoes, pneus, homologacoes, imagens] = await Promise.all([
     calcularMontadoras(),
     calcularModelos(),

@@ -6,6 +6,7 @@ import Button from "@/components/ui/Button";
 import ImportWizard, { type ImportField } from "@/components/importer/ImportWizard";
 import { useImportarMontadoras } from "@/hooks/useImportarMontadoras";
 import { useImportarFabricantes } from "@/hooks/useImportarFabricantes";
+import ImportarDadosButton from "./ImportarDadosButton";
 
 const MONTADORAS_FIELDS: ImportField[] = [
   { key: "nome", label: "Nome", required: true },
@@ -31,6 +32,10 @@ export default function ImportadoresPanel() {
 
   return (
     <div className="flex flex-wrap items-center gap-3">
+      <ImportarDadosButton />
+
+      <div className="h-8 w-px bg-border" aria-hidden />
+
       <Button type="button" onClick={() => setMontadorasOpen(true)}>
         Importar Montadoras
       </Button>

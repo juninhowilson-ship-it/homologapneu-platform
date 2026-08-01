@@ -2,6 +2,11 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { VeiculoListQuery } from "@/lib/validations/veiculo";
 import type { Prisma } from "@prisma/client";
+import {
+  resolveVehicleModelId,
+  findOrCreateVehicleModelId,
+} from "@/lib/masterData/resolveVehicleModel";
+import { findOrCreateVehicleGenerationId } from "@/lib/masterData/resolveVehicleGeneration";
 
 const withRelations = {
   include: {
@@ -109,28 +114,25 @@ export async function findVeiculoByBusinessKey(
   });
 }
 
+/**
+ * Resolução canônica por normalizedName + SearchAlias — ver
+ * lib/masterData/resolveVehicleModel.ts. Nunca faz match por `name` puro
+ * (case/acento-sensível), que é o que permitiu duplicatas reais no passado
+ * (ex.: "Mégane"/"Megane").
+ */
 export async function findVehicleModelByName(
   manufacturerId: number,
   name: string
 ): Promise<{ id: number } | null> {
-  return prisma.vehicleModel.findFirst({
-    where: { manufacturerId, name },
-    select: { id: true },
-  });
+  const match = await resolveVehicleModelId(prisma, manufacturerId, name);
+  return match ? { id: match.id } : null;
 }
 
 export async function findOrCreateVehicleModel(
   manufacturerId: number,
   name: string
 ): Promise<number> {
-  const existing = await findVehicleModelByName(manufacturerId, name);
-  if (existing) return existing.id;
-
-  const created = await prisma.vehicleModel.create({
-    data: { manufacturerId, name },
-    select: { id: true },
-  });
-  return created.id;
+  return findOrCreateVehicleModelId(prisma, manufacturerId, name);
 }
 
 /**
@@ -139,6 +141,10 @@ export async function findOrCreateVehicleModel(
  * nome de geração real, ex.: "Mk7", "3ª geração"), o nome é o próprio
  * ano/faixa de anos — transcrição literal do dado real, nunca um nome
  * de geração inventado.
+ *
+ * Resolução canônica por normalizedName + SearchAlias — ver
+ * lib/masterData/resolveVehicleGeneration.ts. Nunca faz match por `name`
+ * puro (case/acento-sensível), mesmo raciocínio de findOrCreateVehicleModel.
  */
 export async function findOrCreateVehicleGeneration(
   vehicleModelId: number,
@@ -146,17 +152,7 @@ export async function findOrCreateVehicleGeneration(
   yearStart: number,
   yearEnd: number | null
 ): Promise<number> {
-  const existing = await prisma.vehicleGeneration.findFirst({
-    where: { vehicleModelId, name },
-    select: { id: true },
-  });
-  if (existing) return existing.id;
-
-  const created = await prisma.vehicleGeneration.create({
-    data: { vehicleModelId, name, yearStart, yearEnd },
-    select: { id: true },
-  });
-  return created.id;
+  return findOrCreateVehicleGenerationId(prisma, vehicleModelId, name, yearStart, yearEnd);
 }
 
 export async function findOrCreateEngine(
@@ -242,6 +238,7 @@ type VeiculoWriteData = {
   transmissionType?: Prisma.TransmissionUncheckedCreateInput["type"] | null;
   transmissionGears?: number | null;
   platformName?: string | null;
+  generationName?: string | null;
   drivetrain?: Prisma.VehicleVersionUncheckedCreateInput["drivetrain"];
   doors?: number | null;
   wheelbase?: number | null;
@@ -292,6 +289,14 @@ export async function createVeiculo(
   const transmissionId = data.transmissionType
     ? await findOrCreateTransmission(data.transmissionType, data.transmissionGears ?? null)
     : undefined;
+  const generationId = data.generationName
+    ? await findOrCreateVehicleGeneration(
+        vehicleModelId,
+        data.generationName,
+        data.yearStart,
+        data.yearEnd
+      )
+    : undefined;
 
   const record = await prisma.vehicleVersion.create({
     data: {
@@ -299,6 +304,7 @@ export async function createVeiculo(
       engineId,
       platformId,
       transmissionId,
+      generationId,
       name: data.version,
       internalCode: data.internalCode ?? null,
       yearStart: data.yearStart,
@@ -347,6 +353,14 @@ export async function updateVeiculo(
   const transmissionId = data.transmissionType
     ? await findOrCreateTransmission(data.transmissionType, data.transmissionGears ?? null)
     : undefined;
+  const generationId = data.generationName
+    ? await findOrCreateVehicleGeneration(
+        vehicleModelId,
+        data.generationName,
+        data.yearStart,
+        data.yearEnd
+      )
+    : undefined;
 
   await prisma.vehicleVersion.update({
     where: { id },
@@ -355,6 +369,7 @@ export async function updateVeiculo(
       engineId,
       platformId,
       transmissionId,
+      generationId,
       name: data.version,
       internalCode: data.internalCode ?? null,
       yearStart: data.yearStart,
