@@ -13,6 +13,7 @@ import {
 } from "@/lib/constants/validacao";
 import { obterFichaVeiculo } from "@/services/veiculoFicha";
 import TimelineVeiculo from "@/components/veiculo/TimelineVeiculo";
+import GaleriaVeiculo from "@/components/veiculo/GaleriaVeiculo";
 
 export const dynamic = "force-dynamic";
 
@@ -149,6 +150,8 @@ export default async function VeiculoPage({
           </div>
         </section>
       )}
+
+      <GaleriaVeiculo imagens={ficha.imagens} />
 
       <section className="mt-10">
         <h2 className="mb-4 text-xl font-bold text-foreground">Homologações</h2>

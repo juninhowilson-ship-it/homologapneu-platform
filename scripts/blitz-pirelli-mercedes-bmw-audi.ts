@@ -212,9 +212,16 @@ async function main() {
             },
           });
 
-          // 6. Create homologation-tire link
-          await prisma.homologationTire.create({
-            data: {
+          // 6. Create homologation-tire link (upsert to prevent duplicates)
+          await prisma.homologationTire.upsert({
+            where: {
+              homologationId_tireId: {
+                homologationId: homolog.id,
+                tireId: tire.id,
+              },
+            },
+            update: {}, // No-op if already exists
+            create: {
               homologationId: homolog.id,
               tireId: tire.id,
               role: "ORIGINAL",

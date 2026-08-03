@@ -30,12 +30,19 @@ export type DocumentoVeiculo = {
   createdAt: string;
 };
 
+export type ImagemVeiculo = {
+  id: number;
+  type: "PRINCIPAL" | "FRONTAL" | "TRASEIRA" | "LATERAL";
+  url: string;
+};
+
 export type FichaVeiculo = {
   veiculo: Veiculo;
   versoesIrmas: VersaoIrma[];
   homologacoes: Homologacao[];
   medidas: string[];
   documentos: DocumentoVeiculo[];
+  imagens: ImagemVeiculo[];
   timeline: EventoTimelineVeiculo[];
 };
 
@@ -82,6 +89,9 @@ export async function obterFichaVeiculo(id: number): Promise<FichaVeiculo | null
     new Set(homologacoes.flatMap((h) => h.tires.map((t) => t.size)))
   ).sort();
 
+  const veiculoAtual = irmas.find((v) => v.id === id);
+  const imagens = veiculoAtual?.images ?? [];
+
   return {
     veiculo,
     versoesIrmas: irmas.map((v) => ({
@@ -103,6 +113,11 @@ export async function obterFichaVeiculo(id: number): Promise<FichaVeiculo | null
       url: doc.url,
       type: doc.type,
       createdAt: doc.createdAt.toISOString(),
+    })),
+    imagens: imagens.map((img) => ({
+      id: img.id,
+      type: img.type,
+      url: img.url,
     })),
     timeline: logs.map((log) => ({
       id: log.id,
