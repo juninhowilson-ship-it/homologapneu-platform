@@ -78,6 +78,7 @@ Período coberto: **2025-01-02 a 2026-07-31**.
 | `estoque_saldo_disponivel_e_total` | Adiciona `estoque_saldo.quantidade_total`; `quantidade` passa a ser explicitamente o saldo disponível. |
 
 | `views_kpis_faltantes_do_prototipo` | Cria 7 views novas com os KPIs que o protótipo mostra e nenhuma view calculava. Nenhuma view existente foi alterada. |
+| `segmento_das_vendas_com_fallback_no_modelo` | Corrige regressão: `v_vendas_segmento_mensal` e `v_vendas_segmento_marca_filial_mensal` derivavam segmento do produto com `INNER JOIN` e voltariam vazias após a carga. Passam a usar `coalesce(vendas.segmento_id, modelos.segmento_id)`. |
 
 Todas são **aditivas ou de afrouxamento**: nenhuma coluna removida, nenhum dado
 existente alterado. Se a carga não for executada, elas são inertes — mas o
@@ -90,6 +91,9 @@ para `supabase/migrations/` do repositório do Intelli Tire:
 supabase link --project-ref lfnsmldkkoykwkdoulrf
 supabase db pull
 ```
+
+Para a especificação de tela por módulo (painel → view → colunas), ver
+[`ESPECIFICACAO-TELAS.md`](./ESPECIFICACAO-TELAS.md).
 
 ## Views novas (KPIs do protótipo que faltavam)
 
