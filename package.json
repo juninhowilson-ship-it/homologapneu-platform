@@ -4,12 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "predev": "prisma generate && prisma migrate deploy && npm run db:seed",
     "build": "next build",
-    "prebuild": "prisma generate && prisma migrate deploy && npm run db:seed",
     "start": "next start",
     "lint": "eslint",
     "db:seed": "tsx prisma/seed.ts",
+    "db:setup": "prisma generate && prisma migrate deploy && npm run db:seed",
     "db:studio": "prisma studio",
     "test": "jest",
     "test:watch": "jest --watch",
