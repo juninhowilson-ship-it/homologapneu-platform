@@ -75,6 +75,7 @@ Período coberto: **2025-01-02 a 2026-07-31**.
 | `prepara_carga_dataset_real_afrouxa_not_nulls` | Torna nuláveis colunas que a fonte não alimenta (`filiais.codigo_interno/uf/municipio/area_m2`, `clientes.documento/uf`, `fornecedores.documento`, `vendedores.filial_id/matricula`, `modelos.segmento_id`); adiciona `vendas.segmento_id`; cria índices para o volume real. |
 | `carga_dataset_real_compras_sem_filial` | Torna `compras.filial_id` nulável — o extrato de compras não informa a filial de entrada. |
 | `carga_dataset_real_modelo_sem_classificacao` | Torna `modelos.marca_id` e `modelos.familia_id` nuláveis — há item sem classificação na fonte. |
+| `estoque_saldo_disponivel_e_total` | Adiciona `estoque_saldo.quantidade_total`; `quantidade` passa a ser explicitamente o saldo disponível. |
 
 Todas são **aditivas ou de afrouxamento**: nenhuma coluna removida, nenhum dado
 existente alterado. Se a carga não for executada, elas são inertes — mas o
@@ -105,6 +106,26 @@ Princípio: **nada é inventado**. Onde a fonte não informa, a coluna fica `NUL
 - **Catálogo = `produto_agg` ∪ `estoque_produto_agg`.** O primeiro só cobre
   produtos com movimento; sem a união, 363 posições de estoque ficariam órfãs.
 - **Devoluções preservadas** como quantidades/valores negativos, como na fonte.
+- **Estoque disponível e total lado a lado.** `estoque_saldo.quantidade` é o
+  saldo disponível (livre para venda) e `quantidade_total` inclui o
+  reservado/em trânsito — os dois KPIs que o protótipo mostra separados.
+
+### Rateio do saldo total (única derivação com estimativa)
+
+A fonte informa o disponível por *(filial, produto)*, mas o total apenas **por
+produto**. A diferença é o reservado, que o extrato não quebra por filial:
+
+| Caso | Regra | Produtos |
+| --- | --- | --- |
+| Sem reservado (`total == disponível`) | `total_i = disponível_i` | 1.713 |
+| Produto numa única filial | `total_i = total` | 1.726 |
+| Multi-filial **com** reservado | rateio proporcional ao disponível, resto na maior | 340 |
+
+Os dois primeiros casos são **exatos** e cobrem 85,7% dos produtos. Só o
+terceiro é estimado — 976 das 3.406 posições. O rateio preserva os agregados
+que o painel exibe: soma do disponível = **36.412** e soma do total =
+**43.033**, ambas idênticas à fonte (verificado no dry-run). O que ele estima é
+apenas *como* o reservado se reparte entre filiais.
 
 ### Descarte conhecido
 
@@ -112,11 +133,13 @@ Princípio: **nada é inventado**. Onde a fonte não informa, a coluna fica `NUL
 dois blocos de catálogo — sem descrição, marca, família ou medida, não há como
 cadastrá-los sem inventar. São ignoradas. Todo o resto do dataset é carregado.
 
-## Estado pendente no tenant de destino
+## Estado do tenant de destino
 
-O tenant *Distribuidora Alfa Pneus LTDA* já contém **dados de seed sintéticos**
-anteriores (28 vendas, 36 produtos, 16 clientes). A carga é aditiva e **não os
-remove** — remover exige `DELETE`, que não foi executado sem confirmação
-explícita. Depois da carga eles ficam misturados ao dado real (≈0,02% do
-volume). Para limpá-los, o critério seguro é `criado_em` anterior à data da
-carga, revisado antes de rodar.
+O seed sintético do tenant *Distribuidora Alfa Pneus LTDA* foi **removido**
+(28 vendas, 43 itens, 22 compras, 36 produtos, 36 posições de estoque, 8
+clientes e as dimensões associadas). A empresa, os 2 usuários e os papéis foram
+preservados — o login segue funcionando. O tenant está vazio e pronto para
+receber a carga sem mistura com fixture.
+
+O tenant *Rede Beta Auto Center SA* **ainda tem o seed** (33 vendas, 36
+produtos etc.). Não foi tocado.

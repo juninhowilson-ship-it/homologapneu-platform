@@ -60,6 +60,7 @@ interface EstoqueFilialProduto {
 
 interface EstoqueProdutoAgg {
   ProdCode: number;
+  saldo_disponivel: number;
   saldo_total: number;
   valor_estoque: number;
 }
@@ -152,6 +153,52 @@ function parsearMedida(medida: string): { largura: number | null; perfil: number
   const m = /^(\d{2,3})\s*\/\s*(\d{2,3})/.exec(medida);
   if (m) return { largura: Number(m[1]), perfil: Number(m[2]) };
   return { largura: null, perfil: null };
+}
+
+/**
+ * Atribui o saldo TOTAL do produto as suas filiais.
+ *
+ * A fonte informa o disponivel por (filial, produto), mas o total apenas por
+ * produto. A diferenca (total - disponivel) e o reservado/em transito, que o
+ * extrato nao quebra por filial. Casos:
+ *
+ *  - Sem reservado (total == disponivel): total_i = disponivel_i. EXATO.
+ *  - Produto numa unica filial:           total_i = total.          EXATO.
+ *  - Multi-filial COM reservado:          rateio proporcional ao disponivel
+ *    de cada filial, com o resto indo para a maior — unico caso derivado.
+ *
+ * O rateio preserva os dois agregados que o painel mostra: a soma do
+ * disponivel e a soma do total continuam batendo com a fonte. Ele so estima
+ * COMO o reservado se reparte entre filiais. Nos dados atuais isso alcanca
+ * 340 dos 2.375 produtos (976 das 3.406 posicoes).
+ */
+function distribuirTotal(
+  disponiveis: number[],
+  total: number | null,
+  dispProduto: number | null,
+): { valores: (number | null)[]; rateado: boolean } {
+  if (total == null || dispProduto == null) {
+    return { valores: disponiveis.map(() => null), rateado: false };
+  }
+
+  const reservado = total - dispProduto;
+  if (reservado <= 0.01) return { valores: [...disponiveis], rateado: false };
+  if (disponiveis.length === 1) return { valores: [total], rateado: false };
+
+  const soma = disponiveis.reduce((a, b) => a + b, 0);
+  const pesos =
+    soma > 0 ? disponiveis.map((d) => d / soma) : disponiveis.map(() => 1 / disponiveis.length);
+
+  const extras = pesos.map((p) => Math.round(reservado * p));
+  // Corrige o arredondamento na maior posicao para a soma fechar exata.
+  const diferenca = reservado - extras.reduce((a, b) => a + b, 0);
+  if (diferenca !== 0) {
+    let maior = 0;
+    for (let i = 1; i < disponiveis.length; i++) if (disponiveis[i] > disponiveis[maior]) maior = i;
+    extras[maior] += diferenca;
+  }
+
+  return { valores: disponiveis.map((d, i) => d + extras[i]), rateado: true };
 }
 
 /**
@@ -611,28 +658,72 @@ async function main(): Promise<void> {
     /* ---------------- Estoque ---------------- */
 
     const custoMedio = new Map<string, number | null>();
+    const totalProduto = new Map<string, number>();
+    const dispProduto = new Map<string, number>();
     for (const e of d.estoque_produto_agg) {
-      custoMedio.set(codigoProduto(e.ProdCode), dividir(e.valor_estoque, e.saldo_total));
+      const codigo = codigoProduto(e.ProdCode);
+      custoMedio.set(codigo, dividir(e.valor_estoque, e.saldo_total));
+      totalProduto.set(codigo, e.saldo_total);
+      dispProduto.set(codigo, e.saldo_disponivel);
+    }
+
+    // A fonte da o saldo DISPONIVEL por (filial, produto), mas o saldo TOTAL
+    // so por produto. Ver `distribuirTotal()` para a regra de atribuicao.
+    const porProduto = new Map<string, EstoqueFilialProduto[]>();
+    for (const e of d.estoque_filial_produto) {
+      const codigo = codigoProduto(e.ProdCode);
+      let lista = porProduto.get(codigo);
+      if (!lista) porProduto.set(codigo, (lista = []));
+      lista.push(e);
     }
 
     const linhasEstoque: unknown[][] = [];
-    for (const e of d.estoque_filial_produto) {
-      const produtoId = produtos.get(codigoProduto(e.ProdCode));
-      const filialId = filiais.get(e.FILIAL);
-      if (!produtoId || !filialId) continue;
-      linhasEstoque.push([
-        randomUUID(),
-        tenant.id,
-        filialId,
-        produtoId,
-        e.saldo_disponivel,
-        custoMedio.get(codigoProduto(e.ProdCode)) ?? 0,
-      ]);
+    let rateados = 0;
+    for (const [codigo, linhas] of porProduto) {
+      const produtoId = produtos.get(codigo);
+      if (!produtoId) continue;
+
+      const totais = distribuirTotal(
+        linhas.map((l) => l.saldo_disponivel),
+        totalProduto.get(codigo) ?? null,
+        dispProduto.get(codigo) ?? null,
+      );
+      if (totais.rateado) rateados += linhas.length;
+
+      linhas.forEach((e, i) => {
+        const filialId = filiais.get(e.FILIAL);
+        if (!filialId) return;
+        linhasEstoque.push([
+          randomUUID(),
+          tenant.id,
+          filialId,
+          produtoId,
+          e.saldo_disponivel,
+          totais.valores[i],
+          custoMedio.get(codigo) ?? 0,
+        ]);
+      });
     }
+    const somaDisp = linhasEstoque.reduce((a, l) => a + (l[4] as number), 0);
+    const somaTotal = linhasEstoque.reduce((a, l) => a + ((l[5] as number | null) ?? 0), 0);
+    log(
+      `  estoque: ${linhasEstoque.length.toLocaleString("pt-BR")} posicoes, ` +
+        `${rateados.toLocaleString("pt-BR")} com total rateado. ` +
+        `Disponivel=${somaDisp.toLocaleString("pt-BR")} Total=${somaTotal.toLocaleString("pt-BR")} ` +
+        `(devem bater com a fonte: 36.412 e 43.033).`,
+    );
     await inserirLotes(
       client,
       "app.estoque_saldo",
-      ["id", "tenant_id", "filial_id", "produto_id", "quantidade", "valor_medio_unitario"],
+      [
+        "id",
+        "tenant_id",
+        "filial_id",
+        "produto_id",
+        "quantidade",
+        "quantidade_total",
+        "valor_medio_unitario",
+      ],
       linhasEstoque,
       "app.estoque_saldo",
     );
