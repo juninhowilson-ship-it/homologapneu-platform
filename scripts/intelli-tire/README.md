@@ -77,9 +77,42 @@ Período coberto: **2025-01-02 a 2026-07-31**.
 | `carga_dataset_real_modelo_sem_classificacao` | Torna `modelos.marca_id` e `modelos.familia_id` nuláveis — há item sem classificação na fonte. |
 | `estoque_saldo_disponivel_e_total` | Adiciona `estoque_saldo.quantidade_total`; `quantidade` passa a ser explicitamente o saldo disponível. |
 
+| `views_kpis_faltantes_do_prototipo` | Cria 7 views novas com os KPIs que o protótipo mostra e nenhuma view calculava. Nenhuma view existente foi alterada. |
+
 Todas são **aditivas ou de afrouxamento**: nenhuma coluna removida, nenhum dado
 existente alterado. Se a carga não for executada, elas são inertes — mas o
 afrouxamento dos `NOT NULL` fica de pé, então re-aperte se decidir não carregar.
+
+As migrations foram aplicadas direto no projeto. Para trazer os arquivos `.sql`
+para `supabase/migrations/` do repositório do Intelli Tire:
+
+```bash
+supabase link --project-ref lfnsmldkkoykwkdoulrf
+supabase db pull
+```
+
+## Views novas (KPIs do protótipo que faltavam)
+
+Todas com `security_invoker = true` e `grant select ... to authenticated` na
+mesma migration; nenhuma filtra `tenant_id` explicitamente (o RLS já restringe).
+Auditadas depois de criadas: `anon` não recebeu grant em nenhuma.
+
+| View | Resolve |
+| --- | --- |
+| `v_estoque_resumo` | Os 5 KPIs de estoque: total, **disponível**, reservado, valor, **combinações sem estoque** e **com saldo > 50 un**. "Combinação" = filial × marca × família × aro, o grão do protótipo. |
+| `v_estoque_saldos_por_filial` | Disponível × total × reservado por filial, lado a lado. |
+| `v_vendas_resumo` | Os 3 KPIs de vendas ausentes: **ticket médio**, **nº de clientes** e **% de devolução** (item com quantidade negativa, como vem do ERP), além de valor/quantidade/lucro/margem. |
+| `v_vendas_por_marca` | Top marcas — painel ausente. |
+| `v_vendas_por_familia` | Vendas por família — painel ausente. |
+| `v_vendas_por_aro` | Vendas por aro — painel ausente. |
+| `v_vendas_por_segmento` | Vendas por canal comercial. Depende de `vendas.segmento_id`; fica vazia até a carga rodar. |
+
+`estoque_total` usa `quantidade_total` com fallback para `quantidade` quando a
+fonte não informou o saldo total — assim linhas antigas não viram zero.
+
+Ainda **sem view**, porque dependem de dado que o schema não tem: mapa de calor
+geográfico (falta lat/lng) e comparação com preço de mercado/concorrência
+(não há fonte).
 
 ## Fidelidade do dado
 
