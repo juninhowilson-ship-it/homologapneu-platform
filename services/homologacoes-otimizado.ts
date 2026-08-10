@@ -6,6 +6,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import type { ValidationStatus } from "@prisma/client";
 
 export interface HomologacaoOtimizada {
   id: number;
@@ -55,7 +56,7 @@ export async function buscarHomologacoesPorModelo(
           },
         },
       },
-      homologationTires: {
+      tires: {
         take: 1,
         select: {
           tire: {
@@ -83,10 +84,10 @@ export async function buscarHomologacoesPorModelo(
       fabricante: h.vehicleVersion.vehicleModel.manufacturer.name,
     },
     pneu: {
-      id: h.homologationTires[0]?.tire.id || 0,
-      marca: h.homologationTires[0]?.tire.brand || "N/A",
-      modelo: h.homologationTires[0]?.tire.model || "N/A",
-      tamanho: h.homologationTires[0]?.tire.size || "N/A",
+      id: h.tires[0]?.tire.id || 0,
+      marca: h.tires[0]?.tire.brand || "N/A",
+      modelo: h.tires[0]?.tire.model || "N/A",
+      tamanho: h.tires[0]?.tire.size || "N/A",
     },
   }));
 }
@@ -115,7 +116,7 @@ export async function buscarHomologacoesPorFabricante(
           name: true,
         },
       },
-      homologationTires: {
+      tires: {
         take: 1,
         select: {
           tire: {
@@ -138,7 +139,7 @@ export async function buscarHomologacoesAvancado(filters: {
   modelId?: number;
   manufacturerId?: number;
   year?: number;
-  validationStatus?: string;
+  validationStatus?: ValidationStatus;
   limit?: number;
 }) {
   const {
@@ -178,7 +179,7 @@ export async function buscarHomologacoesAvancado(filters: {
           },
         },
       },
-      homologationTires: {
+      tires: {
         take: 1,
         select: {
           tire: {

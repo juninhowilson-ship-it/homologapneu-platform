@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
           ? { vehicleModelId: parseInt(modelId) }
           : {
               vehicleModel: {
-                manufacturerId: parseInt(manufacturerId),
+                manufacturerId: parseInt(manufacturerId || "0"),
               },
             },
       },
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
         code: true,
         year: true,
         validationStatus: true,
-        homologationTires: {
+        tires: {
           take: 1, // Apenas 1 pneu por homog
           select: {
             tire: {

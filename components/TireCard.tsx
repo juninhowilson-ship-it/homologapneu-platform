@@ -6,7 +6,7 @@
  */
 
 import Image from 'next/image';
-import { Badge } from '@/components/ui/badge';
+import Badge from '@/components/ui/Badge';
 
 interface TireCardProps {
   id: number;
@@ -72,10 +72,10 @@ export function TireCard({
 
         {/* Badges */}
         <div className="flex flex-wrap gap-1">
-          <Badge variant="outline" className="text-xs">
+          <Badge tone="neutral" className="text-xs">
             {positionLabel}
           </Badge>
-          <Badge variant="secondary" className="text-xs">
+          <Badge tone="neutral" className="text-xs">
             {roleLabel}
           </Badge>
         </div>

@@ -11,11 +11,11 @@ const BENEFICIOS = [
 
 export default function Benefits() {
   return (
-    <section className="bg-surface-muted py-20">
+    <section className="bg-[#0a0a0a] py-20">
       <div className="mx-auto max-w-5xl px-6">
         <div className="text-center">
-          <h2 className="text-3xl font-extrabold text-foreground">Benefícios</h2>
-          <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
+          <h2 className="text-3xl font-extrabold text-white">Benefícios</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-[#888888]">
             Por que times técnicos e comerciais usam o HomologaPneu.
           </p>
         </div>
@@ -24,10 +24,10 @@ export default function Benefits() {
           {BENEFICIOS.map((beneficio) => (
             <div
               key={beneficio}
-              className="flex items-start gap-3 rounded-xl border border-border bg-white p-4"
+              className="flex items-start gap-3 rounded-lg border border-[#333333] bg-[#1a1a1a] p-4 hover:border-[#FFB81C] transition"
             >
-              <CheckCircle2 size={20} className="mt-0.5 shrink-0 text-brand" />
-              <p className="text-sm font-medium text-foreground">{beneficio}</p>
+              <CheckCircle2 size={20} className="mt-0.5 shrink-0 text-[#FFB81C]" />
+              <p className="text-sm font-medium text-[#e5e5e5]">{beneficio}</p>
             </div>
           ))}
         </div>

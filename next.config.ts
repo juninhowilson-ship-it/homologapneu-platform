@@ -4,7 +4,10 @@ const nextConfig: NextConfig = {
   compress: true,
   images: {
     unoptimized: false,
-    domains: ['upload.wikimedia.org', 'commons.wikimedia.org'],
+    remotePatterns: [
+      { protocol: 'https', hostname: 'upload.wikimedia.org' },
+      { protocol: 'https', hostname: 'commons.wikimedia.org' },
+    ],
     formats: ['image/webp', 'image/avif'],
   },
   onDemandEntries: {
@@ -21,7 +24,6 @@ const nextConfig: NextConfig = {
       ],
     },
   ],
-  telemetry: false,
 }
 
 export default nextConfig

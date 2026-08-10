@@ -6,8 +6,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { cache, CACHE_KEYS, CACHE_TTL, invalidateCacheOnChange } from "@/lib/cache/cache-service";
 import { logger, createRequestLogger } from "@/lib/logging/structured-logger";
-import { Ratelimit } from "@upstash/ratelimit"; // Opcional: usar em produção
-import { Redis } from "@upstash/redis"; // Opcional: usar em produção
+// Rate limiting em produção: ver PADRÃO 5 abaixo (integração Redis/Upstash
+// pendente — pacotes @upstash/ratelimit e @upstash/redis ainda não instalados).
 
 /**
  * PADRÃO 1: GET com Cache (Data Estática)
@@ -269,7 +269,20 @@ export async function createStreamingHandler(
     try {
       log.info("Starting streaming response", { filename, contentType });
 
-      const stream = streamFn();
+      const generator = streamFn();
+      const stream = new ReadableStream<Uint8Array>({
+        async pull(controller) {
+          const { value, done } = await generator.next();
+          if (done) {
+            controller.close();
+            return;
+          }
+          controller.enqueue(value);
+        },
+        async cancel() {
+          await generator.return?.();
+        },
+      });
 
       return new NextResponse(stream, {
         headers: {

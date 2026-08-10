@@ -82,7 +82,7 @@ export default function GaleriaVeiculo({ imagens }: { imagens: ImagemVeiculo[] }
               </button>
 
               <span className="text-sm text-muted-foreground">
-                {TIPO_LABELS[imagemAtual.type]} · {imagemSelecionada + 1} de{" "}
+                {TIPO_LABELS[imagemAtual.type]} · {(imagemSelecionada ?? 0) + 1} de{" "}
                 {imagens.length}
               </span>
 

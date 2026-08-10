@@ -5,7 +5,7 @@
  */
 
 import Image from 'next/image';
-import { Badge } from '@/components/ui/badge';
+import Badge from '@/components/ui/Badge';
 
 interface VehicleHeroProps {
   vehicleName: string;
@@ -77,7 +77,7 @@ export function VehicleHero({
 
           {/* Status Badge */}
           <Badge
-            variant={statusColor === 'green' ? 'default' : 'destructive'}
+            tone={statusColor === 'green' ? 'success' : 'danger'}
             className="w-fit text-base"
           >
             {statusLabel}

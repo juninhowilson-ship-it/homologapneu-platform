@@ -95,8 +95,8 @@ export function getRevalidationConfig(routeKey: keyof typeof REVALIDATION_CONFIG
   const config = REVALIDATION_CONFIG[routeKey];
   return {
     revalidate: config.revalidate,
-    staleWhileRevalidate: config.staleWhileRevalidate,
-    immutable: config.immutable,
+    staleWhileRevalidate: "staleWhileRevalidate" in config ? config.staleWhileRevalidate : undefined,
+    immutable: "immutable" in config ? config.immutable : undefined,
     description: config.description,
   };
 }
