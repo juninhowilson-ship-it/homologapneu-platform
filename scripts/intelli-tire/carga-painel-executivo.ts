@@ -122,6 +122,25 @@ interface Dataset {
 
 const LOTE = 1000;
 
+/**
+ * Sentinelas para os campos obrigatorios que a fonte pode nao informar.
+ *
+ * Ha itens no extrato (hoje 5) que chegam com MARCA, FAMILIA, Medida, ARO e
+ * Descricao TODOS nulos — produto que existe no saldo de estoque mas perdeu o
+ * cadastro no ERP. Como `medidas.descricao` e `produtos.descricao` sao NOT
+ * NULL, inserir o nulo derruba a carga inteira no meio.
+ *
+ * O sentinela e explicito e reconhecivel: nao finge classificacao, deixa claro
+ * na propria string que o dado nao veio. Mesmo espirito do modelo
+ * "NAO INFORMADO" em `nomeModelo()`.
+ *
+ * Marca e familia NAO usam sentinela: `modelos.marca_id`/`familia_id` sao
+ * nulaveis (migration `carga_dataset_real_modelo_sem_classificacao`), e NULL
+ * diz "nao classificado" com mais honestidade do que uma marca falsa que
+ * apareceria nos rankings do painel. Sentinela so onde o NOT NULL obriga.
+ */
+const MEDIDA_SENTINELA = "SEM MEDIDA INFORMADA";
+
 function log(msg: string): void {
   const t = new Date().toISOString().slice(11, 19);
   console.log(`[${t}] ${msg}`);
@@ -209,6 +228,16 @@ function distribuirTotal(
 function nomeModelo(p: Pick<ProdutoAgg, "MARCA" | "FAMILIA">): string {
   const partes = [p.MARCA, p.FAMILIA].filter((x): x is string => Boolean(x));
   return partes.length > 0 ? partes.join(" ") : "NAO INFORMADO";
+}
+
+/** Medida do produto, com sentinela quando a fonte nao informa. */
+function medidaDe(p: Pick<ProdutoAgg, "Medida">): string {
+  return p.Medida || MEDIDA_SENTINELA;
+}
+
+/** Descricao do produto, com o proprio codigo como fallback legivel. */
+function descricaoDe(p: Pick<ProdutoAgg, "Descricao">, codigo: string): string {
+  return p.Descricao || `PRODUTO ${codigo} (sem descricao na fonte)`;
 }
 
 function parsearAro(aro: string): number | null {
@@ -319,6 +348,60 @@ async function verificarBancoAlvo(client: Executor): Promise<void> {
         "Encontrei tabelas do HomologaPneu (Homologation/Tire/VehicleModel) neste banco.",
     );
   }
+}
+
+/** Todas as tabelas que a carga escreve, na ordem de dependencia. */
+const TABELAS_ALVO = [
+  "filiais",
+  "segmentos",
+  "marcas",
+  "familias",
+  "medidas",
+  "modelos",
+  "produtos",
+  "vendedores",
+  "fornecedores",
+  "clientes",
+  "estoque_saldo",
+  "compras",
+  "itens_compra",
+  "vendas",
+  "itens_venda",
+] as const;
+
+/**
+ * Guarda de idempotencia. A carga e aditiva: rodar duas vezes duplicaria
+ * ~295 mil linhas, e as tabelas de fato (vendas, itens) nao tem chave natural
+ * que o banco possa usar para rejeitar a repetida. Entao a protecao e antes:
+ * se QUALQUER tabela alvo ja tem linha deste tenant, aborta sem escrever nada.
+ *
+ * Vale para todas as 15 tabelas, nao so vendas — dimensao repetida tambem suja
+ * o painel (marca duplicada vira duas fatias no mesmo grafico).
+ */
+async function verificarTenantVazio(client: Executor, tenantId: string): Promise<void> {
+  const consulta = TABELAS_ALVO.map(
+    (t) => `select '${t}' as tabela, count(*)::text as linhas from app.${t} where tenant_id = $1`,
+  ).join(" union all ");
+
+  const { rows } = await client.query<{ tabela: string; linhas: string }>(consulta, [tenantId]);
+  const ocupadas = rows.filter((r) => Number(r.linhas) > 0);
+  if (ocupadas.length === 0) return;
+
+  const detalhe = ocupadas
+    .sort((a, b) => Number(b.linhas) - Number(a.linhas))
+    .map((r) => `  app.${r.tabela.padEnd(16)} ${Number(r.linhas).toLocaleString("pt-BR")}`)
+    .join("\n");
+
+  throw new Error(
+    "TENANT NAO ESTA VAZIO — abortado antes de qualquer escrita.\n\n" +
+      "A carga e aditiva e nao tem como detectar linha repetida depois de gravada.\n" +
+      "Rodar por cima duplicaria o dataset. Tabelas ja populadas neste tenant:\n\n" +
+      `${detalhe}\n\n` +
+      "Se a intencao e recarregar, esvazie o tenant primeiro (na ordem inversa das\n" +
+      "FKs: itens_venda, vendas, itens_compra, compras, estoque_saldo, produtos,\n" +
+      "modelos, medidas, marcas, familias, segmentos, clientes, fornecedores,\n" +
+      "vendedores, filiais) e rode de novo.",
+  );
 }
 
 async function resolverTenant(client: Executor, ref: string): Promise<{ id: string; nome: string }> {
@@ -451,6 +534,8 @@ async function main(): Promise<void> {
       await verificarBancoAlvo(client);
       tenant = await resolverTenant(client, opcoes.tenant);
       log(`Banco alvo validado. Tenant: ${tenant.nome} (${tenant.id})`);
+      await verificarTenantVazio(client, tenant.id);
+      log("Tenant vazio confirmado nas 15 tabelas alvo.");
     } else {
       tenant = { id: randomUUID(), nome: "(simulado)" };
       log("--dry-run: sem banco. Exercitando a transformacao completa em memoria.");
@@ -497,8 +582,20 @@ async function main(): Promise<void> {
 
     /* ---------------- Medidas ---------------- */
 
+    // Conta quantas vezes cada sentinela foi necessario, para o log avisar.
+    const semMedida = catalogo.filter((p) => !p.Medida).length;
+    const semMarca = catalogo.filter((p) => !p.MARCA).length;
+    const semDescricao = catalogo.filter((p) => !p.Descricao).length;
+    if (semMedida || semMarca || semDescricao) {
+      log(
+        `  AVISO: fonte incompleta — ${semMedida} produto(s) sem medida, ` +
+          `${semMarca} sem marca, ${semDescricao} sem descricao. ` +
+          `Usando sentinela explicito em vez de NULL (violaria NOT NULL).`,
+      );
+    }
+
     const medidasFonte = new Map<string, ProdutoAgg>();
-    for (const p of catalogo) if (!medidasFonte.has(p.Medida)) medidasFonte.set(p.Medida, p);
+    for (const p of catalogo) if (!medidasFonte.has(medidaDe(p))) medidasFonte.set(medidaDe(p), p);
 
     const { rows: medidasExistentes } = await client.query<{ id: string; descricao: string }>(
       `select id, descricao from app.medidas where tenant_id = $1`,
@@ -569,9 +666,9 @@ async function main(): Promise<void> {
         id,
         tenant.id,
         modelos.get(nomeModelo(p)),
-        medidas.get(p.Medida),
+        medidas.get(medidaDe(p)),
         codigo,
-        p.Descricao,
+        descricaoDe(p, codigo),
         "importacao",
       ]);
     }
