@@ -40,6 +40,25 @@ export const alterarSenhaSchema = z
 
 export type AlterarSenhaValues = z.infer<typeof alterarSenhaSchema>;
 
+export const esqueciSenhaSchema = z.object({
+  email: z.string().trim().min(1, "E-mail é obrigatório").email("E-mail inválido"),
+});
+
+export type EsqueciSenhaValues = z.infer<typeof esqueciSenhaSchema>;
+
+export const redefinirSenhaSchema = z
+  .object({
+    token: z.string().min(1, "Token ausente"),
+    novaSenha: z.string().min(8, "A nova senha deve ter ao menos 8 caracteres"),
+    confirmarSenha: z.string().min(1, "Confirme a nova senha"),
+  })
+  .refine((values) => values.novaSenha === values.confirmarSenha, {
+    message: "As senhas não coincidem",
+    path: ["confirmarSenha"],
+  });
+
+export type RedefinirSenhaValues = z.infer<typeof redefinirSenhaSchema>;
+
 export const usuarioListQuerySchema = z.object({
   q: z.string().trim().optional(),
   role: z.enum(USER_ROLES).optional(),

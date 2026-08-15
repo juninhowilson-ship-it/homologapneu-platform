@@ -74,9 +74,19 @@ export default function UsuariosTable({
               </Badge>
             </TableTd>
             <TableTd>
-              <Badge tone={usuario.isActive ? "success" : "neutral"}>
-                {usuario.isActive ? "Ativo" : "Inativo"}
-              </Badge>
+              <div className="flex flex-wrap gap-1">
+                <Badge tone={usuario.isActive ? "success" : "neutral"}>
+                  {usuario.isActive ? "Ativo" : "Inativo"}
+                </Badge>
+                {usuario.resetPendente && (
+                  <Badge
+                    tone="warning"
+                    title="O usuário pediu recuperação de senha. Edite-o e defina uma nova senha para resolver."
+                  >
+                    Solicitou nova senha
+                  </Badge>
+                )}
+              </div>
             </TableTd>
 
             <TableTd>

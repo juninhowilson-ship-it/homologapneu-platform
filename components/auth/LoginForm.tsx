@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -78,6 +79,13 @@ export default function LoginForm() {
         <Button type="submit" disabled={enviando} className="w-full">
           {enviando ? "Entrando..." : "Entrar"}
         </Button>
+
+        <Link
+          href="/esqueci-senha"
+          className="block text-center text-sm text-muted-foreground hover:underline"
+        >
+          Esqueci minha senha
+        </Link>
       </form>
     </Card>
   );

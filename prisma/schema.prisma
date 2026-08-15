@@ -1123,8 +1123,38 @@ model User {
   homologationRevisions    HomologationRevision[]
   replacementHistories     ReplacementHistory[]
   wheelEquivalences        WheelEquivalence[]
+  passwordResetRequests    PasswordResetRequest[]
 
   @@map("users")
+}
+
+enum PasswordResetChannel {
+  // Link com token enviado por e-mail (requer RESEND_API_KEY configurada)
+  EMAIL
+  // Solicitação visível ao administrador na tela de Usuários
+  ADMIN
+}
+
+enum PasswordResetStatus {
+  PENDENTE
+  CONCLUIDA
+}
+
+model PasswordResetRequest {
+  id        Int                  @id @default(autoincrement())
+  userId    Int
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   PasswordResetChannel
+  status    PasswordResetStatus  @default(PENDENTE)
+  // SHA-256 do token enviado por e-mail; nulo no canal ADMIN. O token em si
+  // nunca é persistido — só o hash, como uma senha.
+  tokenHash String?              @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime             @default(now())
+
+  @@index([userId, status])
+  @@map("password_reset_requests")
 }
 
 enum DocumentFileType {
