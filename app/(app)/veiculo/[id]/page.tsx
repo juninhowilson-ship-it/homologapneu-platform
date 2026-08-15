@@ -38,6 +38,7 @@ import { obterFichaVeiculo } from "@/services/veiculoFicha";
 import TimelineVeiculo from "@/components/veiculo/TimelineVeiculo";
 import GaleriaVeiculo from "@/components/veiculo/GaleriaVeiculo";
 import SalvarVeiculoButton from "@/components/garagem/SalvarVeiculoButton";
+import AssistenteChat from "@/components/assistente/AssistenteChat";
 import type { HomologacaoTireItem } from "@/types/homologacao";
 
 export const dynamic = "force-dynamic";
@@ -499,6 +500,11 @@ export default async function VeiculoPage({
               </div>
             </div>
           )}
+
+          <AssistenteChat
+            contexto={`${veiculo.manufacturerName} ${veiculo.model} ${veiculo.version}`}
+            alturaClasse="h-64"
+          />
         </div>
       </div>
 

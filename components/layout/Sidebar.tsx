@@ -43,6 +43,7 @@ const menuGeral: MenuItem[] = [
   { nome: "Medidas", rota: "/medidas", icone: Ruler, adminOnly: false },
   { nome: "Minha Garagem", rota: "/garagem", icone: Warehouse, adminOnly: false },
   { nome: "Comparador", rota: "/comparador", icone: GitCompareArrows, adminOnly: false },
+  { nome: "IA Assistente", rota: "/assistente", icone: Brain, adminOnly: false },
 ];
 
 const menuCadastros: MenuItem[] = [
