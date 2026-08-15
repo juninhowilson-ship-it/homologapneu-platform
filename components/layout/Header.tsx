@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Bell, Settings, ExternalLink, KeyRound } from "lucide-react";
 import Logo from "./Logo";
+import GlobalSearchBar from "./GlobalSearchBar";
 import AlterarSenhaModal from "@/components/auth/AlterarSenhaModal";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useLogout } from "@/hooks/useLogout";
@@ -14,12 +15,14 @@ export default function Header() {
   const [senhaModalAberto, setSenhaModalAberto] = useState(false);
 
   return (
-    <header className="h-16 flex items-center justify-between bg-header px-8 shadow">
-      <Link href="/dashboard">
+    <header className="flex h-16 items-center justify-between gap-6 bg-header px-8 shadow">
+      <Link href="/dashboard" className="shrink-0">
         <Logo />
       </Link>
 
-      <div className="flex items-center gap-5 text-white">
+      <GlobalSearchBar />
+
+      <div className="flex shrink-0 items-center gap-5 text-white">
         <Link
           href="/"
           className="hidden items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-white/70 transition hover:bg-white/10 hover:text-white sm:flex"

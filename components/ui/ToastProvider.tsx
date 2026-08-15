@@ -26,7 +26,7 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 const variantClasses: Record<ToastVariant, string> = {
   success: "bg-green-600 text-white",
   error: "bg-red-600 text-white",
-  info: "bg-header text-white",
+  info: "bg-surface-secondary text-foreground ring-1 ring-inset ring-border",
 };
 
 let nextToastId = 1;

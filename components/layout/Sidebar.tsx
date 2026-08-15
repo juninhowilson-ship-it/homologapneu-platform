@@ -35,7 +35,7 @@ type MenuItem = {
 };
 
 const menuGeral: MenuItem[] = [
-  { nome: "Dashboard", rota: "/dashboard", icone: LayoutDashboard, adminOnly: false },
+  { nome: "Início", rota: "/dashboard", icone: LayoutDashboard, adminOnly: false },
   { nome: "Pesquisa", rota: "/pesquisa", icone: Search, adminOnly: false },
   { nome: "Centro Técnico", rota: "/centro-tecnico", icone: Wrench, adminOnly: false },
   { nome: "Medidas", rota: "/medidas", icone: Ruler, adminOnly: false },
@@ -47,6 +47,8 @@ const menuCadastros: MenuItem[] = [
   { nome: "Homologações", rota: "/homologacoes", icone: FileCheck2, adminOnly: true },
   { nome: "Fabricantes", rota: "/fabricantes", icone: Factory, adminOnly: true },
 ];
+
+// Grupos exibidos sob o título "Área do Administrador" (padrão do redesign)
 
 const menuAdministracao: MenuItem[] = [
   { nome: "Biblioteca de Imagens", rota: "/administracao/midia", icone: Images, adminOnly: true },
@@ -82,7 +84,7 @@ function GrupoMenu({
 
   return (
     <div>
-      <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+      <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         {titulo}
       </p>
       <div className="space-y-1">
@@ -97,7 +99,7 @@ function GrupoMenu({
               className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition ${
                 ativo
                   ? "bg-brand font-semibold text-brand-foreground shadow-sm"
-                  : "text-slate-200 hover:bg-white/10"
+                  : "text-sidebar-foreground/80 hover:bg-white/10 hover:text-sidebar-foreground"
               }`}
             >
               <Icone size={18} strokeWidth={2} className="shrink-0" />
@@ -117,20 +119,28 @@ export default function Sidebar() {
 
   return (
     <aside className="min-h-screen w-64 shrink-0 space-y-8 bg-sidebar p-5 text-sidebar-foreground">
-      <GrupoMenu titulo="Geral" itens={menuGeral} pathname={pathname} isAdmin={isAdmin} />
-      <GrupoMenu
-        titulo="Cadastros"
-        itens={menuCadastros}
-        pathname={pathname}
-        isAdmin={isAdmin}
-      />
-      <GrupoMenu
-        titulo="Administração"
-        itens={menuAdministracao}
-        pathname={pathname}
-        isAdmin={isAdmin}
-      />
-      <GrupoMenu titulo="Dev" itens={menusDev} pathname={pathname} isAdmin={isAdmin} />
+      <GrupoMenu titulo="Menu" itens={menuGeral} pathname={pathname} isAdmin={isAdmin} />
+
+      {isAdmin && (
+        <div className="space-y-6 border-t border-white/10 pt-6">
+          <p className="px-3 text-xs font-semibold uppercase tracking-wider text-brand">
+            Área do Administrador
+          </p>
+          <GrupoMenu
+            titulo="Cadastros"
+            itens={menuCadastros}
+            pathname={pathname}
+            isAdmin={isAdmin}
+          />
+          <GrupoMenu
+            titulo="Administração"
+            itens={menuAdministracao}
+            pathname={pathname}
+            isAdmin={isAdmin}
+          />
+          <GrupoMenu titulo="Dev" itens={menusDev} pathname={pathname} isAdmin={isAdmin} />
+        </div>
+      )}
     </aside>
   );
 }
