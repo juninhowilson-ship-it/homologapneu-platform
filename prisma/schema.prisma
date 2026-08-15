@@ -355,6 +355,7 @@ model VehicleVersion {
   /// Boletins técnicos (TSB) vinculados a esta versão — ver model
   /// TechnicalBulletin (Fase Final de Arquitetura).
   technicalBulletins TechnicalBulletin[]
+  favoritedBy        Favorite[]
 
   @@unique([vehicleModelId, name, engineId])
   @@index([category])
@@ -1124,8 +1125,22 @@ model User {
   replacementHistories     ReplacementHistory[]
   wheelEquivalences        WheelEquivalence[]
   passwordResetRequests    PasswordResetRequest[]
+  favorites                Favorite[]
 
   @@map("users")
+}
+
+/// "Minha Garagem": veículos salvos pelo usuário para acesso rápido.
+model Favorite {
+  id               Int            @id @default(autoincrement())
+  userId           Int
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleVersionId Int
+  vehicleVersion   VehicleVersion @relation(fields: [vehicleVersionId], references: [id], onDelete: Cascade)
+  createdAt        DateTime       @default(now())
+
+  @@unique([userId, vehicleVersionId])
+  @@map("favorites")
 }
 
 enum PasswordResetChannel {

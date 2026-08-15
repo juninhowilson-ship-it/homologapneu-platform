@@ -23,6 +23,7 @@ import {
   Images,
   Brain,
   Upload,
+  Warehouse,
   type LucideIcon,
 } from "lucide-react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -39,6 +40,7 @@ const menuGeral: MenuItem[] = [
   { nome: "Pesquisa", rota: "/pesquisa", icone: Search, adminOnly: false },
   { nome: "Centro Técnico", rota: "/centro-tecnico", icone: Wrench, adminOnly: false },
   { nome: "Medidas", rota: "/medidas", icone: Ruler, adminOnly: false },
+  { nome: "Minha Garagem", rota: "/garagem", icone: Warehouse, adminOnly: false },
 ];
 
 const menuCadastros: MenuItem[] = [

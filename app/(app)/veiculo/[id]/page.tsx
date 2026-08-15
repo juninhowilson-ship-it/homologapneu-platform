@@ -37,6 +37,7 @@ import {
 import { obterFichaVeiculo } from "@/services/veiculoFicha";
 import TimelineVeiculo from "@/components/veiculo/TimelineVeiculo";
 import GaleriaVeiculo from "@/components/veiculo/GaleriaVeiculo";
+import SalvarVeiculoButton from "@/components/garagem/SalvarVeiculoButton";
 import type { HomologacaoTireItem } from "@/types/homologacao";
 
 export const dynamic = "force-dynamic";
@@ -152,13 +153,16 @@ export default async function VeiculoPage({
             </div>
 
             <div className="flex flex-col items-end gap-2">
-              <Badge tone={veiculo.isActive ? "success" : "danger"}>
-                {veiculo.isActive ? "Ativo" : "Inativo"}
-              </Badge>
-              <Badge tone={VALIDATION_STATUS_TONE[veiculo.validationStatus]}>
-                <ShieldCheck size={12} className="mr-1 inline" />
-                {VALIDATION_STATUS_LABELS[veiculo.validationStatus]}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge tone={veiculo.isActive ? "success" : "danger"}>
+                  {veiculo.isActive ? "Ativo" : "Inativo"}
+                </Badge>
+                <Badge tone={VALIDATION_STATUS_TONE[veiculo.validationStatus]}>
+                  <ShieldCheck size={12} className="mr-1 inline" />
+                  {VALIDATION_STATUS_LABELS[veiculo.validationStatus]}
+                </Badge>
+              </div>
+              <SalvarVeiculoButton vehicleVersionId={veiculo.id} />
             </div>
           </div>
 
