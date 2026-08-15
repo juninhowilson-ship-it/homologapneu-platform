@@ -21,6 +21,23 @@ const ADMIN_ONLY_PAGE_PREFIXES = [
   "/dev",
   "/roadmap",
   "/administracao",
+  // Páginas administrativas/operacionais fora do route group (app) — enquanto
+  // existirem, ficam restritas a ADMIN como as equivalentes de /administracao.
+  "/admin",
+  "/importacao",
+  "/documentos",
+  "/configuracoes",
+  "/marcas",
+  "/inteligencia-artificial",
+  "/qualidade-dados",
+  "/seguranca",
+  "/performance",
+  "/analytics-avancado",
+  "/dashboard-customizado",
+  "/webhooks",
+  "/integracao",
+  "/estatisticas",
+  "/historico",
 ];
 
 const ALWAYS_ADMIN_API_PREFIXES = [

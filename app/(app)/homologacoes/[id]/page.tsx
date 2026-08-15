@@ -22,8 +22,15 @@ async function getHomologationDetails(id: string) {
   }
 }
 
-export default async function HomologationDetailPage({ params }: { params: { id: string } }) {
-  const homog = await getHomologationDetails(params.id);
+export const dynamic = "force-dynamic";
+
+export default async function HomologationDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const homog = await getHomologationDetails(id);
   if (!homog) notFound();
 
   const vm = homog.vehicleVersion.vehicleModel;
@@ -242,14 +249,3 @@ export default async function HomologationDetailPage({ params }: { params: { id:
     </div>
   );
 }
-
-export async function generateStaticParams() {
-  try {
-    const homogs = await prisma.homologation.findMany({ select: { id: true }, take: 100 });
-    return homogs.map(h => ({ id: h.id.toString() }));
-  } catch {
-    return [];
-  }
-}
-
-export const revalidate = 3600;
