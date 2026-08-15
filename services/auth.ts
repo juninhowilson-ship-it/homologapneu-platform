@@ -1,9 +1,17 @@
 import "server-only";
-import { findUsuarioForLogin } from "@/repositories/usuarios";
-import { verifyPassword, verifyDummyPassword } from "@/lib/auth/password";
+import {
+  findUsuarioForLogin,
+  findUsuarioById,
+  updateUsuario,
+} from "@/repositories/usuarios";
+import {
+  verifyPassword,
+  verifyDummyPassword,
+  hashPassword,
+} from "@/lib/auth/password";
 import { createSession, deleteSession } from "@/lib/auth/session";
-import { ValidationError } from "@/lib/errors";
-import type { LoginValues } from "@/lib/validations/auth";
+import { ValidationError, UnauthorizedError } from "@/lib/errors";
+import type { LoginValues, AlterarSenhaValues } from "@/lib/validations/auth";
 
 export async function login(input: LoginValues) {
   const user = await findUsuarioForLogin(input.email);
@@ -38,4 +46,24 @@ export async function login(input: LoginValues) {
 
 export async function logout() {
   await deleteSession();
+}
+
+export async function alterarSenha(
+  userId: number,
+  input: Pick<AlterarSenhaValues, "senhaAtual" | "novaSenha">
+) {
+  const user = await findUsuarioById(userId);
+
+  if (!user || !user.isActive) {
+    throw new UnauthorizedError("Não autenticado");
+  }
+
+  const senhaValida = await verifyPassword(input.senhaAtual, user.passwordHash);
+  if (!senhaValida) {
+    throw new ValidationError("Senha atual incorreta");
+  }
+
+  await updateUsuario(user.id, {
+    passwordHash: await hashPassword(input.novaSenha),
+  });
 }

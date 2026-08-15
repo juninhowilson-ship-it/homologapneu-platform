@@ -23,6 +23,23 @@ export const usuarioFormSchema = z.object({
 
 export type UsuarioFormValues = z.infer<typeof usuarioFormSchema>;
 
+export const alterarSenhaSchema = z
+  .object({
+    senhaAtual: z.string().min(1, "Senha atual é obrigatória"),
+    novaSenha: z.string().min(8, "A nova senha deve ter ao menos 8 caracteres"),
+    confirmarSenha: z.string().min(1, "Confirme a nova senha"),
+  })
+  .refine((values) => values.novaSenha === values.confirmarSenha, {
+    message: "As senhas não coincidem",
+    path: ["confirmarSenha"],
+  })
+  .refine((values) => values.novaSenha !== values.senhaAtual, {
+    message: "A nova senha deve ser diferente da atual",
+    path: ["novaSenha"],
+  });
+
+export type AlterarSenhaValues = z.infer<typeof alterarSenhaSchema>;
+
 export const usuarioListQuerySchema = z.object({
   q: z.string().trim().optional(),
   role: z.enum(USER_ROLES).optional(),
