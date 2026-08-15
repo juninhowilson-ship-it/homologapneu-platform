@@ -24,6 +24,7 @@ import {
   Brain,
   Upload,
   Warehouse,
+  GitCompareArrows,
   type LucideIcon,
 } from "lucide-react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -41,6 +42,7 @@ const menuGeral: MenuItem[] = [
   { nome: "Centro Técnico", rota: "/centro-tecnico", icone: Wrench, adminOnly: false },
   { nome: "Medidas", rota: "/medidas", icone: Ruler, adminOnly: false },
   { nome: "Minha Garagem", rota: "/garagem", icone: Warehouse, adminOnly: false },
+  { nome: "Comparador", rota: "/comparador", icone: GitCompareArrows, adminOnly: false },
 ];
 
 const menuCadastros: MenuItem[] = [
