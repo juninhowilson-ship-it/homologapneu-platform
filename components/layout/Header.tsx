@@ -64,7 +64,18 @@ export default function Header({ onToggleMenu }: Props) {
 
         {user && (
           <div className="flex items-center gap-3 border-l border-white/10 pl-5">
-            <div className="text-right leading-tight">
+            <span
+              aria-hidden
+              className="hidden h-9 w-9 items-center justify-center rounded-full bg-brand text-sm font-extrabold text-brand-foreground sm:flex"
+            >
+              {user.name
+                .split(" ")
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((parte: string) => parte[0]?.toUpperCase())
+                .join("")}
+            </span>
+            <div className="hidden text-right leading-tight sm:block">
               <p className="font-semibold">{user.name}</p>
               <p className="text-xs text-white/60">
                 {user.role === "ADMIN" ? "Administrador" : "Usuário"}

@@ -22,7 +22,10 @@ const withRelations = {
       orderBy: { role: "asc" },
     },
     pressureSpecs: { orderBy: { createdAt: "asc" } },
-    documents: { orderBy: { createdAt: "asc" } },
+    documents: {
+      orderBy: { createdAt: "asc" },
+      include: { documentUpload: { select: { fileSize: true } } },
+    },
   },
 } satisfies Prisma.HomologationDefaultArgs;
 

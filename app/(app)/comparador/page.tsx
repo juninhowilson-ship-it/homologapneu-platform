@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { GitCompareArrows, Plus, Search, X } from "lucide-react";
 import Badge from "@/components/ui/Badge";
@@ -30,8 +31,17 @@ function simNao(valor: boolean) {
   return valor ? "Sim" : "Não";
 }
 
-export default function ComparadorPage() {
-  const [ids, setIds] = useState<number[]>([]);
+function idsIniciaisDaUrl(params: URLSearchParams): number[] {
+  return (params.get("ids") ?? "")
+    .split(",")
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isInteger(n) && n > 0)
+    .slice(0, MAX_PNEUS);
+}
+
+function ComparadorContent() {
+  const searchParams = useSearchParams();
+  const [ids, setIds] = useState<number[]>(() => idsIniciaisDaUrl(searchParams));
   const [busca, setBusca] = useState("");
   const [buscaDebounced, setBuscaDebounced] = useState("");
 
@@ -246,5 +256,13 @@ export default function ComparadorPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ComparadorPage() {
+  return (
+    <Suspense fallback={null}>
+      <ComparadorContent />
+    </Suspense>
   );
 }

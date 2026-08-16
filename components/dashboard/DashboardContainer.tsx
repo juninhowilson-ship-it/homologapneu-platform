@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Skeleton from "@/components/ui/Skeleton";
 import KpiCard from "./KpiCard";
-import GlobalSearch from "./GlobalSearch";
+import BuscaGuiadaCard from "./BuscaGuiadaCard";
 import QuickLinks from "./QuickLinks";
 import CoberturaNacionalTable from "./CoberturaNacionalTable";
 import { useDashboard } from "@/hooks/useDashboard";
@@ -38,7 +38,7 @@ export default function DashboardContainer() {
 
   return (
     <div className="space-y-10">
-      <GlobalSearch />
+      <BuscaGuiadaCard />
 
       <QuickLinks />
 

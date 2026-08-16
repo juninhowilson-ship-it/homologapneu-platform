@@ -11,6 +11,7 @@ export type Veiculo = {
   id: number;
   manufacturerId: number;
   manufacturerName: string;
+  manufacturerLogoUrl: string | null;
   model: string;
   version: string;
   internalCode: string | null;

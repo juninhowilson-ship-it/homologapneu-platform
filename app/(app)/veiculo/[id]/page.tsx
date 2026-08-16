@@ -38,7 +38,9 @@ import { obterFichaVeiculo } from "@/services/veiculoFicha";
 import TimelineVeiculo from "@/components/veiculo/TimelineVeiculo";
 import GaleriaVeiculo from "@/components/veiculo/GaleriaVeiculo";
 import SalvarVeiculoButton from "@/components/garagem/SalvarVeiculoButton";
+import BaixarPdfButton from "@/components/veiculo/BaixarPdfButton";
 import AssistenteChat from "@/components/assistente/AssistenteChat";
+import { GitCompareArrows } from "lucide-react";
 import type { HomologacaoTireItem } from "@/types/homologacao";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +51,12 @@ function formatarFaixaAno(inicio: number, fim: number) {
 
 function formatarData(iso: string) {
   return new Date(iso).toLocaleDateString("pt-BR");
+}
+
+function formatarTamanho(bytes: number | null) {
+  if (!bytes) return null;
+  const mb = bytes / (1024 * 1024);
+  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
 const AVISOS_SEGURANCA = [
@@ -106,16 +114,30 @@ export default async function VeiculoPage({
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-8">
-      <Breadcrumb
-        items={[
-          { label: "Início", href: "/dashboard" },
-          { label: "Veículos", href: "/pesquisa" },
-          { label: veiculo.manufacturerName },
-          { label: veiculo.model },
-          { label: `${veiculo.version} ${formatarFaixaAno(veiculo.yearStart, veiculo.yearEnd)}` },
-        ]}
-        className="mb-6"
-      />
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 no-print">
+        <Breadcrumb
+          items={[
+            { label: "Início", href: "/dashboard" },
+            { label: "Veículos", href: "/pesquisa" },
+            { label: veiculo.manufacturerName },
+            { label: veiculo.model },
+            { label: `${veiculo.version} ${formatarFaixaAno(veiculo.yearStart, veiculo.yearEnd)}` },
+          ]}
+        />
+
+        <div className="flex items-center gap-2">
+          {pneusDistintos.size > 0 && (
+            <Link
+              href={`/comparador?ids=${Array.from(pneusDistintos).slice(0, 3).join(",")}`}
+              className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-sm font-semibold text-foreground transition hover:border-brand/50"
+            >
+              <GitCompareArrows size={16} />
+              Comparar Pneus
+            </Link>
+          )}
+          <BaixarPdfButton />
+        </div>
+      </div>
 
       {/* Cabeçalho do veículo */}
       <div className="flex flex-col gap-6 rounded-2xl border border-border bg-surface p-6 sm:flex-row">
@@ -136,6 +158,16 @@ export default async function VeiculoPage({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
+                {veiculo.manufacturerLogoUrl && (
+                  <span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg border border-border bg-white p-1">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={veiculo.manufacturerLogoUrl}
+                      alt={veiculo.manufacturerName}
+                      className="h-full w-full object-contain"
+                    />
+                  </span>
+                )}
                 <Badge tone="warning">{CATEGORY_LABELS[veiculo.category]}</Badge>
                 {veiculo.segment && (
                   <span className="text-xs text-muted-foreground">
@@ -207,8 +239,65 @@ export default async function VeiculoPage({
             </TabsList>
 
             <TabsContent value="resumo" className="pt-6">
+              <section className="rounded-xl border border-border bg-surface p-5">
+                <h2 className="mb-4 text-lg font-bold text-foreground">
+                  Ficha técnica
+                </h2>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm sm:grid-cols-3">
+                  {[
+                    { rotulo: "Geração", valor: veiculo.generationName },
+                    { rotulo: "Plataforma", valor: veiculo.platformName },
+                    { rotulo: "Combustível", valor: FUEL_LABELS[veiculo.fuel] },
+                    { rotulo: "Motor", valor: veiculo.engine },
+                    { rotulo: "Potência", valor: veiculo.power },
+                    { rotulo: "Torque", valor: veiculo.torque },
+                    {
+                      rotulo: "Transmissão",
+                      valor: veiculo.transmissionType
+                        ? `${TRANSMISSION_LABELS[veiculo.transmissionType]}${
+                            veiculo.transmissionGears
+                              ? ` (${veiculo.transmissionGears} marchas)`
+                              : ""
+                          }`
+                        : null,
+                    },
+                    {
+                      rotulo: "Tração",
+                      valor: veiculo.drivetrain
+                        ? DRIVETRAIN_LABELS[veiculo.drivetrain]
+                        : null,
+                    },
+                    { rotulo: "Carroceria", valor: CATEGORY_LABELS[veiculo.category] },
+                    {
+                      rotulo: "Portas",
+                      valor: veiculo.doors ? String(veiculo.doors) : null,
+                    },
+                    {
+                      rotulo: "Entre-eixos",
+                      valor: veiculo.wheelbase ? `${veiculo.wheelbase} mm` : null,
+                    },
+                    {
+                      rotulo: "Peso",
+                      valor: veiculo.weight ? `${veiculo.weight} kg` : null,
+                    },
+                    { rotulo: "Mercado", valor: veiculo.country },
+                    {
+                      rotulo: "Categoria regulatória",
+                      valor: veiculo.regulatoryCategory,
+                    },
+                  ]
+                    .filter((campo) => campo.valor)
+                    .map((campo) => (
+                      <div key={campo.rotulo}>
+                        <p className="text-muted-foreground">{campo.rotulo}</p>
+                        <p className="font-semibold text-foreground">{campo.valor}</p>
+                      </div>
+                    ))}
+                </div>
+              </section>
+
               {versoesIrmas.length > 1 && (
-                <section>
+                <section className="mt-8">
                   <h2 className="mb-3 text-lg font-bold text-foreground">
                     Todas as versões
                   </h2>
@@ -367,11 +456,11 @@ export default async function VeiculoPage({
                     >
                       <FileCheck2 size={16} className="shrink-0" />
                       <span className="truncate">{doc.name}</span>
-                      {doc.publishedAt && (
-                        <span className="ml-auto shrink-0 text-xs font-normal text-muted-foreground">
-                          {formatarData(doc.publishedAt)}
-                        </span>
-                      )}
+                      <span className="ml-auto shrink-0 text-xs font-normal text-muted-foreground">
+                        {[formatarTamanho(doc.fileSizeBytes), doc.publishedAt ? formatarData(doc.publishedAt) : null]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
                     </a>
                   ))}
                   {documentos.map((doc) => (
