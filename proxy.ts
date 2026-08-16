@@ -110,9 +110,12 @@ function requiresAdmin(pathname: string, method: string): boolean {
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
 const RATE_LIMIT_CONFIG = {
-  // 100 requests per 15 minutos por IP
-  requests: 100,
-  windowMs: 15 * 60 * 1000,
+  // 100 requisições por 15 min por IP. Configurável porque o Next faz
+  // prefetch dos links visíveis: uma tela com muitos links consome dezenas
+  // de requisições de um mesmo IP legítimo (e ambientes de preview/QA,
+  // atrás de um único IP, estouram o padrão).
+  requests: Number(process.env.RATE_LIMIT_REQUESTS) || 100,
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
 };
 
 // Cache de deduplicação de request (idempotência)

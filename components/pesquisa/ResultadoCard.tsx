@@ -87,19 +87,19 @@ export default function ResultadoCard({ resultado }: Props) {
               <p className="font-semibold">{resultado.pneuIndiceVelocidade}</p>
             </div>
 
-            <div>
-              <p className="text-muted-foreground">Run Flat / XL</p>
-              <p className="font-semibold">
-                {resultado.pneuRunFlat ? "Run Flat" : "—"}
-                {resultado.pneuRunFlat && resultado.pneuXl ? " · " : ""}
-                {resultado.pneuXl ? "XL" : resultado.pneuRunFlat ? "" : "—"}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-muted-foreground">Fabricante do Pneu</p>
+            {/* XL e Run Flat entram na descrição do pneu, não em coluna
+                própria — são exceção, não atributo de todo pneu. */}
+            <div className="md:col-span-2">
+              <p className="text-muted-foreground">Pneu</p>
               <p className="font-semibold">
                 {resultado.pneuFabricante} {resultado.pneuModelo}
+                {(resultado.pneuXl || resultado.pneuRunFlat) && (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    ·{resultado.pneuXl ? " XL" : ""}
+                    {resultado.pneuRunFlat ? " Run Flat" : ""}
+                  </span>
+                )}
               </p>
             </div>
 
