@@ -140,10 +140,21 @@ export async function uploadDocumento(input: UploadDocumentoInput) {
 
     const candidatosExtraidos = await extrairCandidatos(parsed);
 
+    // Manuais do proprietário não repetem o ano do veículo ao lado da medida
+    // do pneu — o ano é propriedade do documento. Quando o nome do arquivo
+    // declara o ano ("Stonic 2025 - Manual do Proprietário.pdf"), ele vale
+    // como ano do candidato. Nunca sobrescreve um ano achado no texto.
+    const anoDoArquivo = anoNoNomeDoArquivo(input.fileName);
+
     const candidatos = await prisma.$transaction(
       candidatosExtraidos.map((c) =>
         prisma.homologationCandidate.create({
-          data: { documentUploadId: documentUpload.id, ...c },
+          data: {
+            documentUploadId: documentUpload.id,
+            ...c,
+            yearStart: c.yearStart ?? anoDoArquivo,
+            yearEnd: c.yearEnd ?? anoDoArquivo,
+          },
         })
       )
     );
@@ -168,6 +179,20 @@ export async function uploadDocumento(input: UploadDocumentoInput) {
     const semConteudo = omitirConteudoArquivo(documentUpload);
     return { documentUpload: semConteudo, candidatos: [], duplicado: false, erro: mensagem, ocrPending };
   }
+}
+
+/**
+ * Ano do modelo declarado no nome do arquivo do manual (ex.: "Stonic 2025 -
+ * Manual do Proprietário.pdf"). Só aceita 1990–2049 para não confundir com
+ * código de peça; devolve null quando o nome não declara ano.
+ */
+function anoNoNomeDoArquivo(fileName: string): number | null {
+  const encontrados = Array.from(
+    fileName.matchAll(/\b(19[9]\d|20[0-4]\d)\b/g)
+  ).map((m) => Number(m[1]));
+  if (encontrados.length === 0) return null;
+  // Nomes com duas datas ("2024-2025") — o mais recente é o ano do modelo
+  return Math.max(...encontrados);
 }
 
 export async function listarCandidatos(status?: CandidateStatus) {
