@@ -2,20 +2,35 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Bell, Settings, ExternalLink, KeyRound } from "lucide-react";
+import { Bell, Settings, ExternalLink, KeyRound, Menu } from "lucide-react";
 import Logo from "./Logo";
 import GlobalSearchBar from "./GlobalSearchBar";
 import AlterarSenhaModal from "@/components/auth/AlterarSenhaModal";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useLogout } from "@/hooks/useLogout";
 
-export default function Header() {
+type Props = {
+  onToggleMenu?: () => void;
+};
+
+export default function Header({ onToggleMenu }: Props) {
   const { data: user } = useCurrentUser();
   const logout = useLogout();
   const [senhaModalAberto, setSenhaModalAberto] = useState(false);
 
   return (
-    <header className="flex h-16 items-center justify-between gap-6 bg-header px-8 shadow">
+    <header className="flex h-16 items-center justify-between gap-4 bg-header px-4 shadow sm:px-8 sm:gap-6">
+      {onToggleMenu && (
+        <button
+          type="button"
+          onClick={onToggleMenu}
+          aria-label="Abrir menu"
+          className="rounded-lg p-2 text-white/70 transition hover:bg-white/10 hover:text-white lg:hidden"
+        >
+          <Menu size={20} />
+        </button>
+      )}
+
       <Link href="/dashboard" className="shrink-0">
         <Logo />
       </Link>
