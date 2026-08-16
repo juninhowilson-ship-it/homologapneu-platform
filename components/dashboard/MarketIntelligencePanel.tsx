@@ -1,4 +1,5 @@
 import BarChartCard from "./charts/BarChartCard";
+import DonutChartCard from "./charts/DonutChartCard";
 import type { DashboardMercado } from "@/types/dashboard";
 import {
   CATEGORY_LABELS,
@@ -31,7 +32,32 @@ export default function MarketIntelligencePanel({ mercado }: Props) {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Inteligência de Mercado</h2>
+      <div>
+        <h2 className="text-xl font-bold text-foreground">
+          Inteligência de mercado
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Como as homologações se distribuem pela base
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <DonutChartCard
+          title="Por categoria"
+          subtitle="Carroceria dos veículos homologados"
+          data={categoria}
+        />
+        <DonutChartCard
+          title="Por combustível"
+          subtitle="Motorização dos veículos homologados"
+          data={combustivel}
+        />
+        <DonutChartCard
+          title="Por segmento"
+          subtitle="Posicionamento de mercado"
+          data={segmento}
+        />
+      </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
         <BarChartCard
@@ -62,21 +88,6 @@ export default function MarketIntelligencePanel({ mercado }: Props) {
         <BarChartCard
           title="Veículos com Mais Homologações"
           data={mercado.veiculosComMaisHomologacoes}
-        />
-        <BarChartCard
-          title="Distribuição por Categoria"
-          data={categoria}
-          colorMode="categorical"
-        />
-        <BarChartCard
-          title="Distribuição por Segmento"
-          data={segmento}
-          colorMode="categorical"
-        />
-        <BarChartCard
-          title="Distribuição por Combustível"
-          data={combustivel}
-          colorMode="categorical"
         />
       </div>
     </div>

@@ -21,8 +21,23 @@ type HomologacaoComRelacoes = Prisma.HomologationGetPayload<{
   include: typeof RESULTADO_INCLUDE;
 }>;
 
+/**
+ * Espelha `busca_medida_chave` do banco (migration 20260815190000): extrai a
+ * tripla largura/perfil/aro de uma medida digitada em qualquer formato
+ * ("205 55 16", "205/55 R16", "2055516"). Devolve null quando o texto não é
+ * uma medida.
+ */
+export function medidaChave(texto: string): string | null {
+  const alvo = (texto ?? "").toUpperCase();
+  if (/[ABDEFGHIJKLMNOPQSTUVWY]/.test(alvo)) return null;
+
+  const m = alvo.match(/(\d{3})\s*[/X-]?\s*(\d{2})\s*[ZR/-]*\s*(\d{2}(?:\.5)?)/);
+  return m ? `${m[1]}/${m[2]}R${m[3]}` : null;
+}
+
 function mapParaResultados(
-  homologacoes: HomologacaoComRelacoes[]
+  homologacoes: HomologacaoComRelacoes[],
+  medidaBuscada?: string | null
 ): ResultadoPesquisa[] {
   return homologacoes.flatMap((homologacao) => {
     const pressao = homologacao.pressureSpecs[0] ?? null;
@@ -32,7 +47,15 @@ function mapParaResultados(
       homologacao.vehicleVersion.images[0] ??
       null;
 
-    return homologacao.tires.map((tireEntry) => ({
+    // Busca por medida mostra só os pneus daquela medida — sem isso, uma
+    // homologação com 5 pneus emitia 5 linhas, 4 delas de outras medidas.
+    const pneus = medidaBuscada
+      ? homologacao.tires.filter(
+          (t) => medidaChave(t.tire.size) === medidaBuscada
+        )
+      : homologacao.tires;
+
+    return pneus.map((tireEntry) => ({
       homologacaoId: homologacao.id,
       homologacaoCodigo: homologacao.code,
       homologacaoAno: homologacao.year,
@@ -182,7 +205,7 @@ export async function buscarLivre(texto: string): Promise<ResultadoPesquisa[]> {
 
   await registrarBusca({}, homologacoes.length, termo);
 
-  return mapParaResultados(homologacoes);
+  return mapParaResultados(homologacoes, medidaChave(termo));
 }
 
 const ROTULOS_FILTRO: Record<string, string> = {
