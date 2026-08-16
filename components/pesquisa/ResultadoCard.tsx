@@ -1,6 +1,7 @@
 import { Car, FileText, CalendarDays, Gauge } from "lucide-react";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
+import SalvarVeiculoButton from "@/components/garagem/SalvarVeiculoButton";
 import {
   VALIDATION_STATUS_LABELS,
   VALIDATION_STATUS_TONE,
@@ -56,6 +57,10 @@ export default function ResultadoCard({ resultado }: Props) {
 
             <div className="text-right">
               <div className="flex items-center justify-end gap-2">
+                <SalvarVeiculoButton
+                  vehicleVersionId={resultado.veiculoId}
+                  variante="icone"
+                />
                 <Badge tone={resultado.pneuTipo === "ORIGINAL" ? "success" : "neutral"}>
                   {resultado.pneuTipo === "ORIGINAL"
                     ? "Original"

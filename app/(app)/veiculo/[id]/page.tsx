@@ -59,6 +59,12 @@ function formatarTamanho(bytes: number | null) {
   return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
+// Uploads manuais guardam pseudo-URLs "upload:{id}:{arquivo}" na coluna url —
+// sem rota de download, não devem virar link clicável.
+function urlAbrivel(url: string) {
+  return url.startsWith("http");
+}
+
 const AVISOS_SEGURANCA = [
   "Sempre utilizar pneus e índices conforme o manual do proprietário.",
   "A utilização de pneus não homologados pode comprometer a segurança.",
@@ -378,7 +384,11 @@ export default async function VeiculoPage({
                             <Badge
                               tone={tire.role === "ORIGINAL" ? "success" : "neutral"}
                             >
-                              {tire.role === "ORIGINAL" ? "Original" : "Alternativa"}
+                              {tire.role === "ORIGINAL"
+                                ? "Original"
+                                : tire.role === "SUBSTITUTO"
+                                  ? "Substituto"
+                                  : "Alternativa"}
                             </Badge>
                           </TableTd>
                           <TableTd className="text-muted-foreground">
@@ -446,23 +456,48 @@ export default async function VeiculoPage({
             <TabsContent value="documentos" className="pt-6">
               {totalDocumentos > 0 ? (
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {documentosHomologacao.map((doc) => (
-                    <a
-                      key={`h-${doc.id}`}
-                      href={doc.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-2 rounded-xl border border-border bg-surface p-4 text-sm font-semibold text-foreground transition hover:border-brand/50 hover:text-brand"
-                    >
-                      <FileCheck2 size={16} className="shrink-0" />
-                      <span className="truncate">{doc.name}</span>
-                      <span className="ml-auto shrink-0 text-xs font-normal text-muted-foreground">
-                        {[formatarTamanho(doc.fileSizeBytes), doc.publishedAt ? formatarData(doc.publishedAt) : null]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </span>
-                    </a>
-                  ))}
+                  {documentosHomologacao.map((doc) => {
+                    const meta = [
+                      formatarTamanho(doc.fileSizeBytes),
+                      doc.publishedAt ? formatarData(doc.publishedAt) : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ");
+                    const classes =
+                      "flex items-center gap-2 rounded-xl border border-border bg-surface p-4 text-sm font-semibold text-foreground";
+
+                    if (!urlAbrivel(doc.url)) {
+                      return (
+                        <div
+                          key={`h-${doc.id}`}
+                          title="Arquivo interno da curadoria — download direto em breve"
+                          className={`${classes} opacity-70`}
+                        >
+                          <FileCheck2 size={16} className="shrink-0" />
+                          <span className="truncate">{doc.name}</span>
+                          <span className="ml-auto shrink-0 text-xs font-normal text-muted-foreground">
+                            {meta}
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <a
+                        key={`h-${doc.id}`}
+                        href={doc.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={`${classes} transition hover:border-brand/50 hover:text-brand`}
+                      >
+                        <FileCheck2 size={16} className="shrink-0" />
+                        <span className="truncate">{doc.name}</span>
+                        <span className="ml-auto shrink-0 text-xs font-normal text-muted-foreground">
+                          {meta}
+                        </span>
+                      </a>
+                    );
+                  })}
                   {documentos.map((doc) => (
                     <a
                       key={`v-${doc.id}`}
@@ -573,6 +608,7 @@ export default async function VeiculoPage({
               </div>
               <div className="space-y-2 p-5">
                 {[...documentosHomologacao, ...documentos]
+                  .filter((doc) => urlAbrivel(doc.url))
                   .slice(0, 4)
                   .map((doc, index) => (
                     <a

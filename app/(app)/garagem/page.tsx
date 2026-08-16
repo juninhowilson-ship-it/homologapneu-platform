@@ -12,7 +12,7 @@ function formatarFaixaAno(inicio: number, fim: number) {
 }
 
 export default function GaragemPage() {
-  const { data: veiculos, isLoading } = useGaragem();
+  const { data: veiculos, isLoading, isError, refetch } = useGaragem();
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
@@ -36,6 +36,20 @@ export default function GaragemPage() {
             <Skeleton key={index} className="h-48 w-full rounded-xl" />
           ))}
         </div>
+      ) : isError ? (
+        <EmptyState
+          title="Não foi possível carregar a garagem"
+          description="Verifique sua conexão ou entre novamente na conta."
+          action={
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="rounded-lg bg-brand px-4 py-2 text-sm font-bold text-brand-foreground transition hover:bg-brand-hover"
+            >
+              Tentar novamente
+            </button>
+          }
+        />
       ) : !veiculos || veiculos.length === 0 ? (
         <EmptyState
           title="Sua garagem está vazia"

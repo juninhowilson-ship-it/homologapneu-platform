@@ -18,6 +18,16 @@ export default function AppShell({ children }: Props) {
     setMenuAberto(false);
   }, [pathname]);
 
+  // Trava o scroll da página enquanto o drawer está aberto
+  useEffect(() => {
+    if (!menuAberto) return;
+    const anterior = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = anterior;
+    };
+  }, [menuAberto]);
+
   return (
     <div className="min-h-screen bg-surface-muted">
       <Header onToggleMenu={() => setMenuAberto((aberto) => !aberto)} />

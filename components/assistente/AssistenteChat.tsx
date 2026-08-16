@@ -54,8 +54,13 @@ export default function AssistenteChat({
         body: JSON.stringify({
           pergunta,
           contexto,
-          // Sem a mensagem de boas-vindas, que não agrega contexto
-          historico: novoHistorico.slice(1, -1),
+          // Sem a mensagem de boas-vindas; só as últimas trocas, truncadas —
+          // o backend valida no máximo 20 mensagens de 2000 caracteres e o
+          // serviço usa apenas as 6 últimas.
+          historico: novoHistorico
+            .slice(1, -1)
+            .slice(-6)
+            .map((m) => ({ ...m, texto: m.texto.slice(0, 2000) })),
         }),
       });
 

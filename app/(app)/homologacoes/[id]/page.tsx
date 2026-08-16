@@ -150,7 +150,11 @@ export default async function HomologationDetailPage({
                   </TableTd>
                   <TableTd>
                     <Badge tone={ht.role === "ORIGINAL" ? "success" : "neutral"}>
-                      {ht.role === "ORIGINAL" ? "Original" : "Opcional"}
+                      {ht.role === "ORIGINAL"
+                        ? "Original"
+                        : ht.role === "SUBSTITUTO"
+                          ? "Substituto"
+                          : "Opcional"}
                     </Badge>
                   </TableTd>
                   <TableTd className="text-muted-foreground">

@@ -56,7 +56,11 @@ function ComparadorContent() {
     enabled: buscaDebounced.trim().length >= 2,
   });
 
-  const { data: pneus, isLoading } = useQuery({
+  const {
+    data: pneus,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ["comparador", ids],
     queryFn: () => buscarComparacao(ids),
     enabled: ids.length > 0,
@@ -189,6 +193,16 @@ function ComparadorContent() {
         <EmptyState
           title="Nenhum pneu selecionado"
           description="Use a busca acima para adicionar até três pneus e comparar as especificações."
+        />
+      ) : isError ? (
+        <EmptyState
+          title="Não foi possível carregar a comparação"
+          description="Tente novamente em instantes."
+        />
+      ) : !isLoading && (pneus ?? []).length === 0 ? (
+        <EmptyState
+          title="Pneus não encontrados"
+          description="Os pneus informados no link não existem mais na base. Use a busca acima para escolher outros."
         />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-border bg-surface">

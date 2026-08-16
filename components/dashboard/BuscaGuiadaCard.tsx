@@ -39,7 +39,9 @@ export default function BuscaGuiadaCard() {
   function buscarPorMedida() {
     const q = medida.trim();
     if (!q) return;
-    router.push(`/pesquisa?medida=${encodeURIComponent(q)}`);
+    // Busca livre (fuzzy): aceita "225/45R17", "225 45 17" etc. — o filtro
+    // estruturado `medida` exigiria o texto exato de uma opção cadastrada.
+    router.push(`/pesquisa?q=${encodeURIComponent(q)}`);
   }
 
   return (

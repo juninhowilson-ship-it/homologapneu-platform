@@ -51,7 +51,10 @@ export async function listarNoticias(): Promise<ItemNoticia[]> {
         ? `Fonte: ${d.manufacturerName}`
         : "Documento de homologação",
       data: d.createdAt.toISOString(),
-      link: d.url,
+      // Uploads manuais guardam pseudo-URLs "upload:{id}:{arquivo}" na coluna
+      // url (ver publishApprovedHomologation) — sem resolver de download,
+      // não viram link.
+      link: d.url.startsWith("http") ? d.url : null,
     })),
   ];
 
