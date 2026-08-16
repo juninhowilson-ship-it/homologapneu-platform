@@ -27,6 +27,8 @@ export default function GlobalSearchBar() {
     return () => clearTimeout(timer);
   }, [texto]);
 
+  // Sugestões seguem o recorte padrão do produto (2020+); a página de
+  // pesquisa permite abrir para os anteriores.
   const { data: resultados, isFetching } = usePesquisaLivre(
     textoDebounced.trim().length >= 2 ? textoDebounced : null
   );

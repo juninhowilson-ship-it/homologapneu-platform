@@ -4,6 +4,8 @@ import { buscarHomologacoes } from "@/services/pesquisa";
 
 export async function GET(request: NextRequest) {
   const params = Object.fromEntries(request.nextUrl.searchParams);
+  const incluirAntigos = params.incluirAntigos === "true";
+  delete params.incluirAntigos;
   const parsed = pesquisaFiltrosSchema.safeParse(params);
 
   if (!parsed.success) {
@@ -13,7 +15,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const resultados = await buscarHomologacoes(parsed.data);
+  const resultados = await buscarHomologacoes(parsed.data, { incluirAntigos });
 
   return NextResponse.json({ resultados });
 }
