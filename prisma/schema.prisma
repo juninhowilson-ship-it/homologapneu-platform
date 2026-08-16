@@ -499,6 +499,37 @@ enum TireSeason {
   QUATRO_ESTACOES
 }
 
+/// Catálogo COMERCIAL de referência, sincronizado do Intelli Tire (ERP de
+/// pneus, projeto irmão). Responde "este pneu existe e ainda gira no
+/// mercado?" — pergunta distinta de "é homologado", que só a Homologation
+/// responde. Nunca vira homologação: um SKU de varejo não é fonte oficial
+/// de montadora. Fica em tabela própria justamente para não se misturar
+/// com a base mestre.
+model CommercialTireOffer {
+  id            Int      @id @default(autoincrement())
+  brand         String
+  /// Modelo comercial extraído da descrição do SKU (ex.: "SCORPION HT").
+  model         String
+  size          String
+  loadIndex     String?
+  speedIndex    String?
+  /// Marcação de equipamento original impressa no flanco quando o SKU a
+  /// declara (MOE/MO = Mercedes, (*) = BMW, AO = Audi...). É indício de
+  /// homologação de fábrica, NÃO prova — por isso fica só como atributo.
+  oeMarking     String?
+  runFlat       Boolean  @default(false)
+  /// Descrição original do SKU, preservada para auditoria da extração.
+  rawDescription String
+  /// Unidades vendidas na janela sincronizada — sinal de "está em linha".
+  soldUnits     Int      @default(0)
+  source        String
+  syncedAt      DateTime @default(now())
+
+  @@unique([brand, model, size, oeMarking])
+  @@index([size])
+  @@map("commercial_tire_offers")
+}
+
 model Tire {
   id                 Int              @id @default(autoincrement())
   tireManufacturerId Int

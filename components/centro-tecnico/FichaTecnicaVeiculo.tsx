@@ -252,8 +252,10 @@ export default function FichaTecnicaVeiculo({ id }: Props) {
             </h3>
           </div>
           <p className="mb-3 text-sm text-muted-foreground">
-            Pneus da base nas medidas homologadas acima. Verifique sempre os
-            índices de carga e velocidade antes de substituir.
+            Pneus nas medidas homologadas acima — os do catálogo técnico e os
+            que estão à venda hoje (fonte comercial, não é homologação).
+            Verifique sempre os índices de carga e velocidade antes de
+            substituir.
           </p>
 
           <div className="space-y-4">
@@ -293,6 +295,41 @@ export default function FichaTecnicaVeiculo({ id }: Props) {
                     </li>
                   ))}
                 </ul>
+
+                {alternativa.comerciais.length > 0 && (
+                  <div className="border-t border-border bg-surface-muted/50">
+                    <p className="px-4 pt-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      À venda hoje nesta medida
+                    </p>
+                    <ul className="divide-y divide-border/60">
+                      {alternativa.comerciais.map((oferta) => (
+                        <li
+                          key={oferta.id}
+                          className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm"
+                        >
+                          <span className="text-foreground">
+                            <span className="font-semibold">{oferta.marca}</span>{" "}
+                            {oferta.modelo}
+                            {oferta.especificacao && (
+                              <span className="text-muted-foreground">
+                                {" "}
+                                · {oferta.especificacao}
+                              </span>
+                            )}
+                          </span>
+                          {oferta.marcacaoOe && (
+                            <Badge
+                              tone="warning"
+                              title="Marcação de equipamento original impressa no flanco — indício de homologação de fábrica, não prova"
+                            >
+                              {oferta.marcacaoOe}
+                            </Badge>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             ))}
           </div>
