@@ -3,15 +3,9 @@ import { prisma } from "@/lib/prisma";
 import type { PesquisaFiltros } from "@/lib/validations/pesquisa";
 import type { ResultadoPesquisa } from "@/types/homologation";
 import type { Prisma } from "@prisma/client";
+import { ANO_MINIMO_PADRAO, medidaChave } from "@/lib/medida";
 
-/**
- * Recorte padrão do produto: veículos ainda fabricados em 2020 ou depois.
- * O corte é por fim de produção (yearEnd), não por lançamento — um modelo
- * lançado em 2018 que continuou saindo de fábrica em 2021 é atual e precisa
- * aparecer.
- */
-export const ANO_MINIMO_PADRAO = 2020;
-
+export { ANO_MINIMO_PADRAO, medidaChave };
 
 const RESULTADO_INCLUDE = {
   vehicleVersion: {
@@ -29,20 +23,6 @@ const RESULTADO_INCLUDE = {
 type HomologacaoComRelacoes = Prisma.HomologationGetPayload<{
   include: typeof RESULTADO_INCLUDE;
 }>;
-
-/**
- * Espelha `busca_medida_chave` do banco (migration 20260815190000): extrai a
- * tripla largura/perfil/aro de uma medida digitada em qualquer formato
- * ("205 55 16", "205/55 R16", "2055516"). Devolve null quando o texto não é
- * uma medida.
- */
-export function medidaChave(texto: string): string | null {
-  const alvo = (texto ?? "").toUpperCase();
-  if (/[ABDEFGHIJKLMNOPQSTUVWY]/.test(alvo)) return null;
-
-  const m = alvo.match(/(\d{3})\s*[/X-]?\s*(\d{2})\s*[ZR/-]*\s*(\d{2}(?:\.5)?)/);
-  return m ? `${m[1]}/${m[2]}R${m[3]}` : null;
-}
 
 function mapParaResultados(
   homologacoes: HomologacaoComRelacoes[],

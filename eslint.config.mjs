@@ -5,6 +5,12 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    // Arquivos de configuração do jest são CommonJS por exigência do próprio
+    // jest — `require()` ali não é escolha de estilo.
+    files: ["jest.config.js", "jest.polyfills.js", "jest.setup.js"],
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
