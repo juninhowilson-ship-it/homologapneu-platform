@@ -34,6 +34,7 @@ export async function listarOpcoesFiltro(): Promise<OpcoesFiltroPesquisa> {
       orderBy: { name: "asc" },
     }),
     prisma.tire.findMany({
+      where: { deletedAt: null },
       select: { size: true },
       distinct: ["size"],
       orderBy: { size: "asc" },
@@ -48,20 +49,24 @@ export async function listarOpcoesFiltro(): Promise<OpcoesFiltroPesquisa> {
       orderBy: { name: "asc" },
     }),
     prisma.tire.findMany({
+      where: { deletedAt: null },
       select: { loadIndex: true },
       distinct: ["loadIndex"],
     }),
     prisma.tire.findMany({
+      where: { deletedAt: null },
       select: { speedIndex: true },
       distinct: ["speedIndex"],
       orderBy: { speedIndex: "asc" },
     }),
     prisma.tire.findMany({
+      where: { deletedAt: null },
       select: { category: true },
       distinct: ["category"],
       orderBy: { category: "asc" },
     }),
     prisma.tire.findMany({
+      where: { deletedAt: null },
       select: { segment: true },
       distinct: ["segment"],
       orderBy: { segment: "asc" },

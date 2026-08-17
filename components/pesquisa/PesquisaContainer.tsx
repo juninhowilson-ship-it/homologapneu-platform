@@ -63,6 +63,10 @@ export default function PesquisaContainer() {
   const [filtrosAbertos, setFiltrosAbertos] = useState(
     temFiltrosIniciais || Boolean(campoAtalho)
   );
+  // Recorte padrão do produto: veículos ainda fabricados de 2020 em diante
+  const [incluirAntigos, setIncluirAntigos] = useState(
+    searchParams.get("incluirAntigos") === "true"
+  );
 
   const { data: opcoes, isLoading: carregandoOpcoes } = useFiltrosPesquisa();
   const { register, handleSubmit } = useForm<PesquisaFiltros>({
@@ -74,13 +78,13 @@ export default function PesquisaContainer() {
     data: resultadosLivre,
     isFetching: buscandoLivre,
     isError: erroLivre,
-  } = usePesquisaLivre(modo === "livre" ? textoBuscado : null);
+  } = usePesquisaLivre(modo === "livre" ? textoBuscado : null, incluirAntigos);
 
   const {
     data: resultadosFiltros,
     isFetching: buscandoFiltros,
     isError: erroFiltros,
-  } = usePesquisa(modo === "filtros" ? filtrosAtivos : null);
+  } = usePesquisa(modo === "filtros" ? filtrosAtivos : null, incluirAntigos);
 
   const resultados = useMemo(
     () => (modo === "livre" ? (resultadosLivre ?? []) : (resultadosFiltros ?? [])),
@@ -109,6 +113,33 @@ export default function PesquisaContainer() {
         onSubmit={buscarLivre}
         carregando={modo === "livre" && carregando}
       />
+
+      {/* Recorte por ano de fabricação — padrão do produto é 2020+ */}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <span className="text-sm text-muted-foreground">Mostrando:</span>
+        <button
+          type="button"
+          onClick={() => setIncluirAntigos(false)}
+          className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition ${
+            !incluirAntigos
+              ? "bg-brand text-brand-foreground"
+              : "border border-border bg-surface text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Fabricados de 2020 em diante
+        </button>
+        <button
+          type="button"
+          onClick={() => setIncluirAntigos(true)}
+          className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition ${
+            incluirAntigos
+              ? "bg-brand text-brand-foreground"
+              : "border border-border bg-surface text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Incluir anteriores
+        </button>
+      </div>
 
       <div className="mt-4 rounded-2xl border border-border bg-surface">
         <button

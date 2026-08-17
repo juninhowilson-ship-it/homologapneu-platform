@@ -71,6 +71,10 @@ export default function BarChartCard({
                 type="category"
                 dataKey="name"
                 width={140}
+                interval={0}
+                tickFormatter={(valor: string) =>
+                  valor.length > 22 ? `${valor.slice(0, 21)}…` : valor
+                }
                 stroke="var(--chart-axis)"
                 tick={{ fill: "var(--foreground)", fontSize: 12 }}
               />
@@ -90,7 +94,7 @@ export default function BarChartCard({
                     fill={
                       colorMode === "categorical"
                         ? CATEGORICAL_COLORS[index % CATEGORICAL_COLORS.length]
-                        : "var(--chart-sequential)"
+                        : "var(--brand)"
                     }
                   />
                 ))}

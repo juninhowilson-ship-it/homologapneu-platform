@@ -104,6 +104,7 @@ function toDTO(record: HomologacaoRecord): Homologacao {
     manufacturerName: doc.manufacturerName,
     publishedAt: doc.publishedAt ? doc.publishedAt.toISOString() : null,
     createdAt: doc.createdAt.toISOString(),
+    fileSizeBytes: doc.documentUpload?.fileSize ?? null,
   }));
 
   return {

@@ -27,7 +27,7 @@ export default function RoadmapPage() {
           <span className="h-3 w-3 rounded-full bg-yellow-500" /> Em andamento
         </span>
         <span className="flex items-center gap-2">
-          <span className="h-3 w-3 rounded-full bg-slate-400" /> Pendente
+          <span className="h-3 w-3 rounded-full bg-muted-foreground" /> Pendente
         </span>
         <span className="ml-auto font-semibold text-foreground">
           {progresso}% concluído

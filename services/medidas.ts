@@ -21,6 +21,7 @@ function normalizarMedida(valor: string): string {
 
 export async function listarMedidas(): Promise<MedidaResumo[]> {
   const tires = await prisma.tire.findMany({
+    where: { deletedAt: null },
     select: {
       size: true,
       homologationTires: {
@@ -69,7 +70,7 @@ export async function buscarPorMedida(medidaBruta: string): Promise<BuscaPorMedi
   const medida = normalizarMedida(medidaBruta);
 
   const pneus = await prisma.tire.findMany({
-    where: { size: medida },
+    where: { size: medida, deletedAt: null },
     include: {
       tireManufacturer: { select: { id: true, name: true } },
       homologationTires: {

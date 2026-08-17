@@ -3,13 +3,21 @@ import { decrypt } from "@/lib/auth/jwt";
 
 // /api/crawler/cron é chamado pelo Vercel Cron (sem cookie de sessão) —
 // autenticado por CRON_SECRET dentro do próprio handler, não por login.
-const PUBLIC_API_PREFIXES = ["/api/auth/login", "/api/status", "/api/crawler/cron"];
+const PUBLIC_API_PREFIXES = [
+  "/api/auth/login",
+  // Recuperação de senha acontece antes do login, portanto sem sessão. As
+  // rotas têm rate limit próprio e resposta anti-enumeração de contas.
+  "/api/auth/esqueci-senha",
+  "/api/auth/redefinir-senha",
+  "/api/status",
+  "/api/crawler/cron",
+];
 
 // Nenhum dado do banco é exibido sem login (decisão de 2026-07-16): a única
 // página pública é a Landing Page ("/"), puramente institucional (ver
 // app/(public)/page.tsx — sem consultas ao banco). /status é uma página de
 // observabilidade pré-existente e não relacionada aos dados de negócio.
-const PUBLIC_PAGE_PATHS = ["/", "/status"];
+const PUBLIC_PAGE_PATHS = ["/", "/status", "/esqueci-senha", "/redefinir-senha"];
 
 const ADMIN_ONLY_PAGE_PREFIXES = [
   "/fabricantes",
@@ -102,9 +110,12 @@ function requiresAdmin(pathname: string, method: string): boolean {
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
 const RATE_LIMIT_CONFIG = {
-  // 100 requests per 15 minutos por IP
-  requests: 100,
-  windowMs: 15 * 60 * 1000,
+  // 100 requisições por 15 min por IP. Configurável porque o Next faz
+  // prefetch dos links visíveis: uma tela com muitos links consome dezenas
+  // de requisições de um mesmo IP legítimo (e ambientes de preview/QA,
+  // atrás de um único IP, estouram o padrão).
+  requests: Number(process.env.RATE_LIMIT_REQUESTS) || 100,
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
 };
 
 // Cache de deduplicação de request (idempotência)

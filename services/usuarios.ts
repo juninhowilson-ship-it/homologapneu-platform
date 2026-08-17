@@ -10,6 +10,10 @@ import {
   type UsuarioRecord,
 } from "@/repositories/usuarios";
 import { hashPassword } from "@/lib/auth/password";
+import {
+  usuariosComResetPendente,
+  concluirResetsPendentes,
+} from "@/repositories/passwordResets";
 import { NotFoundError, ConflictError, ValidationError } from "@/lib/errors";
 import type {
   UsuarioFormValues,
@@ -33,9 +37,13 @@ export async function listUsuarios(
   query: UsuarioListQuery
 ): Promise<UsuarioListResponse> {
   const { data, total } = await listUsuariosRepo(query);
+  const comResetPendente = await usuariosComResetPendente(data.map((u) => u.id));
 
   return {
-    data: data.map(toDTO),
+    data: data.map((record) => ({
+      ...toDTO(record),
+      resetPendente: comResetPendente.has(record.id),
+    })),
     total,
     page: query.page,
     pageSize: query.pageSize,
@@ -109,6 +117,11 @@ export async function updateUsuario(
     isActive: input.isActive,
     ...(input.password ? { passwordHash: await hashPassword(input.password) } : {}),
   });
+
+  // Senha definida pelo admin resolve as solicitações de recuperação abertas
+  if (input.password) {
+    await concluirResetsPendentes(id);
+  }
 
   return toDTO(record);
 }

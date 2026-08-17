@@ -50,6 +50,9 @@ export type HomologacaoDocumentItem = {
   manufacturerName: string | null;
   publishedAt: string | null;
   createdAt: string;
+  /// Tamanho do arquivo original (bytes) quando o documento veio de um
+  /// upload rastreado; null para documentos só com URL externa.
+  fileSizeBytes: number | null;
 };
 
 export type Homologacao = {

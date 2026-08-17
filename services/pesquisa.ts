@@ -4,6 +4,15 @@ import type { PesquisaFiltros } from "@/lib/validations/pesquisa";
 import type { ResultadoPesquisa } from "@/types/homologation";
 import type { Prisma } from "@prisma/client";
 
+/**
+ * Recorte padrão do produto: veículos ainda fabricados em 2020 ou depois.
+ * O corte é por fim de produção (yearEnd), não por lançamento — um modelo
+ * lançado em 2018 que continuou saindo de fábrica em 2021 é atual e precisa
+ * aparecer.
+ */
+export const ANO_MINIMO_PADRAO = 2020;
+
+
 const RESULTADO_INCLUDE = {
   vehicleVersion: {
     include: {
@@ -21,8 +30,23 @@ type HomologacaoComRelacoes = Prisma.HomologationGetPayload<{
   include: typeof RESULTADO_INCLUDE;
 }>;
 
+/**
+ * Espelha `busca_medida_chave` do banco (migration 20260815190000): extrai a
+ * tripla largura/perfil/aro de uma medida digitada em qualquer formato
+ * ("205 55 16", "205/55 R16", "2055516"). Devolve null quando o texto não é
+ * uma medida.
+ */
+export function medidaChave(texto: string): string | null {
+  const alvo = (texto ?? "").toUpperCase();
+  if (/[ABDEFGHIJKLMNOPQSTUVWY]/.test(alvo)) return null;
+
+  const m = alvo.match(/(\d{3})\s*[/X-]?\s*(\d{2})\s*[ZR/-]*\s*(\d{2}(?:\.5)?)/);
+  return m ? `${m[1]}/${m[2]}R${m[3]}` : null;
+}
+
 function mapParaResultados(
-  homologacoes: HomologacaoComRelacoes[]
+  homologacoes: HomologacaoComRelacoes[],
+  medidaBuscada?: string | null
 ): ResultadoPesquisa[] {
   return homologacoes.flatMap((homologacao) => {
     const pressao = homologacao.pressureSpecs[0] ?? null;
@@ -32,7 +56,15 @@ function mapParaResultados(
       homologacao.vehicleVersion.images[0] ??
       null;
 
-    return homologacao.tires.map((tireEntry) => ({
+    // Busca por medida mostra só os pneus daquela medida — sem isso, uma
+    // homologação com 5 pneus emitia 5 linhas, 4 delas de outras medidas.
+    const pneus = medidaBuscada
+      ? homologacao.tires.filter(
+          (t) => medidaChave(t.tire.size) === medidaBuscada
+        )
+      : homologacao.tires;
+
+    return pneus.map((tireEntry) => ({
       homologacaoId: homologacao.id,
       homologacaoCodigo: homologacao.code,
       homologacaoAno: homologacao.year,
@@ -63,7 +95,8 @@ function mapParaResultados(
 }
 
 export async function buscarHomologacoes(
-  filtros: PesquisaFiltros
+  filtros: PesquisaFiltros,
+  opcoes: { incluirAntigos?: boolean } = {}
 ): Promise<ResultadoPesquisa[]> {
   const where: Prisma.HomologationWhereInput = {};
 
@@ -89,6 +122,11 @@ export async function buscarHomologacoes(
   }
   if (filtros.motorizacao) {
     vehicleWhere.engine = { name: filtros.motorizacao };
+  }
+  // O recorte padrão não sobrepõe um ano pedido explicitamente: quem filtra
+  // "ano = 2015" quer 2015, e a escolha do usuário vence o padrão.
+  if (!opcoes.incluirAntigos && !filtros.ano) {
+    vehicleWhere.yearEnd = { gte: ANO_MINIMO_PADRAO };
   }
   if (Object.keys(vehicleWhere).length > 0) {
     where.vehicleVersion = vehicleWhere;
@@ -148,9 +186,13 @@ type LinhaRanking = { homologationId: number; score: number };
  * de digitação e acentuação sem exigir correspondência exata como o antigo
  * `contains`.
  */
-async function buscarIdsRankeados(termo: string, limite = 100): Promise<LinhaRanking[]> {
+async function buscarIdsRankeados(
+  termo: string,
+  limite = 100,
+  anoMinimo: number | null = null
+): Promise<LinhaRanking[]> {
   return prisma.$queryRaw<LinhaRanking[]>`
-    SELECT "homologationId", score FROM busca_inteligente(${termo}, ${limite})
+    SELECT "homologationId", score FROM busca_inteligente(${termo}, ${limite}, ${anoMinimo})
   `;
 }
 
@@ -159,11 +201,15 @@ async function buscarIdsRankeados(termo: string, limite = 100): Promise<LinhaRan
  * fabricante, modelo, versão, motorização, medida do pneu e código de
  * homologação — sem exigir que o usuário saiba em qual campo o termo cai.
  */
-export async function buscarLivre(texto: string): Promise<ResultadoPesquisa[]> {
+export async function buscarLivre(
+  texto: string,
+  opcoes: { incluirAntigos?: boolean } = {}
+): Promise<ResultadoPesquisa[]> {
   const termo = texto.trim();
   if (!termo) return [];
 
-  const ranking = await buscarIdsRankeados(termo);
+  const anoMinimo = opcoes.incluirAntigos ? null : ANO_MINIMO_PADRAO;
+  const ranking = await buscarIdsRankeados(termo, 100, anoMinimo);
   if (ranking.length === 0) {
     await registrarBusca({}, 0, termo);
     return [];
@@ -182,7 +228,7 @@ export async function buscarLivre(texto: string): Promise<ResultadoPesquisa[]> {
 
   await registrarBusca({}, homologacoes.length, termo);
 
-  return mapParaResultados(homologacoes);
+  return mapParaResultados(homologacoes, medidaChave(termo));
 }
 
 const ROTULOS_FILTRO: Record<string, string> = {

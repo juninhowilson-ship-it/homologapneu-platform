@@ -8,6 +8,9 @@ export type Usuario = {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  // Presente apenas na listagem: usuário pediu recuperação de senha e aguarda
+  // o admin definir uma nova (ou o link por e-mail ainda não foi usado).
+  resetPendente?: boolean;
 };
 
 export type UsuarioListResponse = {

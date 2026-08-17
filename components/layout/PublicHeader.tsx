@@ -3,7 +3,7 @@ import { LogIn } from "lucide-react";
 
 export default function PublicHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-white/85 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-border bg-header/85 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         <Link href="/" className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand font-bold text-brand-foreground">

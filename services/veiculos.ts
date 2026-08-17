@@ -59,6 +59,7 @@ function toDTO(record: VeiculoRecord): Veiculo {
     id: record.id,
     manufacturerId: record.vehicleModel.manufacturerId,
     manufacturerName: record.vehicleModel.manufacturer.name,
+    manufacturerLogoUrl: record.vehicleModel.manufacturer.logoUrl,
     model: record.vehicleModel.name,
     version: record.name,
     internalCode: record.internalCode,

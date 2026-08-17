@@ -355,6 +355,7 @@ model VehicleVersion {
   /// Boletins técnicos (TSB) vinculados a esta versão — ver model
   /// TechnicalBulletin (Fase Final de Arquitetura).
   technicalBulletins TechnicalBulletin[]
+  favoritedBy        Favorite[]
 
   @@unique([vehicleModelId, name, engineId])
   @@index([category])
@@ -496,6 +497,37 @@ enum TireSeason {
   VERAO
   INVERNO
   QUATRO_ESTACOES
+}
+
+/// Catálogo COMERCIAL de referência, sincronizado do Intelli Tire (ERP de
+/// pneus, projeto irmão). Responde "este pneu existe e ainda gira no
+/// mercado?" — pergunta distinta de "é homologado", que só a Homologation
+/// responde. Nunca vira homologação: um SKU de varejo não é fonte oficial
+/// de montadora. Fica em tabela própria justamente para não se misturar
+/// com a base mestre.
+model CommercialTireOffer {
+  id            Int      @id @default(autoincrement())
+  brand         String
+  /// Modelo comercial extraído da descrição do SKU (ex.: "SCORPION HT").
+  model         String
+  size          String
+  loadIndex     String?
+  speedIndex    String?
+  /// Marcação de equipamento original impressa no flanco quando o SKU a
+  /// declara (MOE/MO = Mercedes, (*) = BMW, AO = Audi...). É indício de
+  /// homologação de fábrica, NÃO prova — por isso fica só como atributo.
+  oeMarking     String?
+  runFlat       Boolean  @default(false)
+  /// Descrição original do SKU, preservada para auditoria da extração.
+  rawDescription String
+  /// Unidades vendidas na janela sincronizada — sinal de "está em linha".
+  soldUnits     Int      @default(0)
+  source        String
+  syncedAt      DateTime @default(now())
+
+  @@unique([brand, model, size, oeMarking])
+  @@index([size])
+  @@map("commercial_tire_offers")
 }
 
 model Tire {
@@ -1123,8 +1155,52 @@ model User {
   homologationRevisions    HomologationRevision[]
   replacementHistories     ReplacementHistory[]
   wheelEquivalences        WheelEquivalence[]
+  passwordResetRequests    PasswordResetRequest[]
+  favorites                Favorite[]
 
   @@map("users")
+}
+
+/// "Minha Garagem": veículos salvos pelo usuário para acesso rápido.
+model Favorite {
+  id               Int            @id @default(autoincrement())
+  userId           Int
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleVersionId Int
+  vehicleVersion   VehicleVersion @relation(fields: [vehicleVersionId], references: [id], onDelete: Cascade)
+  createdAt        DateTime       @default(now())
+
+  @@unique([userId, vehicleVersionId])
+  @@map("favorites")
+}
+
+enum PasswordResetChannel {
+  // Link com token enviado por e-mail (requer RESEND_API_KEY configurada)
+  EMAIL
+  // Solicitação visível ao administrador na tela de Usuários
+  ADMIN
+}
+
+enum PasswordResetStatus {
+  PENDENTE
+  CONCLUIDA
+}
+
+model PasswordResetRequest {
+  id        Int                  @id @default(autoincrement())
+  userId    Int
+  user      User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   PasswordResetChannel
+  status    PasswordResetStatus  @default(PENDENTE)
+  // SHA-256 do token enviado por e-mail; nulo no canal ADMIN. O token em si
+  // nunca é persistido — só o hash, como uma senha.
+  tokenHash String?              @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime             @default(now())
+
+  @@index([userId, status])
+  @@map("password_reset_requests")
 }
 
 enum DocumentFileType {
