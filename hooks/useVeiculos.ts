@@ -15,6 +15,8 @@ export type VeiculosQuery = {
   fuel?: FuelType;
   category?: VehicleCategory;
   segment?: VehicleSegment;
+  /** Traz também os veículos que saíram de linha antes de 2020. */
+  incluirAntigos: boolean;
   sortBy: "model" | "version" | "yearStart" | "createdAt" | "updatedAt";
   sortDir: "asc" | "desc";
   page: number;
@@ -33,6 +35,7 @@ async function fetchVeiculos(
   if (query.fuel) params.set("fuel", query.fuel);
   if (query.category) params.set("category", query.category);
   if (query.segment) params.set("segment", query.segment);
+  params.set("incluirAntigos", String(query.incluirAntigos));
   params.set("sortBy", query.sortBy);
   params.set("sortDir", query.sortDir);
   params.set("page", String(query.page));

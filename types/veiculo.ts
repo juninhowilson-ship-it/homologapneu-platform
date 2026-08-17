@@ -52,4 +52,6 @@ export type VeiculoListResponse = {
   total: number;
   page: number;
   pageSize: number;
+  /** Quantos veículos anteriores a 2020 os mesmos filtros deixam de fora. */
+  totalAntigos: number;
 };

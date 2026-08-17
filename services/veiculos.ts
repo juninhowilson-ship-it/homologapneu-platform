@@ -166,13 +166,14 @@ async function assertNoDuplicate(
 export async function listVeiculos(
   query: VeiculoListQuery
 ): Promise<VeiculoListResponse> {
-  const { data, total } = await listVeiculosRepo(query);
+  const { data, total, totalAntigos } = await listVeiculosRepo(query);
 
   return {
     data: data.map(toDTO),
     total,
     page: query.page,
     pageSize: query.pageSize,
+    totalAntigos,
   };
 }
 
