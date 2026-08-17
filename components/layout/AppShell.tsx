@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { usePathname } from "next/navigation";
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
 
@@ -11,12 +10,6 @@ type Props = {
 
 export default function AppShell({ children }: Props) {
   const [menuAberto, setMenuAberto] = useState(false);
-  const pathname = usePathname();
-
-  // Navegar fecha o menu mobile
-  useEffect(() => {
-    setMenuAberto(false);
-  }, [pathname]);
 
   // Trava o scroll da página enquanto o drawer está aberto
   useEffect(() => {
@@ -46,7 +39,13 @@ export default function AppShell({ children }: Props) {
               aria-hidden="true"
               onClick={() => setMenuAberto(false)}
             />
-            <div className="absolute inset-y-0 left-0 w-64 overflow-y-auto shadow-xl">
+            {/* Clicar em qualquer item do menu navega e fecha o drawer —
+                sem efeito observando a rota, que dispararia render em
+                cascata a cada navegação. */}
+            <div
+              className="absolute inset-y-0 left-0 w-64 overflow-y-auto shadow-xl"
+              onClick={() => setMenuAberto(false)}
+            >
               <Sidebar />
             </div>
           </div>
