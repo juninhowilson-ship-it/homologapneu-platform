@@ -54,6 +54,13 @@ export const veiculoListQuerySchema = z.object({
   fuel: z.enum(FUEL_TYPES).optional(),
   category: z.enum(VEHICLE_CATEGORIES).optional(),
   segment: z.enum(VEHICLE_SEGMENTS).optional(),
+  // Recorte padrão do produto: só veículos ainda fabricados em 2020 ou
+  // depois. Os anteriores continuam no banco e voltam com o botão
+  // "Veículos antigos" da listagem.
+  incluirAntigos: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((valor) => valor === "true"),
   sortBy: z
     .enum(["model", "version", "yearStart", "createdAt", "updatedAt"])
     .default("model"),

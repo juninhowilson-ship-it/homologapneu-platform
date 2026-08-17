@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { VeiculoListQuery } from "@/lib/validations/veiculo";
+import { ANO_MINIMO_PADRAO } from "@/lib/medida";
 import type { Prisma } from "@prisma/client";
 import {
   resolveVehicleModelId,
@@ -39,7 +40,7 @@ function buildOrderBy(
 
 export async function listVeiculos(
   query: VeiculoListQuery
-): Promise<{ data: VeiculoRecord[]; total: number }> {
+): Promise<{ data: VeiculoRecord[]; total: number; totalAntigos: number }> {
   const where: Prisma.VehicleVersionWhereInput = {};
 
   if (query.q) {
@@ -68,18 +69,29 @@ export async function listVeiculos(
   if (query.category) where.category = query.category;
   if (query.segment) where.segment = query.segment;
 
-  const [data, total] = await Promise.all([
+  // O corte é por fim de produção (yearEnd), não por lançamento: um modelo
+  // que estreou em 2018 e continuou saindo de fábrica em 2021 é atual.
+  const whereListagem: Prisma.VehicleVersionWhereInput = query.incluirAntigos
+    ? where
+    : { ...where, yearEnd: { gte: ANO_MINIMO_PADRAO } };
+
+  const [data, total, totalAntigos] = await Promise.all([
     prisma.vehicleVersion.findMany({
-      where,
+      where: whereListagem,
       ...withRelations,
       orderBy: buildOrderBy(query.sortBy, query.sortDir),
       skip: (query.page - 1) * query.pageSize,
       take: query.pageSize,
     }),
-    prisma.vehicleVersion.count({ where }),
+    prisma.vehicleVersion.count({ where: whereListagem }),
+    // Quantos ficam de fora do recorte com os mesmos filtros — é o número
+    // que o botão "Veículos antigos" mostra.
+    prisma.vehicleVersion.count({
+      where: { ...where, yearEnd: { lt: ANO_MINIMO_PADRAO } },
+    }),
   ]);
 
-  return { data, total };
+  return { data, total, totalAntigos };
 }
 
 export async function findVeiculoById(

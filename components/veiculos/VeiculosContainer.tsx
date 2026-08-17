@@ -74,6 +74,7 @@ export default function VeiculosContainer() {
   const [segment, setSegment] = useState<VeiculosQuery["segment"]>();
   const [sortBy, setSortBy] = useState<VeiculosQuery["sortBy"]>("model");
   const [sortDir, setSortDir] = useState<VeiculosQuery["sortDir"]>("asc");
+  const [incluirAntigos, setIncluirAntigos] = useState(false);
   const [page, setPage] = useState(1);
 
   const [formModal, setFormModal] = useState<{
@@ -94,6 +95,7 @@ export default function VeiculosContainer() {
     fuel,
     category,
     segment,
+    incluirAntigos,
     sortBy,
     sortDir,
     page,
@@ -214,6 +216,28 @@ export default function VeiculosContainer() {
         <div className="flex gap-3">
           <Button
             type="button"
+            variant={incluirAntigos ? "primary" : "secondary"}
+            aria-pressed={incluirAntigos}
+            title={
+              incluirAntigos
+                ? "Voltar a mostrar só os veículos de 2020 em diante"
+                : "Mostrar também os veículos que saíram de linha antes de 2020"
+            }
+            onClick={() => {
+              setIncluirAntigos((atual) => !atual);
+              setPage(1);
+            }}
+          >
+            Veículos antigos
+            {!incluirAntigos && data && data.totalAntigos > 0 && (
+              <span className="ml-2 font-normal text-muted-foreground">
+                {data.totalAntigos}
+              </span>
+            )}
+          </Button>
+
+          <Button
+            type="button"
             variant="secondary"
             onClick={() => setImportOpen(true)}
           >
@@ -228,6 +252,25 @@ export default function VeiculosContainer() {
           </Button>
         </div>
       </div>
+
+      <p className="text-sm text-muted-foreground">
+        {incluirAntigos ? (
+          <>
+            Mostrando <strong className="text-foreground">todos</strong> os
+            veículos, inclusive os que saíram de linha antes de 2020. A
+            prioridade do cadastro continua sendo 2020 em diante.
+          </>
+        ) : (
+          <>
+            Mostrando apenas veículos fabricados até hoje ou que saíram de
+            linha de <strong className="text-foreground">2020</strong> em
+            diante.
+            {data && data.totalAntigos > 0 && (
+              <> {data.totalAntigos} veículos mais antigos estão ocultos.</>
+            )}
+          </>
+        )}
+      </p>
 
       <VeiculosTable
         veiculos={data?.data ?? []}
