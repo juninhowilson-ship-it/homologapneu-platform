@@ -34,7 +34,8 @@
     "source:discovery": "tsx scripts/source-discovery.ts",
     "report:executive": "tsx scripts/executive-dashboard.ts",
     "fix:duplicate-models": "tsx scripts/merge-duplicate-models.ts",
-    "sync:comercial": "tsx scripts/sync-catalogo-comercial.ts"
+    "sync:comercial": "tsx scripts/sync-catalogo-comercial.ts",
+    "sync:fotos": "tsx scripts/sync-fotos-radar.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

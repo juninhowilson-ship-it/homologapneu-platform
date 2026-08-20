@@ -37,8 +37,13 @@ export default function GaleriaVeiculo({ imagens }: { imagens: ImagemVeiculo[] }
                 />
               </div>
               <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/60 to-transparent p-3 opacity-0 transition group-hover:opacity-100">
-                <p className="text-sm font-semibold text-white">
+                <p className="text-left text-sm font-semibold text-white">
                   {TIPO_LABELS[img.type]}
+                  {img.credit && (
+                    <span className="mt-0.5 block truncate text-[10px] font-normal text-white/70">
+                      {img.credit}
+                    </span>
+                  )}
                 </p>
               </div>
             </button>
@@ -81,9 +86,15 @@ export default function GaleriaVeiculo({ imagens }: { imagens: ImagemVeiculo[] }
                 <ChevronLeft size={20} />
               </button>
 
-              <span className="text-sm text-muted-foreground">
+              <span className="text-center text-sm text-muted-foreground">
                 {TIPO_LABELS[imagemAtual.type]} · {(imagemSelecionada ?? 0) + 1} de{" "}
                 {imagens.length}
+                {/* A licenca da foto (CC BY / CC BY-SA) exige credito visivel. */}
+                {imagemAtual.credit && (
+                  <span className="mt-1 block text-xs text-muted-foreground/80">
+                    Foto ilustrativa · {imagemAtual.credit}
+                  </span>
+                )}
               </span>
 
               <button

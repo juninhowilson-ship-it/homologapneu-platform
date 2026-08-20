@@ -84,6 +84,8 @@ function toDTO(record: VeiculoRecord): Veiculo {
     weight: record.weight,
     country: record.country,
     imageUrl: record.images.find((img) => img.type === "PRINCIPAL")?.url ?? null,
+    imageCredit:
+      record.images.find((img) => img.type === "PRINCIPAL")?.credit ?? null,
     notes: record.notes,
     isActive: record.isActive,
     validationStatus: record.validationStatus,

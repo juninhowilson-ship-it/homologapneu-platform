@@ -153,6 +153,11 @@ export default async function VeiculoPage({
             <img
               src={veiculo.imageUrl}
               alt={`${veiculo.manufacturerName} ${veiculo.model}`}
+              title={
+                veiculo.imageCredit
+                  ? `Foto ilustrativa · ${veiculo.imageCredit}`
+                  : undefined
+              }
               className="h-full w-full object-contain"
             />
           ) : (

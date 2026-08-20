@@ -36,6 +36,8 @@ export type Veiculo = {
   weight: number | null;
   country: string | null;
   imageUrl: string | null;
+  /** Atribuicao exigida pela licenca da foto (CC BY / CC BY-SA). */
+  imageCredit: string | null;
   notes: string | null;
   isActive: boolean;
   validationStatus: ValidationStatus;

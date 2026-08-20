@@ -96,6 +96,13 @@ export default function FichaTecnicaVeiculo({ id }: Props) {
                 />
               </span>
             )}
+
+            {/* A licenca da foto (CC BY / CC BY-SA) exige credito visivel. */}
+            {ficha?.imagemCredito && (
+              <p className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-3 py-1 text-[10px] text-white/70">
+                Foto ilustrativa · {ficha.imagemCredito}
+              </p>
+            )}
           </div>
 
           <div className="p-6">
