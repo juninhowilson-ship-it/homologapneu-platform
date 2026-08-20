@@ -391,6 +391,13 @@ model VehicleImage {
   vehicleVersionId Int
   type             VehicleImageType
   url              String
+  /// Atribuicao obrigatoria da foto (autor + licenca). As imagens vindas do
+  /// Radar Automotivo SP sao do Wikimedia Commons sob CC BY / CC BY-SA, que
+  /// exigem credito visivel a quem exibe.
+  credit           String?
+  /// De onde a foto veio (ex.: "Radar Automotivo SP"). Serve para reprocessar
+  /// ou remover um lote inteiro sem tocar nas fotos cadastradas a mao.
+  source           String?
   createdAt        DateTime         @default(now())
 
   vehicleVersion VehicleVersion @relation(fields: [vehicleVersionId], references: [id], onDelete: Cascade)

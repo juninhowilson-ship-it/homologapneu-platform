@@ -34,6 +34,8 @@ export type ImagemVeiculo = {
   id: number;
   type: "PRINCIPAL" | "FRONTAL" | "TRASEIRA" | "LATERAL";
   url: string;
+  /** Atribuicao exigida pela licenca da foto (CC BY / CC BY-SA). */
+  credit: string | null;
 };
 
 export type FichaVeiculo = {
@@ -118,6 +120,7 @@ export async function obterFichaVeiculo(id: number): Promise<FichaVeiculo | null
       id: img.id,
       type: img.type,
       url: img.url,
+      credit: img.credit,
     })),
     timeline: logs.map((log) => ({
       id: log.id,

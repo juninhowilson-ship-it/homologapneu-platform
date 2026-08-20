@@ -41,6 +41,12 @@ export type AlternativaMedida = {
 export type FichaTecnica = {
   vehicleVersionId: number;
   imagemUrl: string | null;
+  /**
+   * Atribuicao da foto. As imagens vindas do Radar Automotivo SP sao do
+   * Wikimedia Commons sob CC BY / CC BY-SA — exibir sem credito viola a
+   * licenca, entao a UI depende deste campo.
+   */
+  imagemCredito: string | null;
   logoMontadoraUrl: string | null;
   pneus: PneuFicha[];
   alternativas: AlternativaMedida[];
@@ -79,7 +85,7 @@ export async function obterFichaTecnica(
     where: { id: vehicleVersionId },
     select: {
       id: true,
-      images: { select: { type: true, url: true } },
+      images: { select: { type: true, url: true, credit: true } },
       vehicleModel: {
         select: {
           photoUrl: true,
@@ -231,14 +237,16 @@ export async function obterFichaTecnica(
   }
 
   const imagem =
-    versao.images.find((img) => img.type === "PRINCIPAL")?.url ??
-    versao.images[0]?.url ??
-    versao.vehicleModel.photoUrl ??
+    versao.images.find((img) => img.type === "PRINCIPAL") ??
+    versao.images[0] ??
     null;
 
   return {
     vehicleVersionId: versao.id,
-    imagemUrl: imagem,
+    imagemUrl: imagem?.url ?? versao.vehicleModel.photoUrl ?? null,
+    // So ha credito quando a foto veio de uma imagem cadastrada; o
+    // photoUrl do modelo e legado e nao carrega atribuicao.
+    imagemCredito: imagem?.credit ?? null,
     logoMontadoraUrl: versao.vehicleModel.manufacturer.logoUrl,
     pneus,
     alternativas,
