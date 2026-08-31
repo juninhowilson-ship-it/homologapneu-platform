@@ -27,6 +27,7 @@ import {
   GitCompareArrows,
   Newspaper,
   Crown,
+  ListChecks,
   type LucideIcon,
 } from "lucide-react";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -60,6 +61,7 @@ const menuCadastros: MenuItem[] = [
 // Grupos exibidos sob o título "Área do Administrador" (padrão do redesign)
 
 const menuAdministracao: MenuItem[] = [
+  { nome: "Prioridade de Homologação", rota: "/administracao/prioridades", icone: ListChecks, adminOnly: true },
   { nome: "Biblioteca de Imagens", rota: "/administracao/midia", icone: Images, adminOnly: true },
   { nome: "Documentos", rota: "/administracao/documentos", icone: FileText, adminOnly: true },
   { nome: "Crawler", rota: "/administracao/crawler", icone: Bot, adminOnly: true },
