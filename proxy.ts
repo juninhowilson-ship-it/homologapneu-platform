@@ -40,6 +40,8 @@ const ALWAYS_ADMIN_API_PREFIXES = [
   "/api/storage",
   "/api/fontes",
   "/api/curadoria",
+  // Fila de prioridade das homologações — visão de backlog, só admin.
+  "/api/prioridades",
   "/api/crawler",
   "/api/auditoria",
   "/api/status-dev",
