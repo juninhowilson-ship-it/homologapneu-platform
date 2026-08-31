@@ -5,6 +5,7 @@ import {
   BadgeCheck,
   Car,
   CircleDot,
+  FileWarning,
   Fuel,
   Gauge,
   Globe,
@@ -26,6 +27,29 @@ import type { LucideIcon } from "lucide-react";
 
 type Props = {
   id: number;
+};
+
+/**
+ * Rótulos da classificação que o PRÓPRIO fabricante deu à aplicação no
+ * catálogo — nunca confundir com a homologação curada do HomologaPneu.
+ */
+const STATUS_LABEL: Record<string, string> = {
+  HOMOLOGADO: "Homologado pelo fabricante",
+  APLICACAO: "Aplicação",
+  SUBSTITUTO: "Substituto",
+  PHASE_OUT: "Descontinuado",
+  SEM_STATUS: "Sem classificação",
+};
+
+const STATUS_TONE: Record<
+  string,
+  "success" | "warning" | "neutral"
+> = {
+  HOMOLOGADO: "success",
+  APLICACAO: "warning",
+  SUBSTITUTO: "warning",
+  PHASE_OUT: "neutral",
+  SEM_STATUS: "neutral",
 };
 
 function Spec({
@@ -175,8 +199,12 @@ export default function FichaTecnicaVeiculo({ id }: Props) {
           <Skeleton className="h-40 w-full rounded-2xl" />
         ) : !ficha || ficha.pneus.length === 0 ? (
           <EmptyState
-            title="Nenhuma homologação encontrada"
-            description="Este veículo ainda não possui pneus homologados cadastrados."
+            title="Nenhuma homologação confirmada"
+            description={
+              ficha?.declaradas
+                ? "Ainda não confirmamos homologação para esta versão. Veja abaixo o que o catálogo do fabricante declara para o modelo."
+                : "Este veículo ainda não possui pneus homologados cadastrados."
+            }
           />
         ) : (
           <div className="space-y-6">
@@ -248,6 +276,73 @@ export default function FichaTecnicaVeiculo({ id }: Props) {
           </div>
         )}
       </section>
+
+      {/* Declarado em catálogo de fabricante — não é homologação */}
+      {ficha?.declaradas && (
+        <section className="rounded-2xl border border-amber-800/50 bg-amber-950/15 p-5">
+          <div className="mb-1 flex items-center gap-2">
+            <FileWarning size={16} className="shrink-0 text-amber-400" />
+            <h3 className="text-lg font-bold text-foreground">
+              Declarado em catálogo de fabricante
+            </h3>
+          </div>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Este veículo <strong className="text-foreground">ainda não tem
+            homologação confirmada</strong> na nossa base. O que aparece abaixo
+            é o que o catálogo do fabricante do pneu declara para o modelo{" "}
+            <strong className="text-foreground">{ficha.declaradas.modeloVeiculo}</strong>{" "}
+            — o catálogo não distingue versão, motor nem ano. Use como ponto de
+            partida e confira a etiqueta na coluna da porta antes de vender.
+          </p>
+
+          <div className="space-y-4">
+            {ficha.declaradas.medidas.map((grupo) => (
+              <div
+                key={grupo.medida}
+                className="overflow-hidden rounded-xl border border-border bg-surface"
+              >
+                <div className="flex items-center justify-between gap-3 border-b border-border bg-surface-secondary px-4 py-2.5">
+                  <p className="font-mono font-bold text-brand">{grupo.medida}</p>
+                  <span className="text-xs text-muted-foreground">
+                    {grupo.pneus.length}{" "}
+                    {grupo.pneus.length === 1 ? "opção" : "opções"}
+                  </span>
+                </div>
+                <ul className="divide-y divide-border">
+                  {grupo.pneus.map((pneu) => (
+                    <li
+                      key={`${pneu.tireId}-${pneu.status}-${pneu.catalogo}`}
+                      className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm"
+                    >
+                      <span className="text-foreground">
+                        <span className="font-semibold">{pneu.marca}</span>{" "}
+                        {pneu.modelo}
+                        {pneu.especificacao && (
+                          <span className="text-muted-foreground">
+                            {" "}
+                            · {pneu.especificacao}
+                          </span>
+                        )}
+                        <span className="block text-xs text-muted-foreground">
+                          {pneu.catalogo}
+                        </span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <Badge tone={STATUS_TONE[pneu.status]}>
+                          {STATUS_LABEL[pneu.status]}
+                        </Badge>
+                        {pneu.foraDeLinha && (
+                          <Badge tone="neutral">Fora de linha</Badge>
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Alternativas de outras marcas */}
       {ficha && ficha.alternativas.length > 0 && (

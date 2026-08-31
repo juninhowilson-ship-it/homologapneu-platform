@@ -1,5 +1,9 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import {
+  obterAplicacoesDeclaradas,
+  type AplicacoesDeclaradas,
+} from "@/services/aplicacoesFabricante";
 
 export type PneuFicha = {
   tireId: number;
@@ -50,6 +54,12 @@ export type FichaTecnica = {
   logoMontadoraUrl: string | null;
   pneus: PneuFicha[];
   alternativas: AlternativaMedida[];
+  /**
+   * Preenchido só quando o veículo NÃO tem homologação confirmada: o que o
+   * catálogo do fabricante do pneu declara para o modelo. Não é homologação
+   * — ver services/aplicacoesFabricante.ts.
+   */
+  declaradas: AplicacoesDeclaradas | null;
 };
 
 /** "91V XL Run Flat" — só inclui o que o pneu realmente tem. */
@@ -247,6 +257,7 @@ export async function obterFichaTecnica(
     // So ha credito quando a foto veio de uma imagem cadastrada; o
     // photoUrl do modelo e legado e nao carrega atribuicao.
     imagemCredito: imagem?.credit ?? null,
+    declaradas: await obterAplicacoesDeclaradas(vehicleVersionId),
     logoMontadoraUrl: versao.vehicleModel.manufacturer.logoUrl,
     pneus,
     alternativas,
