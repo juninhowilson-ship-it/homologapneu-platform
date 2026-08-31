@@ -3,9 +3,12 @@ import type { FonteCadastro } from "@/services/crawlerSourceCatalog";
 
 /**
  * Catálogo inicial (semente) de fontes reais para o HomologaPneu
- * Intelligent Crawler — cada entrada é resultado de uma verificação real
- * (busca + robots.txt + teste de acesso HTTP real) feita nesta sessão,
- * nunca inventada. Mesmo espírito de `evidenceSources.ts` (FINDINGS):
+ * Intelligent Crawler — nenhuma entrada é inventada.
+ *
+ * O padrão de verificação NÃO é uniforme, e cada bloco declara o seu:
+ * as fontes de MONTADORA passaram por busca + robots.txt + teste de acesso
+ * HTTP real; o bloco final, de catálogos de FABRICANTE DE PNEU, passou só
+ * por busca e entra todo como PENDENTE, com o motivo escrito lá. Mesmo espírito de `evidenceSources.ts` (FINDINGS):
  * HUB = página índice com PDFs estáticos confirmados; DIRECT = um PDF
  * específico já confirmado baixável; status BLOQUEADA = bloqueio técnico
  * real já verificado (não deve ser tentado de novo automaticamente).
@@ -233,7 +236,72 @@ export const OFFICIAL_DOCUMENT_SOURCES: FonteCadastro[] = [
     notes:
       "robots.txt de volvocars.com permite o caminho (só restringe alguns diretórios de UI/build e páginas específicas). Mas a URL do manual real do XC60 2026 (achada por busca) retornou 403 Forbidden direto (Akamai) — mesmo padrão de bloqueio de bot no nível do CDN visto em Honda/Ford, confirmado, não contornado.",
   },
+
+  // ---- Catálogos de FABRICANTE DE PNEU indexados por veículo ----
+  //
+  // Classe de fonte diferente de tudo acima: as entradas anteriores são
+  // manuais de MONTADORA, e a maioria está BLOQUEADA (Jeep, Fiat, Ford,
+  // Chevrolet, Honda, Nissan, Mercedes, Peugeot, Citroën, Audi, BMW, BYD,
+  // Volvo). Justamente as marcas com o maior buraco de homologação em 2026.
+  // Os catálogos abaixo cobrem esses mesmos veículos por outra rota.
+  //
+  // ATENÇÃO AO PADRÃO DE VERIFICAÇÃO, que é MENOR que o do resto do arquivo.
+  // As entradas acima passaram por busca + robots.txt + teste de acesso HTTP
+  // real. Estas passaram SÓ por busca: o ambiente onde foram levantadas tem
+  // egresso de rede bloqueado (o proxy devolve 403 em CONNECT para qualquer
+  // host fora da allowlist), então robots.txt e acesso não puderam ser
+  // testados. Por isso todas entram como PENDENTE — o crawler visita e
+  // decide, que é exatamente a semântica desse status. NÃO promova nenhuma
+  // para ATIVA sem uma visita real.
+  //
+  // `manufacturerName` aqui é o FABRICANTE DO PNEU, não a montadora — estas
+  // fontes são indexadas por veículo, mas publicadas pela marca de pneu.
+  {
+    manufacturerName: "Michelin",
+    category: "PRESSAO_PNEUS",
+    kind: "HUB",
+    url: "https://www.michelin.com.br/auto/fabricantes",
+    status: "PENDENTE",
+    notes:
+      "Hub por montadora -> modelo, com páginas cujo título é literalmente 'pneus: Pressão e dimensões' (confirmadas em resultado de busca para honda/cr-v-v, ford/maverick, jeep/renegade, byd/king e porsche/macan). É a única fonte levantada que promete PRESSÃO além da medida, que é o dado que falta em pressure_specs. Não visitada: acesso HTTP bloqueado no ambiente do levantamento.",
+  },
+  {
+    manufacturerName: "Continental",
+    category: "TABELA_HOMOLOGACAO",
+    kind: "HUB",
+    url: "https://www.conti.com.br/about-us/why-continental/original-equipment/",
+    status: "PENDENTE",
+    notes:
+      "Hub de equipamento original por montadora, com páginas por modelo no padrão /pneu-original-{marca}/pneu-original-{marca}-{modelo}/ (confirmadas em busca para fiat-mobi, volkswagen-polo, renault-kwid, jeep-compass e os hubs de Fiat, Chevrolet e Ford). Declara pneu que saiu de fábrica, não aplicação genérica. Não visitada: acesso HTTP bloqueado no ambiente do levantamento.",
+  },
+  {
+    manufacturerName: "Bridgestone",
+    category: "CATALOGO_PNEUS",
+    kind: "HUB",
+    url: "https://www.bridgestone.com.br/veiculos/",
+    status: "PENDENTE",
+    notes:
+      "Busca por veículo (marca/modelo/ano). Provável seleção via JS, como já ocorreu com BYD e Subaru neste arquivo — o crawler deve confirmar se há listagem estática antes de investir. Alternativa vista na mesma busca: https://tires.bridgestone.com.br/pt-br/pneus/veiculos. Não visitada: acesso HTTP bloqueado no ambiente do levantamento.",
+  },
 ];
+
+/**
+ * Fabricantes de pneu pesquisados SEM entrada aqui, pelo mesmo critério de
+ * honestidade do resto do arquivo: Pirelli — a busca por um catálogo
+ * indexado por veículo no site oficial devolveu só páginas de varejo,
+ * blog e institucional, nenhuma URL de catálogo por modelo. Registrar um
+ * palpite de URL apontaria para algo que pode não existir. (O catálogo
+ * Pirelli já entra na base por outra via: a importação de 'Tabela de
+ * Aplicação e Homologação' em manufacturer_catalogs.)
+ *
+ * Michelin Portugal (michelin.pt/auto/fabricantes) tem granularidade melhor
+ * que a brasileira — a URL carrega ano + versão de motor + medida com
+ * índices (.../jeep/renegade/renegade/2026/1.4-multiair-170/215---65-R-16-98H).
+ * Ficou de fora de propósito: é o mercado português, cujas versões e
+ * motorizações não coincidem com as brasileiras, e casar por nome de modelo
+ * entre mercados reintroduziria exatamente o erro de geração/versão que
+ * services/aplicacoesFabricante.ts existe para evitar.
+ */
 
 /**
  * Fabricantes pesquisados sem nenhuma fonte oficial de download de PDF
